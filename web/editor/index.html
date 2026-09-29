@@ -19,17 +19,18 @@
       <div class="source-buttons"><button id="import-glb"><img src="../icons/cube.svg" alt="">导入 GLB</button><button id="human"><img src="../icons/body-scan.svg" alt="">人偶</button></div>
       <p class="asset-label" id="asset-label">正在载入场景</p>
     </section>
-    <details class="panel-block" open id="pose-panel"><summary>姿势库 <span class="tag amber">实验</span></summary><div class="preset-grid" id="presets"></div><div class="compact-actions"><button id="save-pose"><img src="../icons/device-floppy.svg" alt="">保存姿势</button><button id="import-pose" title="导入本编辑器导出的姿势 JSON">导入</button><button id="export-pose" title="导出姿势 JSON">导出</button></div><div id="saved-poses" class="saved-poses"></div></details>
-    <details class="panel-block" id="hands-panel"><summary>手势 <small>人物自身左右</small></summary><div id="hands"></div></details>
-    <details class="panel-block" id="body-panel"><summary>体型</summary><div id="body-sliders"></div></details>
-    <details class="panel-block" id="joint-panel"><summary>关节精调 <small id="bone-name">未选择</small></summary><p class="hint">切换“编辑场景”，点选关节或拖动 IK 手脚控制点。</p><select id="bone-select" aria-label="选择关节"><option value="">选择关节</option></select><div id="bone-sliders"></div><button id="reset-bone">复位当前关节</button></details>
-    <details class="panel-block"><summary>场景校准</summary><div id="scene-sliders"></div><p class="hint">GLB 默认 Y 轴朝上。旋转资产以校准正面；场景尺度与镜头缩放相互独立。</p><button id="reset-camera"><img src="../icons/refresh.svg" alt="">重置机位</button></details>
+    <details class="panel-block" open id="pose-panel" hidden><summary>姿势库 <span class="tag amber">实验</span></summary><div class="preset-grid" id="presets"></div><div class="compact-actions"><button id="save-pose"><img src="../icons/device-floppy.svg" alt="">保存姿势</button><button id="import-pose" title="导入本编辑器导出的姿势 JSON">导入</button><button id="export-pose" title="导出姿势 JSON">导出</button></div><div id="saved-poses" class="saved-poses"></div></details>
+    <details class="panel-block" id="hands-panel" hidden><summary>手势 <small>人物自身左右</small></summary><div id="hands"></div></details>
+    <details class="panel-block" id="body-panel" hidden><summary>体型</summary><div id="body-sliders"></div></details>
+    <details class="panel-block" id="joint-panel" hidden><summary>关节精调 <small id="bone-name">未选择</small></summary><p class="hint">切换“编辑场景”，点选关节或拖动 IK 手脚控制点。</p><select id="bone-select" aria-label="选择关节"><option value="">选择关节</option></select><div id="bone-sliders"></div><button id="reset-bone">复位当前关节</button></details>
+    <details class="panel-block"><summary>场景与构图</summary><div id="scene-sliders"></div><p id="calibration-hint" class="hint">载入三维主体后可调整场景与构图。</p><button id="reset-camera"><img src="../icons/refresh.svg" alt="">重置机位</button></details>
   </aside>
   <section class="center-panel">
     <div class="stage" id="stage">
       <canvas id="viewport" aria-label="交互 3D 场景：拖动改变机位，Shift 拖动平移，滚轮缩放" tabindex="0"></canvas>
       <div class="stage-toolbar"><div class="mode-switch" role="group" aria-label="编辑模式"><button id="camera-mode" class="active"><img src="../icons/camera.svg" alt="">拍摄机位</button><button id="edit-mode"><img src="../icons/cube.svg" alt="">编辑场景</button></div><select id="ratio" aria-label="输出画幅"><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option><option value="custom">自定义</option></select></div>
-      <div class="stage-meta"><span id="source-badge">HUMAN · 实验</span><span>Y-UP / PERSPECTIVE</span></div>
+      <p id="mode-hint" class="mode-hint" hidden>原图重建姿势固定 · 仅可调整机位</p>
+      <div class="stage-meta"><span id="source-badge">正在载入场景</span><span>Y-UP / PERSPECTIVE</span></div>
       <button id="use-view" class="use-view" hidden><img src="../icons/focus-2.svg" alt="">将当前视图设为机位</button>
       <button id="fit-frame" class="fit-frame" title="将整个资产放入拍摄画幅"><img src="../icons/focus-2.svg" alt="">适合画幅</button>
       <div class="stage-help" id="stage-help">拖动调整拍摄机位 <span>Shift 平移 · 滚轮缩放</span></div>

@@ -16,6 +16,8 @@ Reference image → TripoSplat reconstruction → Interactive camera → Guide `
 - **Other scene sources:** import a textured GLB or explicitly choose manual mannequin posing. No Fisher plugin installation required.
 - **Reusable outputs:** clean guide image, prompt and scene JSON. Applied scenes run from saved workflows without opening the editor.
 
+TripoSplat photo reconstructions have no editable skeleton, so their pose stays fixed and Edit Scene is unavailable. The pose library applies only to the manual mannequin. GLB front calibration applies only to imported GLBs; use the camera angle, zoom and framing controls for photo reconstructions.
+
 ## Installation
 
 Use ComfyUI with native **Qwen Image 2.1, TripoSplat, BiRefNet and DINOv3 nodes**. Tested with **ComfyUI 0.36.0**. Enable WebGL hardware acceleration in your browser.

@@ -86,11 +86,6 @@ export class StudioScene {
     this.viewer.camera.fov = 38;
     this.viewer.updateLights([{ type: 'ambient', color: '#ffffff', intensity: 1.3 },
       { type: 'directional', color: '#ffffff', intensity: 1.7, x: 8, y: 20, z: 18 }]);
-    try {
-      this.pack = await loadMorphPack(new URL('../vendor/assets/pose_studio_makehuman.v2.bin', import.meta.url));
-    } catch (error) {
-      throw new Error(`MakeHuman 编辑资源缺失或损坏。请更新节点，或在节点目录运行 python install_assets.py。${error.message}`);
-    }
     this.grid = new THREE.GridHelper(100, 50, 0x425365, 0x28343f);
     this.grid.material.transparent = true;
     this.grid.material.opacity = 0.32;
@@ -143,6 +138,10 @@ export class StudioScene {
       if (this.glb && doc.source.kind !== 'glb') { disposeObject(this.glb); this.glb = null; this.glbName = null; }
       if (doc.source.kind === 'human') {
         if (this.glb) { disposeObject(this.glb); this.glb = null; this.glbName = null; }
+        if (!this.pack) {
+          try { this.pack = await loadMorphPack(new URL('../vendor/assets/pose_studio_makehuman.v2.bin', import.meta.url)); }
+          catch (error) { throw new Error(`MakeHuman 编辑资源缺失或损坏。请更新节点，或在节点目录运行 python install_assets.py。${error.message}`); }
+        }
         this.buildHuman(doc.pose);
         this.baseTarget = this.viewer.meshCenter.clone().multiplyScalar(doc.scale);
       } else if (doc.source.kind === 'splat') {

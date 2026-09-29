@@ -9,6 +9,7 @@ const session = params.get('session');
 let doc = defaultScene(), studio, revision = 0, busy = true, ready = false;
 let undo = [], redo = [], previewTimer, previewRunning = false, selectedBone = '';
 let selectedShot = null, snapshot = null;
+let humanToolsReady = false;
 let linkedReference = { connected: false };
 let pendingReference = null;
 const controls = new Map();
@@ -80,6 +81,13 @@ function refresh() {
   const splat = doc.source.kind === 'splat', empty = doc.source.kind === 'empty';
   $('#front').disabled = $('#front-number').disabled = human || splat || empty;
   $('#scale').disabled = $('#scale-number').disabled = splat || empty;
+  $('#front').closest('.control').hidden = human || splat || empty;
+  $('#scale').closest('.control').hidden = splat || empty;
+  $('#calibration-hint').textContent = splat
+    ? '原图重建主体与预测机位已对齐，姿势固定。请用拍摄相机调整角度、缩放和构图。'
+    : empty ? '连接原图并重建主体，或导入 GLB 后调整场景。'
+      : human ? '人偶可调整资产尺度；姿势、手势和关节可在编辑场景中修改。'
+        : 'GLB 默认 Y 轴朝上。旋转资产以校准正面；资产尺度与镜头缩放相互独立。';
   $('#asset-label').textContent = empty ? '等待原图重建' : human ? 'MakeHuman · 手动人偶' : doc.source.label || 'GLB 场景';
   $('#source-badge').textContent = empty ? 'PHOTO → 3D' : splat ? 'TRIPOSPLAT · 原图重建' : human ? 'HUMAN · 手动人偶' : 'GLB · 场景';
   for (const id of ['pose-panel', 'hands-panel', 'body-panel', 'joint-panel']) {
@@ -94,7 +102,7 @@ function refresh() {
   $('#read-reference').disabled = !!linkedReference.pending;
   $('#reference-origin').textContent = linkedReference.connected ? linkedReference.message : '支持节点左侧 IMAGE 连线，也可上传原图。';
   $('#reconstruction-state').hidden = !doc.reference;
-  $('#reconstruction-state').textContent = splat ? '已从这张原图生成三维主体。拖动相机改变视角，动作保持在重建姿势。' : '从原图重建对应主体，再调整机位。';
+  $('#reconstruction-state').textContent = splat ? '原图 3D 保持重建姿势，无可编辑骨架；拖动相机改变视角。需要手动摆姿可切换人偶。' : '从原图重建对应主体，再调整机位。';
   $('#reconstruct').disabled = !doc.reference;
   $('#reconstruct').textContent = splat ? '重新载入原图 3D' : '从原图重建 3D';
   $('#empty-scene').hidden = !empty;
@@ -102,6 +110,8 @@ function refresh() {
   $('#guide-state').textContent = empty ? '生成对应主体后显示新机位粗图。' : '只有画面内容会输出，网格与控制器不会进入粗图。';
   $('#apply').disabled = busy || !ready || empty || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending));
   $('#edit-mode').disabled = splat || empty;
+  $('#edit-mode').title = splat ? '原图重建主体没有可编辑骨架；请使用拍摄机位' : empty ? '请先载入三维主体' : '';
+  $('#mode-hint').hidden = !splat;
   $('#fit-frame').textContent = splat ? '回到原图机位' : '适合画幅';
   $('.eyebrow').textContent = splat ? '相对于模型预测的原图机位' : '相对于已校准的场景正面';
   $('[data-angle="0"]').textContent = splat ? '原图机位' : '正面';
@@ -263,9 +273,16 @@ $('#glb-file').onchange = event => run(async () => {
   const asset = await upload(file); begin();
   const previous = clone(doc); doc.source = { kind: 'glb', ...asset }; doc.front = 0; doc.scale = 1; doc.camera = defaultScene().camera;
   try { await studio.restore(doc); studio.fit(); } catch (e) { doc = previous; await studio.restore(doc); throw e; }
-  changed(); toast('GLB 已载入。可在场景校准中调整正面与尺度。');
+  changed(); toast('GLB 已载入。可在场景与构图中调整正面与尺度。');
 });
-$('#human').onclick = () => run(async () => { begin(); doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1; await studio.restore(doc); changed(); });
+$('#human').onclick = () => run(async () => {
+  begin();
+  const previous = clone(doc);
+  doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1;
+  try { await studio.restore(doc); await ensureHumanTools(); }
+  catch (e) { doc = previous; await studio.restore(doc); throw e; }
+  changed();
+});
 
 function askName(title, initial) {
   $('#name-title').textContent = title; $('#name-input').value = initial;
@@ -362,6 +379,7 @@ async function buildPresetCards() {
   const working = studio.doc;
   const savedPose = studio.pose(); const savedCamera = clone(working.camera); const mode = studio.mode;
   studio.restoring = true;
+  $('#presets').replaceChildren();
   try {
     for (const preset of PRESETS) {
       studio.setPreset(preset); working.camera = { azimuth: 25, elevation: 3, zoom: 1.1, offsetX: 0, offsetY: 0, offsetZ: 0 };
@@ -374,6 +392,17 @@ async function buildPresetCards() {
       $('#presets').append(button);
     }
   } finally { studio.viewer.setPose(savedPose, true); working.pose = savedPose; working.camera = savedCamera; studio.setMode(mode); studio.restoring = false; }
+}
+
+async function ensureHumanTools() {
+  if (humanToolsReady) return;
+  // Pose thumbnails require the human rig; never load it just to open a photo scene.
+  await buildPresetCards();
+  for (const bone of studio.viewer.boneList) {
+    const option = document.createElement('option'); option.value = bone.name; option.textContent = bone.name;
+    $('#bone-select').append(option);
+  }
+  humanToolsReady = true;
 }
 
 async function start(token, reference = { connected: false }) {
@@ -389,12 +418,7 @@ async function start(token, reference = { connected: false }) {
     if (doc.reference && (doc.source.kind === 'human' || (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference.name))) doc.source = { kind: 'empty' };
     studio = new StudioScene($('#viewport'), { begin, change: changed, camera: () => { revision++; refresh(); schedulePreview(); $('#status').textContent = '机位草稿 · 尚未应用'; $('#status').dataset.state = 'dirty'; }, select: name => { selectedBone = name || ''; refresh(); }, error });
     await studio.init(doc);
-    // Generate these thumbnails from the actual local rig, never from the design mockup.
-    if (doc.source.kind !== 'human') {
-      const saved = clone(doc); await studio.restore({ ...clone(doc), source: { kind: 'human' } });
-      await buildPresetCards(); doc = saved; await studio.restore(doc);
-    } else await buildPresetCards();
-    for (const bone of studio.viewer.boneList) { const option = document.createElement('option'); option.value = bone.name; option.textContent = bone.name; $('#bone-select').append(option); }
+    if (doc.source.kind === 'human') await ensureHumanTools();
     selectedShot = doc.shots.find(shot => shot.width === doc.width && shot.height === doc.height
       && Object.keys(doc.camera).every(key => Number(shot.camera[key] || 0) === Number(doc.camera[key] || 0)))?.id || null;
     ready = true; $('#loading').hidden = true; refresh(); renderShots(); renderLibrary();
