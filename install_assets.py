@@ -6,9 +6,17 @@ from pathlib import Path
 import urllib.request
 
 
+def sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def install(entry, target):
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists() and hashlib.sha256(target.read_bytes()).hexdigest() == entry["sha256"]:
+    if target.exists() and sha256(target) == entry["sha256"]:
         print(f"Verified {target.name}")
         return
     temporary = target.with_suffix(target.suffix + ".download")

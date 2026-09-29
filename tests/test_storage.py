@@ -72,6 +72,26 @@ class SnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "embed"):
             self.store.asset(glb, "glb")
 
+    def test_malformed_glb_resources_are_user_errors(self):
+        for invalid in ({"asset": {"version": "2.0"}, "images": None},
+                        {"asset": {"version": "2.0"}, "extensionsRequired": None}):
+            raw = json.dumps(invalid).encode()
+            raw += b" " * (-len(raw) % 4)
+            glb = struct.pack("<4sII", b"glTF", 2, 20 + len(raw)) + struct.pack("<I4s", len(raw), b"JSON") + raw
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                self.store.asset(glb, "glb")
+
+    def test_malformed_scene_assets_and_base64_are_user_errors(self):
+        source = self.store.asset(base64.b64decode(self.png.split(",")[1]), "png")
+        scene = copy.deepcopy(self.scene)
+        scene["source"] = {**source, "kind": "glb"}
+        with self.assertRaisesRegex(ValueError, "format"):
+            self.store.save_scene(scene, self.png)
+        scene["source"] = {"kind": "human"}
+        scene["reference"] = {"name": source["name"]}
+        with self.assertRaisesRegex(ValueError, "valid PNG"):
+            self.store.save_scene(scene, "data:image/png;base64,???")
+
     def test_gaussian_asset_roundtrip_and_reference_binding(self):
         fields = ['x', 'y', 'z', 'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity',
                   'scale_0', 'scale_1', 'scale_2', 'rot_0', 'rot_1', 'rot_2', 'rot_3']

@@ -251,6 +251,7 @@ export class StudioScene {
   }
 
   setMode(mode) {
+    if (this.doc.source.kind === 'splat' || this.doc.source.kind === 'empty') mode = 'camera';
     this.mode = mode;
     const human = this.doc.source.kind === 'human';
     this.viewer.setIKMode(mode === 'edit' && human);
@@ -291,6 +292,7 @@ export class StudioScene {
         .filter(Boolean).map(object => [object, object.visible]) : [];
     const background = v.scene.background;
     this.capturing = true;
+    let batchStarted = false;
     try {
       if (v._renderFrame) { cancelAnimationFrame(v._renderFrame); v._renderFrame = null; }
       if (this.splat) this.splat.configureCamera(v.captureCamera, this.doc, width, height);
@@ -302,6 +304,7 @@ export class StudioScene {
       v.scene.updateMatrixWorld(true);
       v.skeleton?.update();
       v.beginCaptureBatch(width, height);
+      batchStarted = true;
       if (this.splat) await this.splat.prepareCapture(v.renderer, v.captureCamera);
       v.renderer.render(v.scene, v.captureCamera);
       return this.canvas.toDataURL('image/png');
@@ -309,9 +312,8 @@ export class StudioScene {
       for (const [object, visible] of visibility) object.visible = visible;
       for (const [object, visible] of nestedHelpers) object.visible = visible;
       v.scene.background = background;
-      v.endCaptureBatch();
-      this.capturing = false;
-      this.updateShot();
+      try { if (batchStarted) v.endCaptureBatch(); }
+      finally { this.capturing = false; this.updateShot(); }
     }
   }
 
@@ -350,12 +352,13 @@ export class StudioScene {
   async morph() {
     const pose = { bones: this.pose().bones, modelRotation: this.pose().modelRotation };
     this.restoring = true;
-    this.buildHuman(pose);
-    this.baseTarget = this.viewer.meshCenter.clone().multiplyScalar(this.doc.scale);
-    this.setMode(this.mode);
-    this.syncPose();
-    await this.viewer.waitForCaptureReady();
-    this.restoring = false;
+    try {
+      this.buildHuman(pose);
+      this.baseTarget = this.viewer.meshCenter.clone().multiplyScalar(this.doc.scale);
+      this.setMode(this.mode);
+      this.syncPose();
+      await this.viewer.waitForCaptureReady();
+    } finally { this.restoring = false; }
   }
 
   bindCamera() {

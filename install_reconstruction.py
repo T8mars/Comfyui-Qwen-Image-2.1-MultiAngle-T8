@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import time
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
@@ -34,6 +35,12 @@ def download(item):
         print(f"Verified existing {name}", flush=True)
         return {"file": name, "sha256": digest, "bytes": size}
     partial = destination.with_suffix(destination.suffix + ".partial")
+    if partial.exists() and partial.stat().st_size >= size:
+        if partial.stat().st_size == size and sha256(partial) == digest:
+            partial.replace(destination)
+            print(f"Verified {name}", flush=True)
+            return {"file": name, "sha256": digest, "bytes": size}
+        partial.unlink()
     url = f"https://huggingface.co/VAST-AI/TripoSplat/resolve/{REVISION}/{name}"
     for attempt in range(4):
         try:
@@ -41,6 +48,8 @@ def download(item):
             request = urllib.request.Request(url, headers={"Range": f"bytes={offset}-"} if offset else {})
             with urllib.request.urlopen(request, timeout=60) as response:
                 append = offset > 0 and response.status == 206
+                if append and not response.headers.get("Content-Range", "").startswith(f"bytes {offset}-"):
+                    raise ValueError(f"Invalid resume response: {name}")
                 if not append:
                     offset = 0
                 with partial.open("ab" if append else "wb") as handle:
@@ -48,6 +57,8 @@ def download(item):
                     while chunk := response.read(8 * 1024 * 1024):
                         handle.write(chunk)
                         offset += len(chunk)
+                        if offset > size:
+                            raise ValueError(f"Checkpoint exceeds expected size: {name}")
                         if time.monotonic() - report > 10:
                             print(f"{name}: {offset / size:.0%}", flush=True)
                             report = time.monotonic()
@@ -60,6 +71,9 @@ def download(item):
             if attempt == 3:
                 raise
             print(f"Retry {name}: {error}", flush=True)
+            bad_range = isinstance(error, urllib.error.HTTPError) and error.code == 416
+            if partial.exists() and (partial.stat().st_size >= size or isinstance(error, ValueError) or bad_range):
+                partial.unlink()
             time.sleep(2)
 
 

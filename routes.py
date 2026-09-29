@@ -56,7 +56,7 @@ def register_routes(store_factory):
             while chunk := await part.read_chunk(1024 * 1024):
                 data.extend(chunk)
                 if len(data) > 256 * 1024 * 1024:
-                    raise ValueError("GLB upload exceeds 256 MB")
+                    raise ValueError("Asset upload exceeds 256 MB")
             kind = "glb" if (part.filename or "").lower().endswith(".glb") else "png"
             asset = await asyncio.to_thread(store_factory().asset, bytes(data), kind)
             asset["label"] = (part.filename or "Imported asset")[:160]

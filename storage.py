@@ -1,5 +1,6 @@
 """Immutable assets and applied scenes under ComfyUI's persistent input directory."""
 import base64
+import binascii
 import hashlib
 import io
 import json
@@ -66,13 +67,19 @@ class StudioStore:
             doc = json.loads(data[20:20 + length])
             if not isinstance(doc, dict):
                 raise ValueError("Invalid GLB document")
-            for resource in doc.get("buffers", []) + doc.get("images", []):
+            buffers, images = doc.get("buffers", []), doc.get("images", [])
+            if not isinstance(buffers, list) or not isinstance(images, list):
+                raise ValueError("Invalid GLB resources")
+            for resource in buffers + images:
                 if not isinstance(resource, dict):
                     raise ValueError("Invalid GLB resource")
                 uri = resource.get("uri", "")
                 if not isinstance(uri, str) or (uri and not uri.startswith("data:")):
                     raise ValueError("GLB must embed its textures and buffers; external URLs are not loaded")
-            if set(doc.get("extensionsRequired", [])) & {"KHR_draco_mesh_compression", "KHR_texture_basisu", "EXT_meshopt_compression"}:
+            required = doc.get("extensionsRequired", [])
+            if not isinstance(required, list) or not all(isinstance(item, str) for item in required):
+                raise ValueError("Invalid GLB extensions")
+            if set(required) & {"KHR_draco_mesh_compression", "KHR_texture_basisu", "EXT_meshopt_compression"}:
                 raise ValueError("Export this GLB without Draco, Meshopt or KTX2 compression")
             meta = {}
         elif kind == "png":
@@ -87,7 +94,7 @@ class StudioStore:
                 data = buffer.getvalue()
                 meta = {"width": image.width, "height": image.height}
         else:
-            raise ValueError("Only GLB and images are supported")
+            raise ValueError("Only GLB, Gaussian PLY and images are supported")
         digest = hashlib.sha256(data).hexdigest()
         name = f"{digest}.{kind}"
         self.write(name, data)
@@ -120,14 +127,28 @@ class StudioStore:
         if scene.get("source", {}).get("kind") not in ("human", "glb", "splat"):
             raise ValueError("Select a reconstructed scene, human or GLB source")
         if scene["source"]["kind"] in ("glb", "splat"):
-            self.read_asset(scene["source"].get("name", ""))
-        if scene["source"]["kind"] == "splat" and scene["source"].get("reference", {}).get("name") != (scene.get("reference") or {}).get("name"):
+            expected = ".glb" if scene["source"]["kind"] == "glb" else ".ply"
+            source_name = scene["source"].get("name")
+            if not isinstance(source_name, str) or not source_name.endswith(expected):
+                raise ValueError("Scene source has the wrong asset format")
+            self.read_asset(source_name)
+        reference = scene.get("reference")
+        source_reference = scene["source"].get("reference")
+        if scene["source"]["kind"] == "splat" and (not isinstance(source_reference, dict) or not isinstance(reference, dict)
+                                                  or not isinstance(reference.get("name"), str)
+                                                  or source_reference.get("name") != reference.get("name")):
             raise ValueError("参考图与重建主体不一致，请重新重建后应用")
-        if scene.get("reference"):
-            self.read_asset(scene["reference"]["name"])
+        if reference:
+            name = reference.get("name") if isinstance(reference, dict) else None
+            if not isinstance(name, str) or not name.endswith(".png"):
+                raise ValueError("Reference must be an image")
+            self.read_asset(name)
         if not isinstance(png, str) or not png.startswith("data:image/png;base64,"):
             raise ValueError("Guide must be a PNG capture")
-        data = base64.b64decode(png.split(",", 1)[1], validate=True)
+        try:
+            data = base64.b64decode(png.split(",", 1)[1], validate=True)
+        except binascii.Error as error:
+            raise ValueError("Guide must contain valid PNG data") from error
         guide = self.asset(data, "png")
         if (guide["width"], guide["height"]) != (width, height):
             raise ValueError("Guide dimensions do not match the scene; capture again")

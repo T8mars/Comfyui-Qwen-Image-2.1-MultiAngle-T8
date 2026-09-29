@@ -59,6 +59,8 @@ class AnyAngleReconstructionOutput:
         points = points * np.array([1, -1, -1])
         bounds = [np.quantile(points, 0.005, axis=0).tolist(), np.quantile(points, 0.995, axis=0).tolist()]
         token = samples["samples"].unbind()[1][0, 0].cpu().float().tolist()
+        if tuple(mask.shape[1:]) != tuple(reference.shape[1:3]):
+            mask = F.interpolate(mask[:, None].float(), size=tuple(reference.shape[1:3]), mode="bilinear", align_corners=False)[:, 0]
         ys, xs = np.nonzero(mask[0].cpu().float().numpy() > 0.5)
         height, width = reference.shape[1:3]
         bbox = [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1] if len(xs) else [0, 0, width, height]

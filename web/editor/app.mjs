@@ -23,7 +23,7 @@ function toast(message) {
 }
 function error(error) { console.error(error); toast(error?.message || String(error)); }
 function setBusy(value) {
-  busy = value; $('#workspace').inert = value; $('#apply').disabled = value || !ready || doc.source.kind === 'empty' || (linkedReference.connected && !linkedReference.asset);
+  busy = value; $('#workspace').inert = value; $('#apply').disabled = value || !ready || doc.source.kind === 'empty' || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending));
   $('#undo').disabled = value || !undo.length; $('#redo').disabled = value || !redo.length;
   if (!value && pendingReference) queueMicrotask(readPendingReference);
 }
@@ -67,6 +67,8 @@ async function renderPreview() {
   finally { previewRunning = false; }
 }
 function refresh() {
+  if (studio && (doc.source.kind === 'splat' || doc.source.kind === 'empty') &&
+      (studio.mode !== 'camera' || $('#edit-mode').classList.contains('active'))) setMode('camera');
   if (linkedReference.connected) doc.reference = linkedReference.asset || null;
   for (const control of controls.values()) control.refresh();
   $('#width').value = doc.width; $('#height').value = doc.height;
@@ -98,7 +100,7 @@ function refresh() {
   $('#empty-scene').hidden = !empty;
   $('#guide').hidden = empty;
   $('#guide-state').textContent = empty ? '生成对应主体后显示新机位粗图。' : '只有画面内容会输出，网格与控制器不会进入粗图。';
-  $('#apply').disabled = busy || !ready || empty || (linkedReference.connected && !linkedReference.asset);
+  $('#apply').disabled = busy || !ready || empty || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending));
   $('#edit-mode').disabled = splat || empty;
   $('#fit-frame').textContent = splat ? '回到原图机位' : '适合画幅';
   $('.eyebrow').textContent = splat ? '相对于模型预测的原图机位' : '相对于已校准的场景正面';
@@ -219,12 +221,12 @@ async function upload(file) {
 }
 $('#reference-button').onclick = $('#reference-drop').onclick = () => $('#reference-file').click();
 $('#read-reference').onclick = () => {
-  linkedReference = { connected: true, pending: true, message: '正在读取上游图像…' };
+  linkedReference = { ...linkedReference, connected: true, pending: true, message: '正在读取上游图像…' };
   refresh(); send('anyangle-read-reference');
 };
 $('#reference-file').onchange = event => run(async () => {
-  const file = event.target.files[0]; if (!file) return; const asset = await upload(file);
-  begin(); doc.reference = asset; doc.source = { kind: 'empty' }; await studio.restore(doc); changed(); event.target.value = '';
+  const file = event.target.files[0]; event.target.value = ''; if (!file) return; const asset = await upload(file);
+  begin(); doc.reference = asset; doc.source = { kind: 'empty' }; await studio.restore(doc); changed();
   await reconstructPhoto();
 });
 const referenceCamera = () => ({ azimuth: 0, elevation: 0, zoom: 1, offsetX: 0, offsetY: 0, offsetZ: 0 });
@@ -257,11 +259,11 @@ async function reconstructPhoto() {
 $('#reconstruct').onclick = () => run(reconstructPhoto);
 $('#import-glb').onclick = () => $('#glb-file').click();
 $('#glb-file').onchange = event => run(async () => {
-  const file = event.target.files[0]; if (!file) return;
+  const file = event.target.files[0]; event.target.value = ''; if (!file) return;
   const asset = await upload(file); begin();
   const previous = clone(doc); doc.source = { kind: 'glb', ...asset }; doc.front = 0; doc.scale = 1; doc.camera = defaultScene().camera;
   try { await studio.restore(doc); studio.fit(); } catch (e) { doc = previous; await studio.restore(doc); throw e; }
-  changed(); event.target.value = ''; toast('GLB 已载入。可在场景校准中调整正面与尺度。');
+  changed(); toast('GLB 已载入。可在场景校准中调整正面与尺度。');
 });
 $('#human').onclick = () => run(async () => { begin(); doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1; await studio.restore(doc); changed(); });
 
@@ -324,11 +326,14 @@ $('#export-pose').onclick = () => run(async () => {
 });
 $('#import-pose').onclick = () => $('#pose-file').click();
 $('#pose-file').onchange = event => run(async () => {
-  const file = event.target.files[0]; if (!file) return; const imported = JSON.parse(await file.text());
+  const file = event.target.files[0]; event.target.value = ''; if (!file) return; const imported = JSON.parse(await file.text());
   if (imported.version !== 1 || imported.kind !== 'anyangle-pose' || !imported.pose?.bones) throw new Error('请选择本编辑器导出的姿势 JSON');
   for (const values of Object.values(imported.pose.bones)) if (!Array.isArray(values) || values.length !== 3 || !values.every(Number.isFinite)) throw new Error('姿势包含无效的骨骼旋转');
+  if (!imported.mesh || typeof imported.mesh !== 'object' || Array.isArray(imported.mesh)) throw new Error('姿势包含无效的体型参数');
+  const previous = clone(doc);
   begin(); doc.mesh = { ...defaultScene().mesh, ...imported.mesh, breast_size: 0, show_genitals: false }; doc.pose = imported.pose;
-  await studio.restore(doc); changed(); event.target.value = '';
+  try { await studio.restore(doc); changed(); }
+  catch (e) { doc = previous; await studio.restore(doc); throw e; }
 });
 $('#download-guide').onclick = () => run(async () => {
   const png = await studio.capture();
@@ -404,7 +409,11 @@ function readPendingReference() {
   if (busy || !pendingReference) return;
   const reference = pendingReference; pendingReference = null;
   run(async () => {
-    begin(); linkedReference = reference; doc.reference = reference.asset || null;
+    const sameAsset = !!reference.asset && reference.asset.name === doc.reference?.name;
+    linkedReference = reference;
+    if (reference.error) toast(reference.error);
+    if (sameAsset) { refresh(); return; }
+    begin(); doc.reference = reference.asset || null;
     doc.source = { kind: 'empty' }; await studio.restore(doc); changed();
     if (doc.reference) await reconstructPhoto();
   });

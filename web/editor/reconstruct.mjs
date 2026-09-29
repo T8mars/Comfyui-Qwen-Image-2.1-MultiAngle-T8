@@ -17,7 +17,7 @@ export function reconstructionGraph(reference, models, seed = 46) {
   };
 }
 
-export async function reconstruct(reference, onProgress) {
+export async function reconstruct(reference, onProgress, retryStaleJob = true) {
   const key = `anyangle-reconstruction:${reference.name}`;
   let cached;
   try { cached = JSON.parse(localStorage.getItem(key)); } catch { /* Ignore an incomplete browser save. */ }
@@ -55,7 +55,9 @@ export async function reconstruct(reference, onProgress) {
     const running = queue.queue_running.some(entry => entry[1] === job);
     const pending = queue.queue_pending.some(entry => entry[1] === job);
     if (!running && !pending && !item && Date.now() - started > 5000) {
-      localStorage.removeItem(key); throw new Error('重建任务已被移除，请重新重建');
+      localStorage.removeItem(key);
+      if (retryStaleJob) return reconstruct(reference, onProgress, false);
+      throw new Error('重建任务已被移除，请重新重建');
     }
     onProgress(running ? `正在从原图重建主体 · ${Math.round((Date.now() - started) / 1000)} 秒` : '重建任务排队中');
     await new Promise(resolve => setTimeout(resolve, 1500));

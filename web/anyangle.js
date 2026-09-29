@@ -27,12 +27,17 @@ function openEditor(node, widget) {
   const readReference = async (execute = false) => {
     if (readingReference) return;
     readingReference = true;
-    reference = { connected: node.inputs?.find(input => input.name === 'reference_image')?.link != null, pending: true };
+    const previous = reference, previousSignature = referenceSignature;
+    const connected = node.inputs?.find(input => input.name === 'reference_image')?.link != null;
+    let sameSignature = false;
+    reference = { connected, pending: true, ...(connected && previous.asset ? { asset: previous.asset } : {}) };
     try {
       const plan = await getPlan();
+      sameSignature = !!plan && plan.signature === previousSignature;
       referenceSignature = plan?.signature || null;
       if (!plan) reference = { connected: false };
       else if (plan.filename || execute) {
+        if (!sameSignature) reference = { connected: true, pending: true };
         send('anyangle-reference', { reference: { ...reference, message: plan.filename ? '正在读取连线原图…' : '正在执行参考图的上游节点…' } });
         // Use ComfyUI's decoder for direct images too: JPEG decoding can differ
         // from browser/Pillow import even when the filename ends in .png.
@@ -41,7 +46,10 @@ function openEditor(node, widget) {
         if ((await getPlan())?.signature !== plan.signature) throw new Error('上游已变化，请重新读取图像');
         reference = { connected: true, asset, message: '来自 IMAGE 连线 · 使用第一张图像' };
       } else reference = { connected: true, message: '点击读取上游图像，执行取得原图所需的节点' };
-    } catch (error) { reference = { ...reference, pending: false, message: error.message }; }
+    } catch (error) {
+      reference = { connected, ...(sameSignature && previous.asset ? { asset: previous.asset } : {}),
+        pending: false, error: error.message, message: error.message };
+    }
     finally { readingReference = false; }
   };
   const close = () => { if (!active) return; active = false; window.removeEventListener('message', receive); dialog.remove(); if (closeActive === close) closeActive = null; };
