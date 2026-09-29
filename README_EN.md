@@ -1,28 +1,56 @@
-# Qwen Image 2.1 MultiAngle · T8
+<p align="center"><img src="web/icons/aperture.svg" width="48" alt="AnyAngle Studio"></p>
+<h1 align="center">AnyAngle Studio · T8</h1>
+<p align="center"><strong>Reconstruct a reference subject and explore new camera views directly in ComfyUI.</strong></p>
+<p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
+<p align="center">ComfyUI custom node · Qwen Image 2.1 AnyAngle · TripoSplat · MIT</p>
 
-[简体中文](README.md) | **English**
+![The real AnyAngle Studio UI with a reference image, 3D camera view, and guide preview](docs/images/studio-photo.png)
 
-A standalone visual camera editor for ComfyUI. Reconstruct a reference image into a 3D subject, adjust the camera interactively, and render a new-view guide for Qwen Image 2.1 AnyAngle.
+<p align="center"><sub>Actual workbench · original demo image reconstructed locally with TripoSplat · azimuth 28° / elevation 6°</sub></p>
 
-**Original model: [lilylilith / QI_2.1_AnyAngle · Hugging Face](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)**
+**Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Example workflow](workflows/AnyAngle-Studio-Qwen21.json) · [中文说明](README.md)
 
-Reference image → TripoSplat reconstruction → Interactive camera → Guide `image_2` → AnyAngle generation
+## What it produces
 
-## Features
+| Original reference · `image_1` | New-view guide · `image_2` |
+|:---:|:---:|
+| <img src="docs/images/demo-reference.png" width="260" alt="Original reference image of a fictional demo character"> | <img src="docs/images/demo-guide.png" width="260" alt="Guide image exported by the actual node"> |
 
-- **IMAGE input:** connect to `reference_image`, or upload in the editor.
-- **Photo reconstruction:** local TripoSplat generates a corresponding subject. Camera changes preserve the reconstructed pose.
-- **Interactive editing:** orbit, pan, zoom, exact angles, saved views, undo and redo.
-- **Other scene sources:** import a textured GLB or explicitly choose manual mannequin posing. No Fisher plugin installation required.
-- **Reusable outputs:** clean guide image, prompt and scene JSON. Applied scenes run from saved workflows without opening the editor.
+The right image was **exported by the node**. It conditions AnyAngle; it is not a final Qwen-generated image. The demo subject is a fictional, originally generated character. Single-image reconstruction must infer unseen sides and cannot guarantee exact agreement with the source.
 
-TripoSplat photo reconstructions have no editable skeleton, so their pose stays fixed and Edit Scene is unavailable. The pose library applies only to the manual mannequin. GLB front calibration applies only to imported GLBs; use the camera angle, zoom and framing controls for photo reconstructions.
+- **Direct reference connection:** the left `reference_image` socket accepts a ComfyUI IMAGE; uploads work in the editor too.
+- **Reference-based subject:** local TripoSplat reconstruction provides a scene whose pose stays fixed while you move the camera.
+- **Interactive camera:** orbit, Shift-pan, wheel zoom, numeric angles, framing, saved views, undo, and redo.
+- **Three scene sources:** photo reconstruction, textured GLB, and a built-in MakeHuman mannequin for manual posing. The mannequin ships with this repository; Fisher is not required.
+- **Reusable outputs:** `guide_image_2`, `prompt`, and `scene_json`. Applied scenes run from saved workflows without reopening the editor.
 
-## Installation
+A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode for that source; choose the separate mannequin mode when you need to pose joints by hand.
 
-Use ComfyUI with native **Qwen Image 2.1, TripoSplat, BiRefNet and DINOv3 nodes**. Tested with **ComfyUI 0.36.0**. Enable WebGL hardware acceleration in your browser.
+### Manual mannequin workbench
 
-Run from your ComfyUI directory:
+![The built-in MakeHuman mannequin, pose presets, and joint editing controls](docs/images/studio-human.png)
+
+The included mannequin supports pose presets, hands, body proportions, and joint editing. It does not automatically copy the reference photo's pose. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
+
+## Quick start
+
+1. Install the node and models below, restart ComfyUI, and load the [example workflow](workflows/AnyAngle-Studio-Qwen21.json).
+2. Connect the original image to both Studio `reference_image` and encoder `image_1`. Connect Studio `guide_image_2` to encoder `image_2`, and Studio `prompt` to encoder `prompt`.
+3. Open **AnyAngle Studio · T8**, wait for reconstruction, drag to choose a camera, inspect the guide, click **Apply to node**, and run the workflow.
+
+![How to connect the original image, AnyAngle Studio, and Qwen Image 2.1 AnyAngle](docs/images/wiring.svg)
+
+A Load Image connection is read automatically. For other upstream IMAGE nodes, click **读取上游图像** (Read upstream image). A batch uses its first image. In photo mode, **0°** means the model's predicted reference camera. Grids, controls, and camera frames are excluded from the guide.
+
+Suggested starting settings: **LoRA 1 · CFG 3 · 20 steps · euler / simple**. The example workflow uses:
+
+```text
+Change the camera angle from <image2> to <image1>.
+```
+
+## Install
+
+Use ComfyUI with native **Qwen Image 2.1, TripoSplat, BiRefNet, and DINOv3 nodes**. Tested with **ComfyUI 0.36.0**. Enable WebGL hardware acceleration in your browser. Run from your ComfyUI directory:
 
 ```bash
 cd custom_nodes
@@ -32,51 +60,30 @@ python install_assets.py --download-lora
 python install_reconstruction.py
 ```
 
-The repository includes the required MakeHuman pack and skin texture. `install_assets.py --download-lora` verifies these assets and downloads the AnyAngle LoRA; `install_reconstruction.py` downloads approximately **3.78 GB** of reconstruction weights. Use **ComfyUI's Python environment**; for portable installations, replace `python` with the bundled executable. Restart ComfyUI and search for **AnyAngle Studio · T8**.
-
-If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` in the node directory, confirm that `web/vendor/assets/pose_studio_makehuman.v2.bin` and `web/vendor/textures/skin.png` exist, then hard-refresh the browser. Run `python install_assets.py` if either file is still missing.
+The MakeHuman pack and skin texture are included in the repository. `install_assets.py --download-lora` verifies them and downloads the AnyAngle LoRA; `install_reconstruction.py` downloads approximately **3.78 GB** of reconstruction weights. Use **ComfyUI's Python environment**; in a portable build, replace `python` with its bundled executable.
 
 | Model | Source / location |
 |---|---|
 | AnyAngle LoRA | [Original model](https://huggingface.co/lilylilith/QI_2.1_AnyAngle) · `models/loras/QI2.1_AnyAngle.safetensors` |
-| TripoSplat and companion reconstruction weights | [Official weights](https://huggingface.co/VAST-AI/TripoSplat) · Installed into their respective directories by the script |
+| TripoSplat and companion weights | [Official weights](https://huggingface.co/VAST-AI/TripoSplat) · the installer places them in the relevant model directories |
 | Qwen Image 2.1 diffusion model / Qwen3-VL 8B encoder / Qwen Image 2.1 VAE | Provide separately in `models/diffusion_models`, `models/text_encoders`, and `models/vae` |
 
-Replace example model filenames with compatible weights installed locally. Downloads occur only through the installation commands; reconstruction and rendering run locally.
+Replace model filenames in the example workflow with compatible weights installed locally. Downloads occur only when you run the installation commands; reconstruction and rendering run locally.
 
-## Workflow
+If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` inside the node directory, confirm that `web/vendor/assets/pose_studio_makehuman.v2.bin` and `web/vendor/textures/skin.png` exist, restart ComfyUI, and hard-refresh the browser. Run `python install_assets.py` if either file is still missing.
 
-Load the [example workflow](workflows/AnyAngle-Studio-Qwen21.json), then select your image and models.
+## Storage, portability, and limits
 
-| Connection | Destination |
-|---|---|
-| Original IMAGE | Studio `reference_image` **and** encoder `image_1` |
-| Studio `guide_image_2` | Encoder `image_2` |
-| Studio `prompt` | Encoder `prompt` |
-| Studio `scene_json` | Optional scene record |
-
-1. Open **AnyAngle Studio**. Load Image connections are read automatically; for other upstream nodes, click **读取上游图像** (Read upstream image). Batches use the first image.
-2. Wait for reconstruction, then drag to orbit. **Shift + drag** pans; the **mouse wheel** zooms. For reconstructed subjects, **0°** is the predicted reference camera.
-3. Check the guide, click **应用到节点** (Apply to node), and run. Grids, camera frames and controls are excluded from the output.
-
-Suggested settings: **LoRA 1 · CFG 3 · 20 steps · euler / simple**. The default prompt follows the author's wiring: original in `image_1`, guide in `image_2`.
-
-```text
-Change the camera angle from <image2> to <image1>.
-```
-
-## Storage and limitations
-
-- Scenes, guides and assets are stored in `ComfyUI/input/anyangle_studio/`. Copy associated assets when moving a workflow. The [API workflow](workflows/AnyAngle-Studio-Qwen21-API.json) requires an applied snapshot.
-- Single-image reconstruction cannot precisely recover hidden surfaces, cropped body parts or the full background. Manual mannequin posing is a separate mode, not photo reconstruction.
-- GLB files must embed textures. Draco, Meshopt and KTX2 compression are unsupported. Guide dimensions and downstream generation resolution are configured separately.
-- Verified on an RTX 5090 Laptop with 24 GB VRAM. Adjust models and resolution for other hardware.
+- Scenes, guides, and assets live in `ComfyUI/input/anyangle_studio/`. Copy the associated assets when moving a workflow. The [API workflow](workflows/AnyAngle-Studio-Qwen21-API.json) requires an applied snapshot.
+- GLBs must embed textures; Draco, Meshopt, and KTX2 compression are unsupported. GLB front calibration applies only to imported GLBs. Use camera angles and framing for photo reconstructions.
+- A single image cannot precisely recover occluded or cropped body parts or the complete background. Guide dimensions and downstream generation resolution are configured separately.
+- Verified on an RTX 5090 Laptop with 24 GB VRAM; adjust models and resolution for other hardware.
 
 ## Credits and license
 
 Thanks to [AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle), [TripoSplat](https://github.com/VAST-AI-Research/TripoSplat), [Fisher Pose](https://github.com/Work-Fisher/ComfyUI-Fisher-Pose), [VNCCS](https://github.com/AHEKOT/ComfyUI_VNCCS_Utils), and [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D). This is an independent integration, not an official plugin from the model authors.
 
-Project code uses the [MIT license](LICENSE). Third-party code, assets and models retain their respective licenses; see [THIRD_PARTY.md](THIRD_PARTY.md).
+Project code uses [MIT](LICENSE). Third-party code, assets, and models retain their own licenses; see [third-party notices](THIRD_PARTY.md).
 
 ## T8 links
 

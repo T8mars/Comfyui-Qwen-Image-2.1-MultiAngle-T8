@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 520" role="img" aria-labelledby="title desc">
+  <title id="title">AnyAngle Studio connection diagram</title>
+  <desc id="desc">The reference image feeds both AnyAngle Studio and image_1. The Studio guide and prompt feed image_2 and prompt on the Qwen Image 2.1 encoder.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#0c151e"/>
+      <stop offset="1" stop-color="#111e2a"/>
+    </linearGradient>
+    <linearGradient id="cyan" x2="1">
+      <stop stop-color="#3dd3df"/>
+      <stop offset="1" stop-color="#81e2f2"/>
+    </linearGradient>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M28 0H0V28" fill="none" stroke="#557080" stroke-opacity=".1"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000" flood-opacity=".24"/>
+    </filter>
+    <style>
+      text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+      .eyebrow{font-size:13px;letter-spacing:3px;font-weight:700;fill:#76d9e7}
+      .title{font-size:30px;font-weight:750;fill:#f2f7fa}
+      .sub{font-size:14px;fill:#8ea3b1}
+      .card{fill:#172430;stroke:#354b59;stroke-width:1.5}
+      .name{font-size:20px;font-weight:700;fill:#f1f7fa}
+      .small{font-size:13px;fill:#a5b5bf}
+      .socket{font-size:14px;font-weight:650;fill:#d9e8ee}
+      .step{font-size:12px;letter-spacing:2px;font-weight:700;fill:#79b0c1}
+    </style>
+  </defs>
+  <rect width="1160" height="520" rx="28" fill="url(#bg)"/>
+  <rect width="1160" height="520" rx="28" fill="url(#grid)"/>
+  <circle cx="1120" cy="24" r="260" fill="#225469" opacity=".12"/>
+  <text x="48" y="52" class="eyebrow">ANYANGLE STUDIO · T8</text>
+  <text x="48" y="95" class="title">One reference. Two images. A new camera view.</text>
+  <text x="48" y="123" class="sub">Wire the original image to both paths; the Studio supplies the camera guide and prompt.</text>
+
+  <path d="M288 242H354" fill="none" stroke="url(#cyan)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M288 242C320 242 306 455 697 455C732 455 739 390 769 390" fill="none" stroke="#93a8ff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M662 255H769" fill="none" stroke="url(#cyan)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M662 321H769" fill="none" stroke="#e2b96e" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="288" cy="242" r="6" fill="#70ddea"/>
+  <circle cx="354" cy="242" r="6" fill="#70ddea"/>
+  <circle cx="662" cy="255" r="6" fill="#70ddea"/>
+  <circle cx="662" cy="321" r="6" fill="#e2b96e"/>
+  <circle cx="769" cy="255" r="6" fill="#70ddea"/>
+  <circle cx="769" cy="321" r="6" fill="#e2b96e"/>
+  <circle cx="769" cy="390" r="6" fill="#93a8ff"/>
+
+  <g filter="url(#shadow)">
+    <rect class="card" x="48" y="170" width="240" height="190" rx="18"/>
+    <rect x="66" y="188" width="204" height="93" rx="10" fill="#253743"/>
+    <rect x="77" y="199" width="182" height="71" rx="7" fill="#314752"/>
+    <circle cx="161" cy="224" r="15" fill="#89a3aa"/>
+    <path d="M121 266c5-25 21-37 40-37s35 12 40 37" fill="#79969b"/>
+    <text x="67" y="316" class="name">Reference image</text>
+    <text x="67" y="340" class="small">Original pose and identity</text>
+
+    <rect class="card" x="354" y="170" width="308" height="190" rx="18"/>
+    <rect x="373" y="189" width="270" height="34" rx="8" fill="#203d4c"/>
+    <text x="388" y="212" fill="#8fe9f3" font-family="Inter,ui-sans-serif,system-ui" font-size="14" font-weight="750" letter-spacing="1.4">ANYANGLE STUDIO · T8</text>
+    <text x="374" y="260" class="socket">reference_image</text>
+    <text x="643" y="260" text-anchor="end" class="socket">guide_image_2</text>
+    <text x="643" y="326" text-anchor="end" class="socket">prompt</text>
+    <text x="374" y="329" class="small">Reconstruct · orbit · frame</text>
+
+    <rect class="card" x="769" y="170" width="343" height="244" rx="18"/>
+    <rect x="788" y="189" width="305" height="34" rx="8" fill="#293248"/>
+    <text x="803" y="212" fill="#c9d4ff" font-family="Inter,ui-sans-serif,system-ui" font-size="14" font-weight="750" letter-spacing="1.1">QWEN IMAGE 2.1 · ANYANGLE</text>
+    <text x="790" y="260" class="socket">image_2</text>
+    <text x="790" y="326" class="socket">prompt</text>
+    <text x="790" y="395" class="socket">image_1</text>
+    <text x="871" y="395" class="small">original image</text>
+  </g>
+  <text x="48" y="485" class="step">01  CONNECT IMAGE</text>
+  <text x="354" y="485" class="step">02  SET CAMERA &amp; APPLY</text>
+  <text x="769" y="485" class="step">03  RUN THE WORKFLOW</text>
+</svg>
