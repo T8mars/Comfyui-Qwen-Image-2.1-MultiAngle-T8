@@ -102,7 +102,7 @@ app.registerExtension({
       widget.type = 'converted-widget'; widget.computeSize = () => [0, -4];
       if (widget.inputEl) widget.inputEl.style.display = 'none';
       this.addWidget('button', '打开 AnyAngle Studio', null, () => openEditor(this, widget));
-      this.color = '#173847'; this.bgcolor = '#111e28'; this.size = [290, 130];
+      this.color = '#173847'; this.bgcolor = '#111e28'; this.size = [345, 130];
       const removed = this.onRemoved;
       this.onRemoved = function () { closeActive?.(); removed?.apply(this, arguments); };
     };

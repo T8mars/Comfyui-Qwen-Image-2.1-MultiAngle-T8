@@ -12,7 +12,7 @@
         440
       ],
       "size": [
-        300,
+        345,
         130
       ],
       "flags": {},
@@ -52,7 +52,8 @@
       },
       "widgets_values": [
         ""
-      ]
+      ],
+      "title": "Comfyui-Qwen-Image-2.1-MultiAngle-T8"
     },
     {
       "id": 2,

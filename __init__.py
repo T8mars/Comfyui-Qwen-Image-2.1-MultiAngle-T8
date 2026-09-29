@@ -56,7 +56,7 @@ class AnyAngleStudio:
 
 
 NODE_CLASS_MAPPINGS = {"AnyAngleStudioT8": AnyAngleStudio, "AnyAngleReconstructionOutputT8": AnyAngleReconstructionOutput}
-NODE_DISPLAY_NAME_MAPPINGS = {"AnyAngleStudioT8": "AnyAngle Studio · T8"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AnyAngleStudioT8": "Comfyui-Qwen-Image-2.1-MultiAngle-T8"}
 WEB_DIRECTORY = "./web"
 register_routes(store)
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

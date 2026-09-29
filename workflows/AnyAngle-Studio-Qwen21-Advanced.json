@@ -1,0 +1,1265 @@
+{
+  "id": "c1c2bc62-c65e-5d3e-9872-9ef0cca3c82a",
+  "revision": 0,
+  "last_node_id": 22,
+  "last_link_id": 32,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AnyAngleStudioT8",
+      "pos": [
+        30,
+        424.0054612499522
+      ],
+      "size": [
+        345,
+        130
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "reference_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "guide_image_2",
+          "type": "IMAGE",
+          "links": [
+            5,
+            14
+          ]
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            28
+          ]
+        },
+        {
+          "name": "scene_json",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AnyAngleStudioT8"
+      },
+      "widgets_values": [
+        "",
+        null
+      ],
+      "widgets_values_named": {
+        "snapshot": "",
+        "打开 AnyAngle Studio": null
+      },
+      "color": "#173847",
+      "bgcolor": "#111e28",
+      "title": "Comfyui-Qwen-Image-2.1-MultiAngle-T8"
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        -306.4851089541346,
+        241.86099452667733
+      ],
+      "size": [
+        300,
+        330
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4,
+            15,
+            23
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "原图 → image_1",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "your_original.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "your_original.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 3,
+      "type": "UNETLoader",
+      "pos": [
+        380,
+        30
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "qwen_image_2.1_int8_convrot.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    {
+      "id": 4,
+      "type": "LoraLoaderModelOnly",
+      "pos": [
+        703.137656852287,
+        12.656224969787157
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "LoraLoaderModelOnly"
+      },
+      "widgets_values": [
+        "QI2.1_AnyAngle.safetensors",
+        1
+      ],
+      "widgets_values_named": {
+        "lora_name": "QI2.1_AnyAngle.safetensors",
+        "strength_model": 1
+      }
+    },
+    {
+      "id": 5,
+      "type": "CLIPLoader",
+      "pos": [
+        380,
+        215
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen3vl_8b_int8_convrot.safetensors",
+        "qwen_image",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+        "type": "qwen_image",
+        "device": "default"
+      }
+    },
+    {
+      "id": 6,
+      "type": "VAELoader",
+      "pos": [
+        380,
+        410
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            6,
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "qwen_image_2.1_vae_bf16.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+      }
+    },
+    {
+      "id": 7,
+      "type": "TextEncodeQwenImage21",
+      "pos": [
+        741.3294649479503,
+        220.67326567702543
+      ],
+      "size": [
+        330,
+        340
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3
+        },
+        {
+          "label": "参考图 1 (Image-1)",
+          "name": "images.image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "label": "参考图 2 (Image-2)",
+          "name": "images.image_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "label": "参考图 3 (Image-3)",
+          "name": "images.image_3",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "label": "参考图 4 (Image-4)",
+          "name": "images.image_4",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": 6
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 32
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            8
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "TextEncodeQwenImage21"
+      },
+      "widgets_values": [
+        "",
+        "bad hands,",
+        1024
+      ],
+      "widgets_values_named": {
+        "prompt": "",
+        "negative_prompt": "bad hands,",
+        "resolution": 1024
+      }
+    },
+    {
+      "id": 8,
+      "type": "KSampler",
+      "pos": [
+        1117.2461193612178,
+        101.13615018096851
+      ],
+      "size": [
+        285,
+        474
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 19
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 8
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 9
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        19960422,
+        "fixed",
+        40,
+        1,
+        "euler",
+        "simple",
+        1
+      ],
+      "widgets_values_named": {
+        "seed": 19960422,
+        "control_after_generate": "fixed",
+        "steps": 40,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    {
+      "id": 9,
+      "type": "VAEDecode",
+      "pos": [
+        1460,
+        40
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 11
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            13,
+            26
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 10,
+      "type": "SaveImage",
+      "pos": [
+        1943.1157635162992,
+        -243.09892966682608
+      ],
+      "size": [
+        396.04488428044124,
+        468.1687856535235
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "AnyAngle-Studio"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "AnyAngle-Studio"
+      }
+    },
+    {
+      "id": 11,
+      "type": "PreviewImage",
+      "pos": [
+        50.16801481578848,
+        658.2249139826114
+      ],
+      "size": [
+        300,
+        290
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            24
+          ]
+        }
+      ],
+      "title": "实际粗图 → image_2",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "widgets_values_named": {}
+    },
+    {
+      "id": 12,
+      "type": "Note",
+      "pos": [
+        730.5182973967815,
+        1289.594157869292
+      ],
+      "size": [
+        640,
+        180
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "AnyAngle 使用说明",
+      "properties": {
+        "Node name for S&R": "Note"
+      },
+      "widgets_values": [
+        "1. 选择原图和本机模型，在 Studio 中重建并应用机位。\n2. 原图接 image_1，Studio 粗图接 image_2。\n3. 本进阶版采样为 LoRA 1 / CFG 1 / 40 steps。\n4. 需另装 QwenImage21SpectrumT8、SageAttentionT8、BlockCacheT8、KJNodes、Easy Use 与 Comfyroll。\n5. 快照和原图已清空；先选原图并应用机位，再运行。迁移时复制 input/anyangle_studio 资产。"
+      ],
+      "widgets_values_named": {
+        "text": "1. 选择原图和本机模型，在 Studio 中重建并应用机位。\n2. 原图接 image_1，Studio 粗图接 image_2。\n3. 本进阶版采样为 LoRA 1 / CFG 1 / 40 steps。\n4. 需另装 QwenImage21SpectrumT8、SageAttentionT8、BlockCacheT8、KJNodes、Easy Use 与 Comfyroll。\n5. 快照和原图已清空；先选原图并应用机位，再运行。迁移时复制 input/anyangle_studio 资产。"
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 14,
+      "type": "QwenImage21SpectrumT8",
+      "pos": [
+        1414.8676376923258,
+        -390.3152914582247
+      ],
+      "size": [
+        303.63561096191404,
+        322
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 21
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            19
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "QwenImage21SpectrumT8"
+      },
+      "widgets_values": [
+        4,
+        2,
+        0.01,
+        0.15,
+        0.15,
+        0.85,
+        1,
+        "cpu",
+        1024,
+        "constant",
+        0.5,
+        0.25
+      ],
+      "widgets_values_named": {
+        "history": 4,
+        "degree": 2,
+        "ridge": 0.01,
+        "guard_threshold": 0.15,
+        "start_percent": 0.15,
+        "end_percent": 0.85,
+        "max_consecutive_hits": 1,
+        "cache_device": "cpu",
+        "max_cache_mb": 1024,
+        "threshold_mode": "constant",
+        "split_ratio": 0.5,
+        "late_threshold": 0.25
+      }
+    },
+    {
+      "id": 15,
+      "type": "QwenImage21SageAttentionT8",
+      "pos": [
+        644.9965046827973,
+        -355.86523606408724
+      ],
+      "size": [
+        337.44237365722654,
+        58
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            22
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "QwenImage21SageAttentionT8"
+      },
+      "widgets_values": [
+        "sage"
+      ],
+      "widgets_values_named": {
+        "backend_mode": "sage"
+      }
+    },
+    {
+      "id": 16,
+      "type": "QwenImage21BlockCacheT8",
+      "pos": [
+        1035.060596662978,
+        -367.433221100832
+      ],
+      "size": [
+        322.07025756835935,
+        274
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "QwenImage21BlockCacheT8"
+      },
+      "widgets_values": [
+        0.08,
+        0.1,
+        0.85,
+        2,
+        "cpu",
+        8,
+        1024,
+        "constant",
+        0.5,
+        0.14
+      ],
+      "widgets_values_named": {
+        "residual_diff_threshold": 0.08,
+        "start_percent": 0.1,
+        "end_percent": 0.85,
+        "max_consecutive_hits": 2,
+        "cache_device": "cpu",
+        "metric_stride": 8,
+        "max_cache_mb": 1024,
+        "threshold_mode": "constant",
+        "split_ratio": 0.5,
+        "late_threshold": 0.14
+      }
+    },
+    {
+      "id": 17,
+      "type": "ImageConcatMulti",
+      "pos": [
+        1562.8146906760312,
+        442.076846444288
+      ],
+      "size": [
+        270,
+        170
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_1",
+          "type": "IMAGE,MASK",
+          "link": 23
+        },
+        {
+          "name": "image_2",
+          "shape": 7,
+          "type": "IMAGE,MASK",
+          "link": 24
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "IMAGE",
+          "links": [
+            25
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "d3cfe21625e5170126ce06fbfcfe1d88108688c3"
+      },
+      "widgets_values": [
+        2,
+        "down",
+        false,
+        null
+      ],
+      "widgets_values_named": {
+        "inputcount": 2,
+        "direction": "down",
+        "match_image_size": false,
+        "Update inputs": null
+      }
+    },
+    {
+      "id": 18,
+      "type": "ImageConcatMulti",
+      "pos": [
+        2060.1165968157875,
+        476.3488516742194
+      ],
+      "size": [
+        270,
+        170
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_1",
+          "type": "IMAGE,MASK",
+          "link": 25
+        },
+        {
+          "name": "image_2",
+          "shape": 7,
+          "type": "IMAGE,MASK",
+          "link": 26
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "IMAGE",
+          "links": [
+            27
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "d3cfe21625e5170126ce06fbfcfe1d88108688c3"
+      },
+      "widgets_values": [
+        2,
+        "right",
+        true,
+        null
+      ],
+      "widgets_values_named": {
+        "inputcount": 2,
+        "direction": "right",
+        "match_image_size": true,
+        "Update inputs": null
+      }
+    },
+    {
+      "id": 19,
+      "type": "SaveImage",
+      "pos": [
+        -561.9131050121827,
+        620.7617395581016
+      ],
+      "size": [
+        578.0414875436309,
+        270
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 27
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "ComfyUI"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "ComfyUI"
+      }
+    },
+    {
+      "id": 20,
+      "type": "easy showAnything",
+      "pos": [
+        409.1113745613162,
+        689.0280746171162
+      ],
+      "size": [
+        438.3647915998516,
+        141.97747234394762
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "*",
+          "links": [
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-easy-use",
+        "ver": "67afdc8204683e32549e63b7b02dc006d20441fa",
+        "Node name for S&R": "easy showAnything"
+      },
+      "widgets_values": [
+        "Change the camera angle from <image2> to <image1>."
+      ],
+      "widgets_values_named": {
+        "text": "Change the camera angle from <image2> to <image1>."
+      }
+    },
+    {
+      "id": 21,
+      "type": "CR Prompt Text",
+      "pos": [
+        -26.898195890837222,
+        1012.1839817195429
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            31
+          ]
+        },
+        {
+          "name": "show_help",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Comfyroll_CustomNodes",
+        "ver": "d78b780ae43fcf8c6b7c6505e6ffb4584281ceca",
+        "Node name for S&R": "CR Prompt Text"
+      },
+      "widgets_values": [
+        "背景变成商店"
+      ],
+      "widgets_values_named": {
+        "prompt": "背景变成商店"
+      }
+    },
+    {
+      "id": 22,
+      "type": "StringConcatenate",
+      "pos": [
+        716.3618845853954,
+        914.8856837044775
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "widget": {
+            "name": "string_a"
+          },
+          "link": 31
+        },
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "widget": {
+            "name": "string_b"
+          },
+          "link": 30
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            32
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "",
+        "string_b": "",
+        "delimiter": ""
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      3,
+      0,
+      4,
+      0,
+      "MODEL"
+    ],
+    [
+      8,
+      7,
+      0,
+      8,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      9,
+      7,
+      1,
+      8,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      7,
+      2,
+      8,
+      3,
+      "LATENT"
+    ],
+    [
+      11,
+      8,
+      0,
+      9,
+      0,
+      "LATENT"
+    ],
+    [
+      12,
+      6,
+      0,
+      9,
+      1,
+      "VAE"
+    ],
+    [
+      13,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      1,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      15,
+      2,
+      0,
+      1,
+      0,
+      "IMAGE"
+    ],
+    [
+      16,
+      4,
+      0,
+      15,
+      0,
+      "MODEL"
+    ],
+    [
+      19,
+      14,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      21,
+      16,
+      0,
+      14,
+      0,
+      "MODEL"
+    ],
+    [
+      22,
+      15,
+      0,
+      16,
+      0,
+      "MODEL"
+    ],
+    [
+      23,
+      2,
+      0,
+      17,
+      0,
+      "IMAGE"
+    ],
+    [
+      24,
+      11,
+      0,
+      17,
+      1,
+      "IMAGE"
+    ],
+    [
+      25,
+      17,
+      0,
+      18,
+      0,
+      "IMAGE"
+    ],
+    [
+      26,
+      9,
+      0,
+      18,
+      1,
+      "IMAGE"
+    ],
+    [
+      27,
+      18,
+      0,
+      19,
+      0,
+      "IMAGE"
+    ],
+    [
+      28,
+      1,
+      1,
+      20,
+      0,
+      "STRING"
+    ],
+    [
+      3,
+      5,
+      0,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      4,
+      2,
+      0,
+      7,
+      1,
+      "IMAGE"
+    ],
+    [
+      5,
+      1,
+      0,
+      7,
+      2,
+      "IMAGE"
+    ],
+    [
+      6,
+      6,
+      0,
+      7,
+      5,
+      "VAE"
+    ],
+    [
+      30,
+      20,
+      0,
+      22,
+      1,
+      "STRING"
+    ],
+    [
+      31,
+      21,
+      0,
+      22,
+      0,
+      "STRING"
+    ],
+    [
+      32,
+      22,
+      0,
+      7,
+      6,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.3641019700000219,
+      "offset": [
+        808.4364172468541,
+        -44.26527824928834
+      ]
+    }
+  },
+  "version": 0.4,
+  "seed_widgets": {
+    "8": 0
+  }
+}

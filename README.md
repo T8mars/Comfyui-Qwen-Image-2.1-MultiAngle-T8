@@ -8,7 +8,7 @@
 
 <p align="center"><sub>真实工作台截图 · 原创示例图经本地 TripoSplat 重建 · 方位角 28° / 俯仰角 6°</sub></p>
 
-**原模型：[lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [下载示例工作流](workflows/AnyAngle-Studio-Qwen21.json) · [English README](README_EN.md)
+**原模型：[lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [基础工作流](workflows/AnyAngle-Studio-Qwen21.json) · [进阶工作流](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [English README](README_EN.md)
 
 ## 效果与定位
 
@@ -34,19 +34,21 @@
 
 ## 快速开始
 
-1. 按下方说明安装节点与所需模型，重启 ComfyUI，导入 [示例工作流](workflows/AnyAngle-Studio-Qwen21.json)。
+1. 按下方说明安装节点与所需模型，重启 ComfyUI，导入 [基础工作流](workflows/AnyAngle-Studio-Qwen21.json)。
 2. 把原图同时接入 Studio 的 `reference_image` 和编码器的 `image_1`。Studio 的 `guide_image_2` 接编码器 `image_2`，`prompt` 接 `prompt`。
-3. 打开 **AnyAngle Studio · T8**，等待原图重建；拖动选角，检查右侧粗图，点击 **应用到节点**，再运行工作流。
+3. 在 **Comfyui-Qwen-Image-2.1-MultiAngle-T8** 节点中打开 AnyAngle Studio，等待原图重建；拖动选角，检查右侧粗图，点击 **应用到节点**，再运行工作流。
 
 ![原图、Studio 与 Qwen Image 2.1 AnyAngle 的接线示意](docs/images/wiring.svg)
 
 Load Image 连线会自动读取；连接其他上游图像节点时，点击“读取上游图像”。批量输入使用第一张。原图重建模式的 **0°** 是模型预测的原图机位。网格、控制器和取景线不会进入粗图。
 
-推荐起始参数：**LoRA 1 · CFG 3 · 20 步 · euler / simple**。示例工作流的默认提示词为：
+基础工作流的起始参数：**LoRA 1 · CFG 3 · 20 步 · euler / simple**。默认提示词为：
 
 ```text
 Change the camera angle from <image2> to <image1>.
 ```
+
+[进阶工作流](workflows/AnyAngle-Studio-Qwen21-Advanced.json)包含优化链、提示词拼接和三图拼接，采样设置为 **LoRA 1 · CFG 1 · 40 步**。它还依赖另外安装的 `QwenImage21SpectrumT8`、`QwenImage21SageAttentionT8`、`QwenImage21BlockCacheT8`、KJNodes、Easy Use 和 Comfyroll；缺少这些节点时请使用基础版。模板不含特定电脑的原图和快照，使用前选择原图并重新应用机位。
 
 ## 安装
 
@@ -59,6 +61,8 @@ cd ComfyUI-AnyAngle-Studio-T8
 python install_assets.py --download-lora
 python install_reconstruction.py
 ```
+
+节点标题显示完整的 GitHub 仓库名。节点上方的黑色**来源标签**由 ComfyUI 根据安装目录生成；若直接用含 `2.1` 的仓库名作文件夹名，当前前端会在小数点处截断为 `Comfyui-Qwen-Image-2`。使用上面的无点目录名；旧安装可将节点文件夹重命名为 `ComfyUI-AnyAngle-Studio-T8`，重启 ComfyUI 后来源标签将显示 `AnyAngle-Studio-T8`。节点类型与工作流连线不变。
 
 仓库已包含 MakeHuman 人偶资源及贴图。`install_assets.py --download-lora` 会校验资源并下载 AnyAngle LoRA；`install_reconstruction.py` 下载约 **3.78 GB** 的重建权重。请使用 **ComfyUI 的 Python 环境**；整合包用户将 `python` 换成内置 Python 路径。
 

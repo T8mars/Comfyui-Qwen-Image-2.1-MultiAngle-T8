@@ -8,7 +8,7 @@
 
 <p align="center"><sub>Actual workbench · original demo image reconstructed locally with TripoSplat · azimuth 28° / elevation 6°</sub></p>
 
-**Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Example workflow](workflows/AnyAngle-Studio-Qwen21.json) · [中文说明](README.md)
+**Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Basic workflow](workflows/AnyAngle-Studio-Qwen21.json) · [Advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [中文说明](README.md)
 
 ## What it produces
 
@@ -34,19 +34,21 @@ The included mannequin supports pose presets, hands, body proportions, and joint
 
 ## Quick start
 
-1. Install the node and models below, restart ComfyUI, and load the [example workflow](workflows/AnyAngle-Studio-Qwen21.json).
+1. Install the node and models below, restart ComfyUI, and load the [basic workflow](workflows/AnyAngle-Studio-Qwen21.json).
 2. Connect the original image to both Studio `reference_image` and encoder `image_1`. Connect Studio `guide_image_2` to encoder `image_2`, and Studio `prompt` to encoder `prompt`.
-3. Open **AnyAngle Studio · T8**, wait for reconstruction, drag to choose a camera, inspect the guide, click **Apply to node**, and run the workflow.
+3. Open AnyAngle Studio from the **Comfyui-Qwen-Image-2.1-MultiAngle-T8** node, wait for reconstruction, drag to choose a camera, inspect the guide, click **Apply to node**, and run the workflow.
 
 ![How to connect the original image, AnyAngle Studio, and Qwen Image 2.1 AnyAngle](docs/images/wiring.svg)
 
 A Load Image connection is read automatically. For other upstream IMAGE nodes, click **读取上游图像** (Read upstream image). A batch uses its first image. In photo mode, **0°** means the model's predicted reference camera. Grids, controls, and camera frames are excluded from the guide.
 
-Suggested starting settings: **LoRA 1 · CFG 3 · 20 steps · euler / simple**. The example workflow uses:
+The basic workflow starts with **LoRA 1 · CFG 3 · 20 steps · euler / simple**. Its default prompt is:
 
 ```text
 Change the camera angle from <image2> to <image1>.
 ```
+
+The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes an optimization chain, prompt composition, and a three-image comparison; it uses **LoRA 1 · CFG 1 · 40 steps**. It also requires separately installed `QwenImage21SpectrumT8`, `QwenImage21SageAttentionT8`, `QwenImage21BlockCacheT8`, KJNodes, Easy Use, and Comfyroll nodes. Use the basic workflow if these are unavailable. The template contains no machine-specific image or scene snapshot; select an image and apply a new camera view before running.
 
 ## Install
 
@@ -59,6 +61,8 @@ cd ComfyUI-AnyAngle-Studio-T8
 python install_assets.py --download-lora
 python install_reconstruction.py
 ```
+
+The node title shows the full GitHub repository name. The black **source badge** above it comes from ComfyUI's installation folder name. When the folder contains `2.1`, the current frontend splits it at the dot and shows only `Comfyui-Qwen-Image-2`. Use the dot-free folder name in the command above. For an existing installation, rename the node folder to `ComfyUI-AnyAngle-Studio-T8` and restart ComfyUI; the badge will then read `AnyAngle-Studio-T8`. Node types and workflow connections are unchanged.
 
 The MakeHuman pack and skin texture are included in the repository. `install_assets.py --download-lora` verifies them and downloads the AnyAngle LoRA; `install_reconstruction.py` downloads approximately **3.78 GB** of reconstruction weights. Use **ComfyUI's Python environment**; in a portable build, replace `python` with its bundled executable.
 
