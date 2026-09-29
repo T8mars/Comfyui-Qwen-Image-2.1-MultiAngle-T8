@@ -12,11 +12,11 @@
 
 ## 效果与定位
 
-| 原创参考图 · `image_1` | 新机位粗图 · `image_2` |
-|:---:|:---:|
-| <img src="docs/images/demo-reference.png" width="260" alt="用于演示的原创虚构人物参考图"> | <img src="docs/images/demo-guide.png" width="260" alt="节点实际导出的新机位粗图"> |
+| 原创参考图 · `image_1` | 新机位粗图 · `image_2` | AnyAngle 最终生成图 |
+|:---:|:---:|:---:|
+| <img src="docs/images/demo-reference.png" width="220" alt="用于演示的原创虚构人物参考图"> | <img src="docs/images/demo-guide.png" width="220" alt="节点实际导出的新机位粗图"> | <img src="docs/images/demo-final-qwen.png" width="220" alt="Qwen Image 2.1 AnyAngle 使用原图与粗图生成的最终图"> |
 
-右图由本节点**实际导出**，用作 AnyAngle 的机位条件，并非最终的 Qwen 生成图。示例人物为原创生成的虚构角色。单图重建会推测未见过的侧面与背面，不能保证与原图完全一致。
+中图由本节点**实际导出**，用作 AnyAngle 的机位条件；右图是示例工作流使用原图、中图及 AnyAngle LoRA **实际生成**的结果（seed 42、20 步、CFG 3）。示例人物为原创生成的虚构角色。单图重建会推测未见过的侧面与背面，不能保证与原图完全一致。
 
 - **参考图直接连线**：左侧 `reference_image` 接收 ComfyUI IMAGE，也支持在工作台上传。
 - **原图对应主体**：本地 TripoSplat 重建后，拖动相机探索视角；调整机位时保持重建姿势。
