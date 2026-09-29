@@ -310,6 +310,9 @@ export class StudioScene {
       v.beginCaptureBatch(width, height);
       batchStarted = true;
       if (this.splat) await this.splat.prepareCapture(v.renderer, v.captureCamera);
+      // Sorting and resizing can update editor helpers while the capture awaits.
+      for (const [object] of visibility) object.visible = object === content || !!object.isLight;
+      for (const [object] of nestedHelpers) object.visible = false;
       v.renderer.render(v.scene, v.captureCamera);
       return this.canvas.toDataURL('image/png');
     } finally {

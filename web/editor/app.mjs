@@ -1,4 +1,4 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs';
+import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20260929';
 import { reconstruct } from './reconstruct.mjs';
 
 const $ = selector => document.querySelector(selector);
