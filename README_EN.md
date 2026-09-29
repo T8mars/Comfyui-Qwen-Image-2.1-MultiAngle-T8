@@ -30,7 +30,9 @@ python install_assets.py --download-lora
 python install_reconstruction.py
 ```
 
-Use **ComfyUI's Python environment**. For portable installations, replace `python` with the bundled executable. The installers download and verify editor assets, the AnyAngle LoRA, and approximately **3.78 GB** of reconstruction weights. Restart ComfyUI and search for **AnyAngle Studio · T8**.
+The repository includes the required MakeHuman pack and skin texture. `install_assets.py --download-lora` verifies these assets and downloads the AnyAngle LoRA; `install_reconstruction.py` downloads approximately **3.78 GB** of reconstruction weights. Use **ComfyUI's Python environment**; for portable installations, replace `python` with the bundled executable. Restart ComfyUI and search for **AnyAngle Studio · T8**.
+
+If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` in the node directory, confirm that `web/vendor/assets/pose_studio_makehuman.v2.bin` and `web/vendor/textures/skin.png` exist, then hard-refresh the browser. Run `python install_assets.py` if either file is still missing.
 
 | Model | Source / location |
 |---|---|

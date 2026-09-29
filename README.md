@@ -30,7 +30,9 @@ python install_assets.py --download-lora
 python install_reconstruction.py
 ```
 
-请使用 **ComfyUI 环境的 Python**；整合包用户将 `python` 替换为内置 Python 路径。两个安装命令分别下载编辑器资源和 AnyAngle LoRA、约 **3.78 GB** 的重建权重，并校验文件。重启后搜索 **AnyAngle Studio · T8**。
+仓库已包含编辑器必需的 MakeHuman 资源和皮肤贴图；`install_assets.py --download-lora` 会校验这些资源并下载 AnyAngle LoRA，`install_reconstruction.py` 下载约 **3.78 GB** 的重建权重。请使用 **ComfyUI 环境的 Python**；整合包用户将 `python` 替换为内置 Python 路径。重启后搜索 **AnyAngle Studio · T8**。
+
+若旧版安装打开工作台时显示 `MakeHuman asset: HTTP 404`，在节点目录执行 `git pull`，确认 `web/vendor/assets/pose_studio_makehuman.v2.bin` 和 `web/vendor/textures/skin.png` 存在，再强制刷新浏览器。若文件仍缺失，运行 `python install_assets.py` 补齐。
 
 | 模型 | 来源 / 位置 |
 |---|---|
