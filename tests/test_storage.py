@@ -7,6 +7,7 @@ import struct
 import sys
 import tempfile
 import unittest
+import zlib
 
 from PIL import Image
 
@@ -91,6 +92,16 @@ class SnapshotTests(unittest.TestCase):
         scene["reference"] = {"name": source["name"]}
         with self.assertRaisesRegex(ValueError, "valid PNG"):
             self.store.save_scene(scene, "data:image/png;base64,???")
+
+    def test_oversized_png_is_rejected_before_decode(self):
+        def chunk(kind, payload):
+            return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
+
+        for width, height in ((8000, 5000), (20000, 10000)):
+            header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+            png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IEND", b"")
+            with self.subTest(size=(width, height)), self.assertRaisesRegex(ValueError, "32 megapixels"):
+                self.store.asset(png, "png")
 
     def test_gaussian_asset_roundtrip_and_reference_binding(self):
         fields = ['x', 'y', 'z', 'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity',

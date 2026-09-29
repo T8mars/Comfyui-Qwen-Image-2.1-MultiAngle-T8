@@ -83,11 +83,15 @@ class StudioStore:
                 raise ValueError("Export this GLB without Draco, Meshopt or KTX2 compression")
             meta = {}
         elif kind == "png":
-            with Image.open(io.BytesIO(data)) as source:
-                source = ImageOps.exif_transpose(source)
-                source.load()
+            try:
+                opened = Image.open(io.BytesIO(data))
+            except Image.DecompressionBombError as error:
+                raise ValueError("Image exceeds 32 megapixels") from error
+            with opened as source:
                 if source.width * source.height > 32_000_000:
                     raise ValueError("Image exceeds 32 megapixels")
+                source = ImageOps.exif_transpose(source)
+                source.load()
                 image = source.convert("RGB")
                 buffer = io.BytesIO()
                 image.save(buffer, format="PNG")
