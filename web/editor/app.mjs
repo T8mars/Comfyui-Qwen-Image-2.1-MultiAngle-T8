@@ -49,6 +49,7 @@ function changed() {
   if (!ready || studio.restoring) return;
   studio.syncPose(); revision++; selectedShot = null;
   document.querySelectorAll('.preset-card.active').forEach(button => button.classList.remove('active'));
+  document.querySelectorAll('.shot-thumb.active').forEach(button => button.classList.remove('active'));
   $('#status').textContent = '草稿有更改 · 应用后才会更新节点'; $('#status').dataset.state = 'dirty';
   refresh(); schedulePreview();
 }
@@ -108,6 +109,7 @@ function refresh() {
   $('#empty-scene').hidden = !empty;
   $('#guide').hidden = empty;
   $('#guide-state').textContent = empty ? '生成对应主体后显示新机位粗图。' : '只有画面内容会输出，网格与控制器不会进入粗图。';
+  $('#save-shot').disabled = $('#download-guide').disabled = $('#fit-frame').disabled = empty;
   $('#apply').disabled = busy || !ready || empty || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending));
   $('#edit-mode').disabled = splat || empty;
   $('#edit-mode').title = splat ? '原图重建主体没有可编辑骨架；请使用拍摄机位' : empty ? '请先载入三维主体' : '';
@@ -186,10 +188,13 @@ for (const [side, label] of [['l', '左手'], ['r', '右手']]) {
 
 function setMode(mode) {
   studio.setMode(mode);
+  mode = studio.mode;
   $('#camera-mode').classList.toggle('active', mode === 'camera'); $('#edit-mode').classList.toggle('active', mode === 'edit');
   $('#camera-mode').setAttribute('aria-pressed', String(mode === 'camera')); $('#edit-mode').setAttribute('aria-pressed', String(mode === 'edit'));
   $('#use-view').hidden = mode !== 'edit';
-  $('#stage-help').textContent = mode === 'camera' ? '拖动调整拍摄机位 · Shift 平移 · 滚轮缩放' : '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移 · 拍摄机位保持不变';
+  $('#stage-help').textContent = mode === 'camera' ? '拖动调整拍摄机位 · Shift 平移 · 滚轮缩放'
+    : doc.source.kind === 'human' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移 · 拍摄机位保持不变'
+      : '右键环绕 · 中键平移 · 可将当前视图设为机位';
 }
 $('#camera-mode').onclick = () => setMode('camera'); $('#edit-mode').onclick = () => setMode('edit');
 $('#use-view').onclick = () => { begin(); studio.currentViewAsShot(); setMode('camera'); changed(); };
@@ -256,7 +261,8 @@ async function reconstructPhoto() {
     if (doc.source.name !== source.name) doc.shots = [];
     doc.source = source; doc.front = 0; doc.scale = 1; doc.camera = referenceCamera();
     const outputScale = Math.min(1, 1536 / Math.max(reference.width, reference.height));
-    doc.width = Math.round(reference.width * outputScale); doc.height = Math.round(reference.height * outputScale);
+    doc.width = Math.max(64, Math.round(reference.width * outputScale));
+    doc.height = Math.max(64, Math.round(reference.height * outputScale));
     $('#loading-text').textContent = '载入三维主体和参考机位';
     await studio.restore(doc); changed(); renderShots();
     $('#status').textContent = '原图三维重建已载入 · 拖动调整机位后应用';
@@ -413,9 +419,10 @@ async function start(token, reference = { connected: false }) {
       doc = saved.scene; snapshot = token;
     }
     linkedReference = reference;
-    const referenceChanged = reference.connected && reference.asset?.name !== doc.reference?.name;
+    const referenceChanged = reference.connected && !!reference.asset && reference.asset.name !== doc.reference?.name;
     if (reference.connected) doc.reference = reference.asset || null;
-    if (doc.reference && (doc.source.kind === 'human' || (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference.name))) doc.source = { kind: 'empty' };
+    if ((referenceChanged && doc.source.kind === 'human') ||
+        (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name)) doc.source = { kind: 'empty' };
     studio = new StudioScene($('#viewport'), { begin, change: changed, camera: () => { revision++; refresh(); schedulePreview(); $('#status').textContent = '机位草稿 · 尚未应用'; $('#status').dataset.state = 'dirty'; }, select: name => { selectedBone = name || ''; refresh(); }, error });
     await studio.init(doc);
     if (doc.source.kind === 'human') await ensureHumanTools();

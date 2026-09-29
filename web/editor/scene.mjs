@@ -137,7 +137,6 @@ export class StudioScene {
       if (this.splat && doc.source.kind !== 'splat') { await this.splat.dispose(); this.splat = null; }
       if (this.glb && doc.source.kind !== 'glb') { disposeObject(this.glb); this.glb = null; this.glbName = null; }
       if (doc.source.kind === 'human') {
-        if (this.glb) { disposeObject(this.glb); this.glb = null; this.glbName = null; }
         if (!this.pack) {
           try { this.pack = await loadMorphPack(new URL('../vendor/assets/pose_studio_makehuman.v2.bin', import.meta.url)); }
           catch (error) { throw new Error(`MakeHuman 编辑资源缺失或损坏。请更新节点，或在节点目录运行 python install_assets.py。${error.message}`); }
@@ -171,7 +170,9 @@ export class StudioScene {
           if (bounds.isEmpty()) throw new Error('GLB 中没有可渲染的几何体');
           const size = bounds.getSize(new THREE.Vector3());
           const center = bounds.getCenter(new THREE.Vector3());
-          const scale = 20 / Math.max(size.x, size.y, size.z);
+          const longest = Math.max(size.x, size.y, size.z);
+          if (!Number.isFinite(longest) || longest <= 0) throw new Error('GLB 几何体范围无效');
+          const scale = 20 / longest;
           const normalized = new THREE.Group();
           normalized.add(imported);
           normalized.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);

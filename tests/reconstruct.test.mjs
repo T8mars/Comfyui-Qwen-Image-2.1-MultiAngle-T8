@@ -33,3 +33,27 @@ test('a reconstruction job lost after a server restart is queued once more', asy
     globalThis.localStorage = originalStorage;
   }
 });
+
+test('failed reconstruction without execution details reports the model error', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = new Map();
+  globalThis.localStorage = {
+    getItem: key => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: key => storage.delete(key),
+  };
+  globalThis.fetch = async url => ({
+    ok: true,
+    json: async () => url === '/anyangle-studio/reconstruction-config' ? { available: true, models: {} }
+      : url === '/prompt' ? { prompt_id: 'failed-job' }
+        : { 'failed-job': { status: { status_str: 'error' } } },
+  });
+  try {
+    await assert.rejects(reconstruct({ name: 'photo.png' }, () => {}), /TripoSplat 重建失败/);
+    assert.equal(storage.has('anyangle-reconstruction:photo.png'), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  }
+});

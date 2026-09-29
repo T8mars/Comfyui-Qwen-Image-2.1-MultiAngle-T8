@@ -26,7 +26,9 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true) {
     if (existing.ok) return cached.source;
     localStorage.removeItem(key); cached = null;
   }
-  const config = await (await fetch('/anyangle-studio/reconstruction-config')).json();
+  const configResponse = await fetch('/anyangle-studio/reconstruction-config');
+  if (!configResponse.ok) throw new Error('无法检查本地重建模型，请确认 ComfyUI 服务正常运行');
+  const config = await configResponse.json();
   if (!config.available) throw new Error(`缺少本地重建模型：${config.missing.join('、')}。请运行节点目录中的 install_reconstruction.py。`);
   let job = typeof cached === 'string' ? cached : cached?.job;
   if (!job) {
@@ -48,10 +50,12 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true) {
     }
     if (item?.status?.status_str === 'error') {
       localStorage.removeItem(key);
-      const detail = item.status.messages.find(([type]) => type === 'execution_error')?.[1];
+      const detail = item.status.messages?.find(([type]) => type === 'execution_error')?.[1];
       throw new Error(detail?.exception_message || 'TripoSplat 重建失败');
     }
-    const queue = await (await fetch('/queue')).json();
+    const queueResponse = await fetch('/queue');
+    if (!queueResponse.ok) throw new Error('无法读取重建队列，请检查 ComfyUI 服务');
+    const queue = await queueResponse.json();
     const running = queue.queue_running.some(entry => entry[1] === job);
     const pending = queue.queue_pending.some(entry => entry[1] === job);
     if (!running && !pending && !item && Date.now() - started > 5000) {
