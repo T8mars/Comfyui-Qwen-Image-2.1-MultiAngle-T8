@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css"></head>
+<body>
+<header class="topbar">
+  <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small>T8</small></div>
+  <span class="product-label">相机工作台</span>
+  <div class="top-actions"><button id="undo" class="icon-button" title="撤销 Ctrl+Z" aria-label="撤销"><img src="../icons/arrow-back-up.svg" alt=""></button><button id="redo" class="icon-button" title="重做 Ctrl+Shift+Z" aria-label="重做"><img src="../icons/arrow-forward-up.svg" alt=""></button><button id="cancel" class="quiet">取消</button><button id="apply" class="primary" disabled><img src="../icons/check.svg" alt="">应用到节点</button></div>
+</header>
+<main class="workspace" id="workspace" inert>
+  <aside class="left-panel">
+    <section class="reference-section">
+      <div class="section-heading"><h2>原图 <small>· image_1</small></h2><button id="reference-button" class="icon-button" title="导入原图" aria-label="导入原图"><img src="../icons/upload.svg" alt=""></button></div>
+      <button id="reference-drop" class="reference-drop" aria-label="选择参考原图"><img id="reference" alt="完整参考原图" hidden><span id="reference-empty"><img src="../icons/photo.svg" alt=""><strong>导入参考原图</strong><small>用于构图对照 · 下游单独接 image_1</small></span></button>
+      <p id="reference-origin" class="hint">支持节点左侧 IMAGE 连线，也可上传原图。</p>
+      <button id="read-reference" hidden><img src="../icons/refresh.svg" alt="">读取上游图像</button>
+      <button id="reconstruct" class="primary reconstruct-button" disabled>从原图重建 3D</button>
+      <p id="reconstruction-state" class="hint" hidden>从原图重建对应主体，再调整机位。</p>
+      <div class="source-buttons"><button id="import-glb"><img src="../icons/cube.svg" alt="">导入 GLB</button><button id="human"><img src="../icons/body-scan.svg" alt="">人偶</button></div>
+      <p class="asset-label" id="asset-label">正在载入场景</p>
+    </section>
+    <details class="panel-block" open id="pose-panel"><summary>姿势库 <span class="tag amber">实验</span></summary><div class="preset-grid" id="presets"></div><div class="compact-actions"><button id="save-pose"><img src="../icons/device-floppy.svg" alt="">保存姿势</button><button id="import-pose" title="导入本编辑器导出的姿势 JSON">导入</button><button id="export-pose" title="导出姿势 JSON">导出</button></div><div id="saved-poses" class="saved-poses"></div></details>
+    <details class="panel-block" id="hands-panel"><summary>手势 <small>人物自身左右</small></summary><div id="hands"></div></details>
+    <details class="panel-block" id="body-panel"><summary>体型</summary><div id="body-sliders"></div></details>
+    <details class="panel-block" id="joint-panel"><summary>关节精调 <small id="bone-name">未选择</small></summary><p class="hint">切换“编辑场景”，点选关节或拖动 IK 手脚控制点。</p><select id="bone-select" aria-label="选择关节"><option value="">选择关节</option></select><div id="bone-sliders"></div><button id="reset-bone">复位当前关节</button></details>
+    <details class="panel-block"><summary>场景校准</summary><div id="scene-sliders"></div><p class="hint">GLB 默认 Y 轴朝上。旋转资产以校准正面；场景尺度与镜头缩放相互独立。</p><button id="reset-camera"><img src="../icons/refresh.svg" alt="">重置机位</button></details>
+  </aside>
+  <section class="center-panel">
+    <div class="stage" id="stage">
+      <canvas id="viewport" aria-label="交互 3D 场景：拖动改变机位，Shift 拖动平移，滚轮缩放" tabindex="0"></canvas>
+      <div class="stage-toolbar"><div class="mode-switch" role="group" aria-label="编辑模式"><button id="camera-mode" class="active"><img src="../icons/camera.svg" alt="">拍摄机位</button><button id="edit-mode"><img src="../icons/cube.svg" alt="">编辑场景</button></div><select id="ratio" aria-label="输出画幅"><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option><option value="custom">自定义</option></select></div>
+      <div class="stage-meta"><span id="source-badge">HUMAN · 实验</span><span>Y-UP / PERSPECTIVE</span></div>
+      <button id="use-view" class="use-view" hidden><img src="../icons/focus-2.svg" alt="">将当前视图设为机位</button>
+      <button id="fit-frame" class="fit-frame" title="将整个资产放入拍摄画幅"><img src="../icons/focus-2.svg" alt="">适合画幅</button>
+      <div class="stage-help" id="stage-help">拖动调整拍摄机位 <span>Shift 平移 · 滚轮缩放</span></div>
+      <div id="empty-scene" class="empty-scene" hidden><img src="../icons/aperture.svg" alt=""><strong>让原图成为三维场景</strong><span>连接参考图或上传图片<br>重建对应主体后，拖动相机探索新视角</span></div>
+      <div id="loading" class="loading" role="status"><img src="../icons/aperture.svg" alt=""><strong id="loading-text">正在准备 3D 工作台</strong><span id="loading-detail">加载本地渲染资源</span></div>
+    </div>
+    <section class="shot-shelf"><div class="section-heading"><h2>已保存机位 <small id="shot-count">0</small></h2><button id="save-shot"><img src="../icons/plus.svg" alt="">收藏当前机位</button></div><div id="shots" class="shots"><p class="empty-note">把满意的机位留在这里。切换收藏只改变相机，姿势保持当前状态。</p></div></section>
+  </section>
+  <aside class="right-panel">
+    <div class="section-heading"><h1>拍摄相机</h1><img class="heading-icon" src="../icons/camera.svg" alt=""></div><p class="eyebrow">相对于已校准的场景正面</p>
+    <div id="camera-sliders"></div>
+    <section class="view-presets"><h2>预设视角</h2><div class="three-buttons"><button data-angle="0">正面</button><button data-angle="90">侧面</button><button data-angle="180">背面</button></div></section>
+    <section class="output-section"><h2>输出尺寸</h2><div class="dimensions"><label>宽度<input id="width" type="number" min="64" max="4096" step="32" value="1024"></label><label>高度<input id="height" type="number" min="64" max="4096" step="32" value="1024"></label></div><label class="background-label">粗图背景<input type="color" id="background" value="#69717b" aria-label="粗图背景色"></label></section>
+    <section class="guide-section"><div class="section-heading"><h2>实际粗渲染 <small>· image_2</small></h2><span id="guide-size">1024 × 1024</span></div><div class="guide-wrap"><img id="guide" alt="当前拍摄机位的实际粗渲染"></div><p id="guide-state" class="hint">只有画面内容会输出，网格与控制器不会进入粗图。</p><button id="download-guide"><img src="../icons/download.svg" alt="">导出粗图 PNG</button></section>
+    <details class="protocol"><summary>AnyAngle 接线</summary><p>原图 → image_1<br>这里的粗图 → image_2</p><code>Change the camera angle from &lt;image2&gt; to &lt;image1&gt;.</code><p class="hint">LoRA 1 · CFG 3 · 至少 20 步。原图重建主体用于保持动作和视角对应；遮挡区域由模型推测。</p></details>
+  </aside>
+</main>
+<footer><div id="status" role="status">准备中</div><span>IMAGE <b>·</b> PROMPT <b>·</b> SCENE JSON</span></footer>
+<div id="toast" role="status" hidden></div>
+<dialog id="name-dialog"><form method="dialog"><h2 id="name-title">命名</h2><input id="name-input" maxlength="48" required autocomplete="off"><div><button value="cancel" formnovalidate>取消</button><button value="ok" class="primary">保存</button></div></form></dialog>
+<input type="file" id="reference-file" accept="image/*" hidden><input type="file" id="glb-file" accept=".glb" hidden><input type="file" id="pose-file" accept=".json,application/json" hidden>
+<script type="module" src="./app.mjs"></script>
+</body></html>

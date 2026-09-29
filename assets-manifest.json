@@ -1,0 +1,18 @@
+{
+  "editor": [
+    {
+      "sha256": "7d6d3c10fad61901169308f8dd4637ed2f3e479c55e981b93ebb818a420669c7",
+      "url": "https://raw.githubusercontent.com/Work-Fisher/ComfyUI-Fisher-Pose/d116451f25b1c9da36dd852fdc9df321068f4d98/web/vnccs/textures/skin.png",
+      "path": "web/vendor/textures/skin.png"
+    },
+    {
+      "sha256": "b93d95b0d74f9afcc039540a81b72b5c1ffaf59fd704f556ca2be8e8da415eaa",
+      "url": "https://raw.githubusercontent.com/Work-Fisher/ComfyUI-Fisher-Pose/d116451f25b1c9da36dd852fdc9df321068f4d98/web/vnccs/assets/pose_studio_makehuman.v2.bin",
+      "path": "web/vendor/assets/pose_studio_makehuman.v2.bin"
+    }
+  ],
+  "lora": {
+    "sha256": "e4d7a0d44a45ed62daabd0f2484a1a59046618a4c47e76b1eab5e386a7a35d8a",
+    "url": "https://huggingface.co/lilylilith/QI_2.1_AnyAngle/resolve/e42ac7827e2cad7ce22dc099109ae29681239eba/QI2.1_AnyAngle.safetensors"
+  }
+}

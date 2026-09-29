@@ -1,0 +1,11 @@
+/roadmap.md
+/.local/
+/validation/
+/VALIDATION.md
+/design-qa.md
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
+/web/vendor/assets/*.bin
+/web/vendor/textures/*.png
