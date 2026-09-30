@@ -61,6 +61,17 @@ class SnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown model"):
             self.store.save_scene(scene, self.png)
 
+    def test_extracted_pose_can_be_saved_and_reloaded_without_a_mannequin(self):
+        scene = copy.deepcopy(self.scene)
+        scene["source"] = {"kind": "empty"}
+        image = self.store.asset(base64.b64decode(self.png.split(",")[1]), "png")
+        scene["conditioning"] = {"model": "base", "guide": "pose", "map": image,
+                                 "mapKind": "pose", "mapOrigin": "dwpose"}
+        document, data = self.store.load_scene(self.store.save_scene(scene, self.png))
+        self.assertEqual(document["prompt"], BASE_PROMPTS["pose"])
+        self.assertEqual(document["scene"]["conditioning"]["map"], image)
+        self.assertEqual(Image.open(io.BytesIO(data)).getpixel((0, 0)), (32, 77, 119))
+
     def test_missing_and_corrupted_guide_fail(self):
         token = self.store.save_scene(self.scene, self.png)
         document, _ = self.store.load_scene(token)

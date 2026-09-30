@@ -31,7 +31,7 @@ A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode 
 
 ![The built-in MakeHuman mannequin, pose presets, and joint editing controls](docs/images/studio-human.png)
 
-The included mannequin supports pose presets, hands, body proportions, and joint editing. Select **POSE → Extract pose from photo** in the right panel to apply the photo's body pose to the mannequin, then adjust it by hand. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
+The included mannequin supports pose presets, hands, body proportions, and joint editing. **POSE → Extract pose from photo** directly outputs the photo skeleton. For a visible full-body skeleton, choose **Edit pose with 3D mannequin** to adjust it further. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
 
 ### Base model and structure maps
 
@@ -39,10 +39,12 @@ Select **Qwen base** under Guide Strategy to output `anyangle_lora_strength = 0`
 
 | Base-model guide | Source and behavior |
 |---|---|
-| Coarse 3D render | A clean render from the current camera when a 3D subject is available. |
-| POSE | Click **Extract pose from photo** to run DWPose directly, or import a Fisher-compatible colored skeleton on black. It poses the bundled mannequin, supports front/back depth flips, and exports the skeleton from the **current camera**. |
+| Coarse 3D render | Choose **Reconstruct 3D from photo** to run TripoSplat, then preview the clean camera render. Existing GLB scenes and mannequins can be rendered directly. |
+| POSE | DWPose directly outputs visible body, hand, and face keypoints at the original framing. Fisher-compatible skeletons can also be imported. Full-body skeletons can optionally be edited with the 3D mannequin and exported from the adjusted camera. |
 | Depth Anything | Click **Estimate depth from photo** to run the bundled Depth Anything 3 Small integration, or connect another depth node to `structure_image` / upload a PNG. Original-photo depth remains at the original view; rotating the camera does not synthesize a new depth view. |
-| Canny | Click **Generate Canny from current view** for edges from the 3D camera render, or from the photo when no 3D scene exists. Existing Canny maps can also be connected or uploaded. |
+| Canny | Extract photo edges by default. Explicitly choose **Generate Canny from 3D camera** for scene edges, or connect/import an existing map. |
+
+Reconstruction opens the interactive **3D workbench** by default. Choose **Preview current camera render** to inspect the actual `image_2` output, then switch back to adjust the camera. Photo skeletons and depth appear directly in the central **Guide preview** at the original view; a cropped portrait is not automatically converted into a full mannequin pose.
 
 The original still goes to `reference_image` and encoder `image_1`; `guide_image_2` goes to encoder `image_2`. Each guide mode supplies a matching edit prompt. DWPose extracts **2D joints**; inspect occluded limbs and front/back depth in the editor. The base model treats the structure map as an **image reference** rather than a dedicated ControlNet input. Pose, depth, and edge adherence are therefore model-dependent, not guaranteed hard constraints. Imported maps are letterboxed to the output size instead of stretched.
 

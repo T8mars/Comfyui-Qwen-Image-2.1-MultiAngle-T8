@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cannyEdges, guidePrompt, PROMPTS } from '../web/editor/guides.mjs';
+import { cannyEdges, guidePrompt, guideSource, PROMPTS } from '../web/editor/guides.mjs';
 import { detectSkeleton, liftOpenPose, ORDER, LIMBS, COLORS } from '../web/editor/openpose.mjs';
 
 test('guide mode changes the edit instruction without changing image roles', () => {
@@ -11,6 +11,28 @@ test('guide mode changes the edit instruction without changing image roles', () 
     assert.match(prompt, /<image2>/);
     assert.notEqual(prompt, PROMPTS.anyangle);
   }
+});
+
+test('photo skeleton and depth use their extracted image even with an unrelated mannequin loaded', () => {
+  const map = { name: 'photo-guide.png' }, reference = { name: 'photo.png' };
+  for (const guide of ['pose', 'depth']) {
+    const scene = { source: { kind: 'human' }, reference, conditioning: { model: 'base', guide, map, mapKind: guide } };
+    assert.deepEqual(guideSource(scene), { kind: 'image', asset: map });
+    scene.source.kind = 'empty';
+    assert.equal(guideSource(scene).kind, 'image');
+  }
+});
+
+test('Canny defaults to the reference photo and uses 3D only when explicitly selected', () => {
+  const reference = { name: 'photo.png' };
+  const scene = { source: { kind: 'human' }, reference, conditioning: { model: 'base', guide: 'canny' } };
+  assert.deepEqual(guideSource(scene), { kind: 'canny-image', asset: reference });
+  scene.conditioning.mapOrigin = 'auto';
+  assert.equal(guideSource(scene).kind, 'canny-scene');
+  scene.conditioning.map = { name: 'imported-canny.png' }; scene.conditioning.mapKind = 'canny';
+  assert.equal(guideSource(scene).kind, 'image');
+  scene.conditioning.model = 'anyangle';
+  assert.equal(guideSource(scene).kind, 'scene');
 });
 
 test('Canny keeps a flat frame black and detects a strong silhouette', () => {

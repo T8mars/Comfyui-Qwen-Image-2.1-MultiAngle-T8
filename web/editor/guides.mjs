@@ -14,6 +14,18 @@ export function guidePrompt(conditioning) {
   return conditioning?.model === 'base' ? PROMPTS[conditioning.guide] || PROMPTS.coarse : PROMPTS.anyangle;
 }
 
+export function guideSource(scene) {
+  const settings = scene.conditioning || {};
+  const guide = settings.model === 'anyangle' ? 'coarse' : settings.guide || 'coarse';
+  if (guide === 'coarse') return { kind: 'scene' };
+  if (settings.map && (settings.mapKind || guide) === guide) return { kind: 'image', asset: settings.map };
+  if (guide === 'pose') return { kind: 'pose' };
+  if (guide === 'depth') return { kind: 'missing' };
+  if (scene.reference && (settings.mapOrigin !== 'auto' || scene.source.kind === 'empty'))
+    return { kind: 'canny-image', asset: scene.reference };
+  return scene.source.kind === 'empty' ? { kind: 'missing' } : { kind: 'canny-scene' };
+}
+
 export function cannyEdges(rgba, width, height, low = 50, high = 150) {
   const size = width * height, gray = new Float32Array(size), horizontal = new Float32Array(size), blurred = new Float32Array(size);
   const kernel = [1, 4, 6, 4, 1];

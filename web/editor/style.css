@@ -52,3 +52,19 @@ button{white-space:nowrap}input[type=range]{appearance:none;height:3px;border-ra
 .accent-button{background:#1d5665;border-color:#3bc2d5;color:#e4fbff;font-weight:600}
 .accent-button:hover{background:#247285;border-color:#6de6f3}
 #openpose-panel[hidden]{display:none}
+.canvas-viewbar{display:flex;align-items:center;gap:12px;min-height:54px;padding:8px 18px;border-bottom:1px solid var(--line);background:#111c24;flex:none}
+.canvas-viewbar>span{flex:1;font-size:10px;color:#94aebb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.view-switch{display:flex;padding:2px;gap:2px;background:#0d171f;border:1px solid #304653;border-radius:8px}
+.view-switch button{font-size:10px;min-height:28px;padding:5px 10px;background:transparent;border-color:transparent}
+.view-switch button.active{background:#1d4d5b;border-color:#42b9cb;color:#e0faff}
+.canvas-viewbar select{width:66px;font-size:10px;padding:6px}
+.stage-guide-view{position:absolute;inset:0;z-index:3;background:radial-gradient(ellipse at top,#16313c80,transparent 70%),#101921}
+.guide-result-meta{position:absolute;top:20px;left:24px;right:24px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.guide-result-meta strong{font-size:13px;color:#d3f5fb}.guide-result-meta span{font-size:10px;color:#90adbb}
+.stage-guide-view>img{position:absolute;left:24px;top:56px;width:calc(100% - 48px);height:calc(100% - 80px);object-fit:contain;background:#05090d;border:1px solid #315261;border-radius:10px;box-shadow:0 8px 32px #0005}
+.guide-preview-empty{position:absolute;inset:30% 8%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;text-align:center}
+.guide-preview-empty strong{font-size:15px;font-weight:500;color:#cce5ef}.guide-preview-empty span{font-size:11px;color:#849aa7}
+.stage.previewing-guide>#viewport{visibility:hidden;pointer-events:none}
+.stage.previewing-guide>.stage-toolbar,.stage.previewing-guide>.stage-meta,.stage.previewing-guide>.reference-overlay,.stage.previewing-guide>.mode-hint,.stage.previewing-guide>.fit-frame,.stage.previewing-guide>.use-view,.stage.previewing-guide>.empty-scene{display:none}
+.guide-actions .wide-button{white-space:normal;font-size:11px;line-height:1.45;min-height:38px}
+@media(max-width:1180px){.canvas-viewbar{padding:8px 12px;gap:8px}.canvas-viewbar>span{display:none}.view-switch{margin-right:auto}.guide-result-meta{left:18px;right:18px}.guide-result-meta span{font-size:9px}.stage-guide-view>img{left:18px;width:calc(100% - 36px)}}

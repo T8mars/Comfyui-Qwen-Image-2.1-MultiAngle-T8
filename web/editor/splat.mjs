@@ -167,6 +167,23 @@ export class SplatScene {
     throw new Error('高斯排序尚未完成，请重试导出');
   }
 
+  beginOffscreenCapture(width, height) {
+    const viewer = this.dropIn.viewer;
+    const dimensions = viewer.getRenderDimensions;
+    const pixelRatio = viewer.devicePixelRatio;
+    const meshPixelRatio = viewer.splatMesh.devicePixelRatio;
+    viewer.getRenderDimensions = out => { out.set(width, height); };
+    viewer.devicePixelRatio = 1;
+    viewer.splatMesh.devicePixelRatio = 1;
+    return () => {
+      viewer.getRenderDimensions = dimensions;
+      viewer.devicePixelRatio = pixelRatio;
+      viewer.splatMesh.devicePixelRatio = meshPixelRatio;
+      viewer.updateForDropInMode(this.core.renderer, this.core.camera);
+      viewer.updateSplatMesh();
+    };
+  }
+
   async dispose() {
     if (this.disposed) return this.disposePromise;
     this.disposed = true;

@@ -29,10 +29,10 @@ def register_routes(store_factory):
             if not isinstance(name, str) or not name.endswith(".png"):
                 raise ValueError("请先连接或导入参考原图")
             photo = await asyncio.to_thread(store.read_asset, name)
-            points, preview, low_confidence = await asyncio.to_thread(extract_pose, photo)
+            points, preview, low_confidence, full_body = await asyncio.to_thread(extract_pose, photo)
             asset = await asyncio.to_thread(store.asset, preview, "png")
             asset["label"] = "DWPose · 原图姿势"
-            return web.json_response({"asset": asset, "points": points, "lowConfidence": low_confidence})
+            return web.json_response({"asset": asset, "points": points, "lowConfidence": low_confidence, "fullBody": full_body})
         except (ValueError, TypeError, OSError, RuntimeError, UnidentifiedImageError) as error:
             return web.json_response({"error": str(error)}, status=400)
 

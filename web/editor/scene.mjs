@@ -4,6 +4,7 @@ import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs';
 import { loadMorphPack, solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
 import { SplatScene } from './splat.mjs';
+import { capturePNG } from './capture.mjs';
 import { liftOpenPose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs';
 
 export const PRESETS = [
@@ -299,30 +300,33 @@ export class StudioScene {
         .filter(Boolean).map(object => [object, object.visible]) : [];
     const background = v.scene.background;
     this.capturing = true;
-    let batchStarted = false;
+    let restoreSplat = null;
     try {
       if (v._renderFrame) { cancelAnimationFrame(v._renderFrame); v._renderFrame = null; }
       if (this.splat) this.splat.configureCamera(v.captureCamera, this.doc, width, height);
       else v.updateCaptureCamera(width, height, c.zoom, c.offsetX, c.offsetY, c.azimuth, -c.elevation);
+      // Pointer input may update the live cameras while sorting awaits a worker.
+      const camera = v.captureCamera.clone();
+      if (this.splat) {
+        restoreSplat = this.splat.beginOffscreenCapture(width, height);
+        await this.splat.prepareCapture(v.renderer, camera);
+      }
       // Positive content selection excludes every editor overlay, even newly added helpers.
       for (const [object] of visibility) object.visible = object === content || !!object.isLight;
       for (const [object] of nestedHelpers) object.visible = false;
       v.scene.background = new THREE.Color(this.doc.background);
+      // The bundled splat shader writes already encoded RGB, unlike Three's
+      // standard mesh materials. Preserve those colors and its background.
+      if (this.splat) v.scene.background.convertLinearToSRGB();
       v.scene.updateMatrixWorld(true);
       v.skeleton?.update();
-      v.beginCaptureBatch(width, height);
-      batchStarted = true;
-      if (this.splat) await this.splat.prepareCapture(v.renderer, v.captureCamera);
-      // Sorting and resizing can update editor helpers while the capture awaits.
-      for (const [object] of visibility) object.visible = object === content || !!object.isLight;
-      for (const [object] of nestedHelpers) object.visible = false;
-      v.renderer.render(v.scene, v.captureCamera);
-      return this.canvas.toDataURL('image/png');
+      return capturePNG(v.renderer, v.scene, camera, width, height,
+        this.splat ? THREE.NoColorSpace : THREE.SRGBColorSpace);
     } finally {
       for (const [object, visible] of visibility) object.visible = visible;
       for (const [object, visible] of nestedHelpers) object.visible = visible;
       v.scene.background = background;
-      try { if (batchStarted) v.endCaptureBatch(); }
+      try { restoreSplat?.(); }
       finally { this.capturing = false; this.updateShot(); }
     }
   }

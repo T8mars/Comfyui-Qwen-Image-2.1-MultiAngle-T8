@@ -153,9 +153,10 @@ class StudioStore:
             raise ValueError("Select a reconstructed scene, human or GLB source")
         if model == "base" and guide_mode == "depth" and not conditioning.get("map"):
             raise ValueError("Import a Depth Anything map before applying")
-        if model == "base" and guide_mode == "pose" and source_kind != "human":
-            raise ValueError("OpenPose guide requires the human mannequin")
-        if source_kind == "empty" and not (model == "base" and guide_mode in ("depth", "canny") and
+        if model == "base" and guide_mode == "pose" and source_kind != "human" and not (
+                conditioning.get("map") and conditioning.get("mapKind") == "pose"):
+            raise ValueError("OpenPose guide requires a pose image or human mannequin")
+        if source_kind == "empty" and not (model == "base" and guide_mode in ("pose", "depth", "canny") and
                                            (conditioning.get("map") or scene.get("reference"))):
             raise ValueError("Current guide requires a 3D scene or an imported image")
         guide_asset = conditioning.get("map")

@@ -5,6 +5,7 @@ Models are downloaded only when the user requests pose extraction.
 """
 
 from functools import lru_cache
+import colorsys
 from io import BytesIO
 from pathlib import Path
 
@@ -104,15 +105,31 @@ def _estimate_body(image, box, session):
     return coords, score
 
 
-def _render(points, width, height):
+def _render(points, confidence, keypoints, scores, width, height):
     image = Image.new("RGB", (width, height), "black")
     draw = ImageDraw.Draw(image)
     radius = max(3, round(min(width, height) / 120))
     for index, (a, b) in enumerate(LIMBS):
+        if min(confidence[ORDER[a]], confidence[ORDER[b]]) < .3:
+            continue
         draw.line((tuple(points[ORDER[a]]), tuple(points[ORDER[b]])), fill=COLORS[index], width=radius * 2, joint="curve")
     for index, name in enumerate(ORDER):
+        if confidence[name] < .3:
+            continue
         x, y = points[name]
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill="#ffffff")
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=COLORS[index % len(COLORS)])
+    fine = max(1, round(min(width, height) / 400))
+    for offset in (91, 112):
+        for finger in range(5):
+            chain = [offset] + list(range(offset + 1 + finger * 4, offset + 5 + finger * 4))
+            for index, (a, b) in enumerate(zip(chain, chain[1:])):
+                if min(scores[a], scores[b]) >= .3:
+                    color = tuple(round(v * 255) for v in colorsys.hsv_to_rgb((finger * 4 + index) / 20, 1, 1))
+                    draw.line((tuple(keypoints[a]), tuple(keypoints[b])), fill=color, width=fine * 2)
+    for index in range(23, 91):
+        if scores[index] >= .3:
+            x, y = keypoints[index]
+            draw.ellipse((x - fine, y - fine, x + fine, y + fine), fill="white")
     buffer = BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
@@ -131,9 +148,13 @@ def extract_pose(photo):
     box = _detect_person(pixels, detector)
     keypoints, scores = _estimate_body(pixels, box, estimator)
     required = list(COCO_INDEX.values())
-    if sum(scores[i] >= .25 for i in required) < 9:
-        raise ValueError("检测到人物，但可见身体关节不足；请使用身体更完整的照片")
+    if sum(scores[i] >= .3 for i in required) < 3:
+        raise ValueError("未提取到清晰的身体骨架；请换一张人物更清晰的照片")
     points = {name: [float(v) for v in keypoints[index]] for name, index in COCO_INDEX.items()}
     points["neck"] = [(points["rs"][axis] + points["ls"][axis]) / 2 for axis in (0, 1)]
-    low_confidence = sum(scores[i] < .25 for i in required)
-    return points, _render(points, image.width, image.height), int(low_confidence)
+    confidence = {name: float(scores[index]) for name, index in COCO_INDEX.items()}
+    confidence["neck"] = min(confidence["rs"], confidence["ls"])
+    low_confidence = sum(scores[i] < .3 for i in required)
+    full_body = all(scores[i] >= .3 and 0 <= keypoints[i, 0] < image.width
+                    and 0 <= keypoints[i, 1] < image.height for i in required)
+    return points, _render(points, confidence, keypoints, scores, image.width, image.height), int(low_confidence), bool(full_body)
