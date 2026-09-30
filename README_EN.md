@@ -22,7 +22,7 @@ The middle image was **exported by the node** to condition AnyAngle. The right i
 - **Reference-based subject:** local TripoSplat reconstruction provides a scene whose pose stays fixed while you move the camera.
 - **Interactive camera:** orbit, middle-button or Shift+left-button pan, wheel zoom, numeric angles, framing, saved views, undo, and redo.
 - **Three scene sources:** photo reconstruction, textured GLB, and a built-in MakeHuman mannequin for manual posing. The mannequin ships with this repository; Fisher is not required.
-- **Switchable model:** AnyAngle mode uses the original LoRA and coarse-view prompt. With AnyAngle off, the Qwen Image 2.1 base model can use a coarse render, OpenPose, depth, or Canny map as its second image reference.
+- **Unified guide controls:** choose coarse render, POSE, Depth, or Canny in the right panel. Generate pose, depth, and edges directly from the photo or current view, or import/connect existing maps. With AnyAngle off, Qwen Image 2.1 uses the selected guide and matching prompt.
 - **Reusable outputs:** `guide_image_2`, `prompt`, `scene_json`, and `anyangle_lora_strength`. Applied scenes run from saved workflows without reopening the editor.
 
 A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode for that source; choose the separate mannequin mode when you need to pose joints by hand.
@@ -31,7 +31,7 @@ A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode 
 
 ![The built-in MakeHuman mannequin, pose presets, and joint editing controls](docs/images/studio-human.png)
 
-The included mannequin supports pose presets, hands, body proportions, and joint editing. It does not automatically copy the reference photo's pose. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
+The included mannequin supports pose presets, hands, body proportions, and joint editing. Select **POSE → Extract pose from photo** in the right panel to apply the photo's body pose to the mannequin, then adjust it by hand. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
 
 ### Base model and structure maps
 
@@ -40,11 +40,11 @@ Select **Qwen base** under Guide Strategy to output `anyangle_lora_strength = 0`
 | Base-model guide | Source and behavior |
 |---|---|
 | Coarse 3D render | A clean render from the current camera when a 3D subject is available. |
-| OpenPose | Import a Fisher-compatible colored body skeleton on black. It poses the bundled mannequin, with front/back depth flips, then exports the skeleton from the **current camera**. A normal photograph is not automatically pose-estimated. |
-| Depth Anything | Connect an IMAGE output from Depth Anything 3 or another depth node to `structure_image`, or upload a depth PNG. Depth estimated from the original photo remains at its original view; rotating the camera does not synthesize a new depth view. |
-| Canny | Extract edges from the current 3D camera render by default, or connect/upload an existing Canny map. Without a 3D scene, edges can be extracted from the reference photo. |
+| POSE | Click **Extract pose from photo** to run DWPose directly, or import a Fisher-compatible colored skeleton on black. It poses the bundled mannequin, supports front/back depth flips, and exports the skeleton from the **current camera**. |
+| Depth Anything | Click **Estimate depth from photo** to run the bundled Depth Anything 3 Small integration, or connect another depth node to `structure_image` / upload a PNG. Original-photo depth remains at the original view; rotating the camera does not synthesize a new depth view. |
+| Canny | Click **Generate Canny from current view** for edges from the 3D camera render, or from the photo when no 3D scene exists. Existing Canny maps can also be connected or uploaded. |
 
-The original still goes to `reference_image` and encoder `image_1`; `guide_image_2` goes to encoder `image_2`. Each guide mode supplies a matching edit prompt. The base model treats the structure map as an **image reference** rather than a dedicated ControlNet input. Pose, depth, and edge adherence are therefore model-dependent, not guaranteed hard constraints. Imported maps are letterboxed to the output size instead of stretched.
+The original still goes to `reference_image` and encoder `image_1`; `guide_image_2` goes to encoder `image_2`. Each guide mode supplies a matching edit prompt. DWPose extracts **2D joints**; inspect occluded limbs and front/back depth in the editor. The base model treats the structure map as an **image reference** rather than a dedicated ControlNet input. Pose, depth, and edge adherence are therefore model-dependent, not guaranteed hard constraints. Imported maps are letterboxed to the output size instead of stretched.
 
 ## Quick start
 
@@ -72,21 +72,24 @@ Use ComfyUI with native **Qwen Image 2.1, TripoSplat, BiRefNet, and DINOv3 nodes
 cd custom_nodes
 git clone https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8.git ComfyUI-AnyAngle-Studio-T8
 cd ComfyUI-AnyAngle-Studio-T8
+python -m pip install -r requirements.txt
 python install_assets.py --download-lora
 python install_reconstruction.py
 ```
 
 The node title shows the full GitHub repository name. The black **source badge** above it comes from ComfyUI's installation folder name. When the folder contains `2.1`, the current frontend splits it at the dot and shows only `Comfyui-Qwen-Image-2`. Use the dot-free folder name in the command above. For an existing installation, rename the node folder to `ComfyUI-AnyAngle-Studio-T8` and restart ComfyUI; the badge will then read `AnyAngle-Studio-T8`. Node types and workflow connections are unchanged.
 
-The MakeHuman pack and skin texture are included. `install_assets.py --download-lora` verifies them and downloads the AnyAngle LoRA. For base-model-only use, run `python install_assets.py` without the LoRA download. `install_reconstruction.py` downloads approximately **3.78 GB** of weights and can be skipped when using only the bundled mannequin or imported maps. Use **ComfyUI's Python environment**; in a portable build, replace `python` with its bundled executable.
+The MakeHuman pack and skin texture are included. `install_assets.py --download-lora` verifies them and downloads the AnyAngle LoRA. For base-model-only use, run `python install_assets.py` without the LoRA download. `install_reconstruction.py` downloads approximately **3.78 GB** of weights and can be skipped when using only the bundled mannequin or imported maps. The two DWPose ONNX files download to the node's `.local/dwpose/` directory on the first explicit **Extract pose from photo** click (about 351 MB); existing `comfyui_controlnet_aux` weights are reused when present. Depth Anything 3 Small downloads about **137 MB** on the first explicit depth action, or reuses a matching model in `models/geometry_estimation/`. Use **ComfyUI's Python environment**; in a portable build, replace `python` with its bundled executable.
 
 | Model | Source / location |
 |---|---|
 | AnyAngle LoRA | [Original model](https://huggingface.co/lilylilith/QI_2.1_AnyAngle) · `models/loras/QI2.1_AnyAngle.safetensors` |
 | TripoSplat and companion weights | [Official weights](https://huggingface.co/VAST-AI/TripoSplat) · the installer places them in the relevant model directories |
+| DWPose body pose | [ONNX weights](https://huggingface.co/yzd-v/DWPose) · downloaded on the first explicit extraction, or reused from `comfyui_controlnet_aux` |
+| Depth Anything 3 Small | [ComfyUI-compatible weights](https://huggingface.co/Comfy-Org/Depth-Anything-3) · downloaded on explicit depth estimation, or reused from `models/geometry_estimation/` |
 | Qwen Image 2.1 diffusion model / Qwen3-VL 8B encoder / Qwen Image 2.1 VAE | Provide separately in `models/diffusion_models`, `models/text_encoders`, and `models/vae` |
 
-Replace model filenames in the example workflow with compatible weights installed locally. Downloads occur only when you run the installation commands; reconstruction and rendering run locally.
+Replace model filenames in the example workflow with compatible weights installed locally. AnyAngle and TripoSplat weights download from installation commands; DWPose and Depth Anything 3 download only when their actions are requested. Pose and depth inference, reconstruction, and rendering run locally.
 
 If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` inside the node directory, confirm that `web/vendor/assets/pose_studio_makehuman.v2.bin` and `web/vendor/textures/skin.png` exist, restart ComfyUI, and hard-refresh the browser. Run `python install_assets.py` if either file is still missing.
 

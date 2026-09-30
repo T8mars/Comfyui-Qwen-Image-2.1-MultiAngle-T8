@@ -12,6 +12,8 @@
 | GaussianSplats3D | `@mkkellogg/gaussian-splats-3d` 0.4.7, commit `eb2fc4593e3ea5e75388296fcdde2459542d1290` | MIT, `web/vendor/GaussianSplats3D-LICENSE.txt`; Three import changed to local module |
 | TripoSplat inference | Native ComfyUI nodes; official `VAST-AI-Research/TripoSplat` commit `d8db9e018b413dd9c4a9fe22463781bf98e8e68d` | MIT; model weights explicitly installed from `VAST-AI/TripoSplat` revision `56a96e603204ec410c4da60c13ea4fa09a2169a9` |
 | QI2.1 AnyAngle LoRA | `lilylilith/QI_2.1_AnyAngle` commit `e42ac7827e2cad7ce22dc099109ae29681239eba` | Refer to the original model repository; fetched only by explicit installation command, not bundled |
+| DWPose ONNX body estimator and YOLOX detector weights | `yzd-v/DWPose` revision `1a7144101628d69ee7a3768d1ee3a094070dc388` | Apache-2.0 per the model repository; downloaded on the explicit “Extract pose from photo” action, never bundled |
+| Depth Anything 3 Small weights | `Comfy-Org/Depth-Anything-3` revision `afd32929c589f43c2a6fda5246e7df2c01cce529` | Apache-2.0 per the model repository; downloaded on the explicit “Estimate depth from photo” action, never bundled |
 
 Our `web/editor/scene.mjs` adapts the upstream morph-to-rig data mapping. The vendor core is kept intact. Clean capture, camera sign conventions, GLB import, scene persistence, editor UI and ComfyUI bridge are implemented separately. No upstream remote API, analytics or VNCCS inference protocol is used.
 
@@ -25,3 +27,5 @@ Upstream source links:
 - https://github.com/mrdoob/three.js/tree/r160
 - https://github.com/tabler/tabler-icons/tree/v3.31.0
 - https://huggingface.co/lilylilith/QI_2.1_AnyAngle/tree/e42ac7827e2cad7ce22dc099109ae29681239eba
+- https://huggingface.co/yzd-v/DWPose/tree/1a7144101628d69ee7a3768d1ee3a094070dc388
+- https://huggingface.co/Comfy-Org/Depth-Anything-3/tree/afd32929c589f43c2a6fda5246e7df2c01cce529/geometry_estimation

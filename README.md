@@ -22,7 +22,7 @@
 - **原图对应主体**：本地 TripoSplat 重建后，拖动相机探索视角；调整机位时保持重建姿势。
 - **真正可交互**：环绕、中键或 Shift+左键平移、滚轮缩放、精确角度、构图、机位收藏、撤销与重做。
 - **三种场景来源**：原图重建、带材质 GLB、内置 MakeHuman 手动人偶。人偶资源随仓库安装，无需 Fisher 插件。
-- **可切换模型**：AnyAngle 模式使用原模型提示词与粗图；关闭 AnyAngle 后，Qwen Image 2.1 底模可将粗图、OpenPose、深度或 Canny 图作为第二张参考图。
+- **统一的引导策略**：右侧直接选择粗图、POSE、Depth 或 Canny；姿势、深度和轮廓都能从原图或当前画面直接生成，也保留导入与连线。关闭 AnyAngle 后，Qwen Image 2.1 底模使用所选结构图与对应提示词。
 - **可复用输出**：`guide_image_2`、`prompt`、`scene_json`、`anyangle_lora_strength`；应用后可直接运行已保存的工作流。
 
 原图重建的 TripoSplat 主体**没有可编辑骨架**，所以该模式只能调整相机；需要手动摆姿时请选择独立的人偶模式。
@@ -31,7 +31,7 @@
 
 ![AnyAngle Studio 默认 MakeHuman 人偶、姿势库和关节编辑 UI](docs/images/studio-human.png)
 
-内置人偶支持姿势预设、手势、体型和关节编辑；它是独立的手动摆姿模式，不会自动复制参考图动作。截图为独立预览页面；从节点打开时，右上角为“应用到节点”。
+内置人偶支持姿势预设、手势、体型和关节编辑；在右侧选择 **POSE 姿势 → 从原图提取姿势**，可将照片中的身体姿势应用到人偶，再继续手动调整。截图为独立预览页面；从节点打开时，右上角为“应用到节点”。
 
 ### 底模与结构图
 
@@ -40,11 +40,11 @@
 | 底模引导图 | 来源及行为 |
 |---|---|
 | 三维粗渲染 | 当前机位的无网格渲染，适合已有 3D 主体。 |
-| OpenPose 姿势 | 导入 Fisher 兼容的黑底彩色骨架图，自动摆放内置人偶；可调整肢体前后深度并旋转相机，输出**当前机位**骨架图。普通照片不会自动提取骨架。 |
-| Depth Anything 深度 | 把 Depth Anything 3 等节点输出接到左侧 `structure_image`，或上传深度 PNG；输出该图到 `image_2`。原图深度仍属于原机位，不会随相机旋转自动生成新视角深度。 |
-| Canny 轮廓 | 默认从当前 3D 机位粗图提取边缘；也可接入或上传现成 Canny 图。没有 3D 时可从原图提取边缘。 |
+| POSE 姿势 | 点击“从原图提取姿势”直接运行 DWPose，或导入 Fisher 兼容的黑底彩色骨架图；自动摆放内置人偶，可调整肢体前后深度并旋转相机，输出**当前机位**骨架图。 |
+| Depth Anything 深度 | 点击“从原图估计深度”运行内置 Depth Anything 3 Small；也可将其他深度节点接到 `structure_image`，或上传深度 PNG。原图深度属于原机位，不会随相机旋转自动生成新视角深度。 |
+| Canny 轮廓 | 点击“从当前画面生成 Canny”，从当前 3D 机位粗图提取边缘；没有 3D 时从原图提取。也可接入或上传现成 Canny 图。 |
 
-`reference_image` 仍接原图并另接编码器 `image_1`；`guide_image_2` 接编码器 `image_2`。各引导方式会自动生成相应编辑提示词。底模把结构图作为**图像参考**理解，没有独立的 ControlNet 控制端口；姿势、深度和轮廓的遵循程度取决于底模与提示词，不能保证像专用控制模型一样严格。导入图会按输出尺寸等比留黑边，不会被拉伸。
+`reference_image` 仍接原图并另接编码器 `image_1`；`guide_image_2` 接编码器 `image_2`。各引导方式会自动生成相应编辑提示词。DWPose 提取的是**二维关节位置**，遮挡处和肢体前后深度仍需在工作台检查。底模把结构图作为**图像参考**理解，没有独立的 ControlNet 控制端口；姿势、深度和轮廓的遵循程度取决于底模与提示词，不能保证像专用控制模型一样严格。导入图会按输出尺寸等比留黑边，不会被拉伸。
 
 ## 快速开始
 
@@ -72,21 +72,24 @@ Change the camera angle from <image2> to <image1>.
 cd custom_nodes
 git clone https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8.git ComfyUI-AnyAngle-Studio-T8
 cd ComfyUI-AnyAngle-Studio-T8
+python -m pip install -r requirements.txt
 python install_assets.py --download-lora
 python install_reconstruction.py
 ```
 
 节点标题显示完整的 GitHub 仓库名。节点上方的黑色**来源标签**由 ComfyUI 根据安装目录生成；若直接用含 `2.1` 的仓库名作文件夹名，当前前端会在小数点处截断为 `Comfyui-Qwen-Image-2`。使用上面的无点目录名；旧安装可将节点文件夹重命名为 `ComfyUI-AnyAngle-Studio-T8`，重启 ComfyUI 后来源标签将显示 `AnyAngle-Studio-T8`。节点类型与工作流连线不变。
 
-仓库已包含 MakeHuman 人偶资源及贴图。`install_assets.py --download-lora` 会校验资源并下载 AnyAngle LoRA；只用底模时可运行 `python install_assets.py`，无需下载 LoRA。`install_reconstruction.py` 下载约 **3.78 GB** 的重建权重；只用内置人偶或外部结构图时可跳过。请使用 **ComfyUI 的 Python 环境**；整合包用户将 `python` 换成内置 Python 路径。
+仓库已包含 MakeHuman 人偶资源及贴图。`install_assets.py --download-lora` 会校验资源并下载 AnyAngle LoRA；只用底模时可运行 `python install_assets.py`，无需下载 LoRA。`install_reconstruction.py` 下载约 **3.78 GB** 的重建权重；只用内置人偶或外部结构图时可跳过。DWPose 的两份 ONNX 权重在首次点击“从原图提取姿势”时下载到节点 `.local/dwpose/`（约 351 MB）；若已安装 `comfyui_controlnet_aux` 及相同权重，会直接复用。Depth Anything 3 Small 在首次点击“从原图估计深度”时下载约 **137 MB**，可复用已安装在 `models/geometry_estimation/` 的相同模型。请使用 **ComfyUI 的 Python 环境**；整合包用户将 `python` 换成内置 Python 路径。
 
 | 模型 | 来源 / 安装位置 |
 |---|---|
 | AnyAngle LoRA | [原模型](https://huggingface.co/lilylilith/QI_2.1_AnyAngle) · `models/loras/QI2.1_AnyAngle.safetensors` |
 | TripoSplat 及配套权重 | [官方权重](https://huggingface.co/VAST-AI/TripoSplat) · 安装脚本放入对应模型目录 |
+| DWPose 人体姿势 | [ONNX 权重](https://huggingface.co/yzd-v/DWPose) · 首次明确点击提取时下载；也可复用已有 `comfyui_controlnet_aux` 权重 |
+| Depth Anything 3 Small | [ComfyUI 官方适配权重](https://huggingface.co/Comfy-Org/Depth-Anything-3) · 首次明确点击估计深度时下载，或复用 `models/geometry_estimation/` |
 | Qwen Image 2.1 主模型 / Qwen3-VL 8B 编码器 / Qwen Image 2.1 VAE | 自行准备，分别放入 `models/diffusion_models`、`models/text_encoders`、`models/vae` |
 
-示例工作流中的模型名需替换为本机已有的兼容权重。模型仅在运行安装命令时显式下载；工作台重建和渲染在本地完成。
+示例工作流中的模型名需替换为本机已有的兼容权重。AnyAngle 和 TripoSplat 权重由安装命令下载；DWPose 与 Depth Anything 3 仅在点击对应功能时下载。姿势与深度推理、重建和渲染在本地完成。
 
 若旧版安装提示 `MakeHuman asset: HTTP 404`，在节点目录执行 `git pull`，确认 `web/vendor/assets/pose_studio_makehuman.v2.bin` 与 `web/vendor/textures/skin.png` 存在，重启 ComfyUI 并强制刷新浏览器。文件缺失时运行 `python install_assets.py` 补齐。
 

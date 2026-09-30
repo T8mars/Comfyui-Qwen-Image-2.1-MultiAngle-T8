@@ -1,0 +1,3 @@
+onnxruntime>=1.18,<2
+opencv-python-headless>=4.8,<5
+huggingface_hub>=0.26

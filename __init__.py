@@ -52,7 +52,10 @@ class AnyAngleStudio:
             reference["label"] = "IMAGE input"
             document["scene"]["reference"] = reference
             ui["anyangle_reference"] = [reference]
-        if structure_image is not None and model == "base" and guide_mode in ("pose", "depth", "canny"):
+        local_guide = (guide_mode == "pose" and (document["scene"].get("openpose") or {}).get("origin") == "dwpose"
+                       or guide_mode == "depth" and conditioning.get("mapOrigin") == "da3"
+                       or guide_mode == "canny" and conditioning.get("mapOrigin") == "auto")
+        if structure_image is not None and model == "base" and guide_mode in ("pose", "depth", "canny") and not local_guide:
             pixels = np.clip(structure_image[0].cpu().float().numpy() * 255, 0, 255).astype(np.uint8)
             buffer = io.BytesIO()
             Image.fromarray(pixels).save(buffer, format="PNG")

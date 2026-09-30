@@ -36,3 +36,19 @@ button{white-space:nowrap}input[type=range]{appearance:none;height:3px;border-ra
 .empty-scene[hidden],.panel-block[hidden] { display:none; }
 .mode-hint { position:absolute; z-index:2; top:69px; left:22px; right:22px; margin:0; color:#8faebd; font-size:10px; letter-spacing:.02em; text-align:center; pointer-events:none; }
 @media(max-width:880px){.mode-hint{top:91px;font-size:9px}}
+.center-panel>.stage-help{position:static;flex:none;min-height:30px;padding:7px 12px;background:#111a22;border-top:1px solid var(--line);text-align:center;line-height:1.4}
+.center-panel>.stage-help span{margin-left:10px}
+@media(max-width:1180px){.center-panel>.stage-help{font-size:10px}}
+@media(max-width:880px){.center-panel>.stage-help span{display:inline;margin-left:8px}}
+.guide-label{margin:15px 0 8px;color:#b4c8d2;font-size:11px}
+.guide-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.guide-choice-grid button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;min-height:55px;padding:8px 10px;background:#11232e;border-color:#36505f;text-align:left}
+.guide-choice-grid button strong{font-size:11px;font-weight:600}.guide-choice-grid button small{font-size:9px;line-height:1.25}
+.guide-choice-grid button:hover{background:#1b3946;border-color:#58c6d5}
+.guide-choice-grid button.active{background:linear-gradient(130deg,#1e6270,#18414d);border-color:#54d4e6;box-shadow:inset 0 1px #a9f5ff35,0 0 14px #29d0e825}
+.guide-choice-grid button.active strong{color:#e4fbff}.guide-choice-grid button.active small{color:#a4dce5}
+.guide-actions{margin-top:12px;padding:10px;border:1px solid #344d59;border-radius:8px;background:#101c25}
+.guide-actions .hint{margin:2px 0 8px}.guide-actions .wide-button{justify-content:center}
+.accent-button{background:#1d5665;border-color:#3bc2d5;color:#e4fbff;font-weight:600}
+.accent-button:hover{background:#247285;border-color:#6de6f3}
+#openpose-panel[hidden]{display:none}

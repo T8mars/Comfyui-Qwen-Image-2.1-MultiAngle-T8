@@ -17,6 +17,7 @@ let linkedStructure = { connected: false };
 let unwiredAnyAngle = false;
 let pendingReference = null;
 let pendingStructure = null;
+let explicitStructureRead = false;
 let overlayShown = false;
 const controls = new Map();
 let poseLibrary;
@@ -30,16 +31,23 @@ function toast(message) {
 }
 function error(error) { console.error(error); toast(error?.message || String(error)); }
 function currentGuide() { return doc.conditioning.model === 'anyangle' ? 'coarse' : doc.conditioning.guide; }
+function usesLocalGuide(guide = currentGuide()) {
+  return guide === 'pose' && doc.openpose?.origin === 'dwpose'
+    || guide === 'depth' && doc.conditioning.mapOrigin === 'da3'
+    || guide === 'canny' && doc.conditioning.mapOrigin === 'auto';
+}
 function hasGuide() {
   const guide = currentGuide();
   if (linkedStructure.connected && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(guide)
+      && !usesLocalGuide(guide)
       && (!linkedStructure.asset || linkedStructure.pending)) return false;
   return guide === 'depth' ? !!doc.conditioning.map : guide === 'pose' ? doc.source.kind === 'human'
     : guide === 'canny' ? doc.source.kind !== 'empty' || !!doc.conditioning.map || !!doc.reference : doc.source.kind !== 'empty';
 }
 function setBusy(value) {
   busy = value; $('#workspace').inert = value; $('#apply').disabled = value || !ready || !hasGuide()
-    || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending)) || (linkedStructure.connected && !!linkedStructure.pending);
+    || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending))
+    || (linkedStructure.connected && !!linkedStructure.pending && !usesLocalGuide());
   $('#undo').disabled = value || !undo.length; $('#redo').disabled = value || !redo.length;
   if (!value && pendingReference) queueMicrotask(readPendingReference);
   if (!value && pendingStructure) queueMicrotask(readPendingStructure);
@@ -138,7 +146,7 @@ function refresh() {
         : 'GLB 默认 Y 轴朝上。旋转资产以校准正面；资产尺度与镜头缩放相互独立。';
   $('#asset-label').textContent = empty ? '等待原图重建' : human ? 'MakeHuman · 手动人偶' : doc.source.label || 'GLB 场景';
   $('#source-badge').textContent = empty ? 'PHOTO → 3D' : splat ? 'TRIPOSPLAT · 原图重建' : human ? 'HUMAN · 手动人偶' : 'GLB · 场景';
-  for (const id of ['pose-panel', 'openpose-panel', 'hands-panel', 'body-panel', 'joint-panel']) {
+  for (const id of ['pose-panel', 'hands-panel', 'body-panel', 'joint-panel']) {
     $(`#${id}`).classList.toggle('disabled-panel', !human);
     $(`#${id}`).inert = !human;
     $(`#${id}`).hidden = !human;
@@ -161,15 +169,26 @@ function refresh() {
   const guide = currentGuide(), base = doc.conditioning.model === 'base';
   $('#model-anyangle').classList.toggle('active', !base); $('#model-base').classList.toggle('active', base);
   $('#model-badge').textContent = base ? 'QWEN 2.1' : 'ANYANGLE';
-  $('#guide-type').disabled = !base; $('#guide-type').value = guide;
-  $('#map-inputs').hidden = !base || !['pose', 'depth', 'canny'].includes(guide);
-  $('#import-map').textContent = guide === 'pose' ? '导入 OpenPose 图' : guide === 'depth' ? '导入 Depth Anything 图' : '导入 Canny 图';
+  document.querySelectorAll('[data-guide]').forEach(button => {
+    button.classList.toggle('active', button.dataset.guide === guide);
+    button.setAttribute('aria-pressed', String(button.dataset.guide === guide));
+  });
+  $('#openpose-panel').hidden = !base || guide !== 'pose';
+  $('#extract-pose').disabled = !doc.reference || !!linkedReference.pending;
+  $('#map-inputs').hidden = !base || !['depth', 'canny'].includes(guide);
+  $('#extract-depth').hidden = guide !== 'depth';
+  $('#extract-depth').disabled = !doc.reference || !!linkedReference.pending;
+  $('#generate-canny').hidden = guide !== 'canny';
+  $('#generate-canny').disabled = !doc.reference && empty;
+  $('#import-map').textContent = guide === 'depth' ? '导入 Depth Anything 图' : '导入 Canny 图';
   $('#read-map').hidden = !linkedStructure.connected;
   $('#read-map').disabled = !!linkedStructure.pending;
   $('#import-map').disabled = linkedStructure.connected;
-  $('#map-status').textContent = linkedStructure.connected ? linkedStructure.message || '结构图已连接'
+  $('#map-status').textContent = guide === 'depth' && doc.conditioning.mapOrigin === 'da3' && doc.conditioning.map ? '已从原图估计深度；对应原机位。'
+    : guide === 'canny' && doc.conditioning.mapOrigin === 'auto' ? '将从当前画面直接生成 Canny 轮廓。'
+    : linkedStructure.connected ? linkedStructure.message || '结构图已连接'
     : doc.conditioning.map && doc.conditioning.mapKind === guide ? `已导入 ${doc.conditioning.map.label || GUIDE_LABELS[guide]}`
-      : guide === 'depth' ? '接入 Depth Anything 3 的 IMAGE 输出，或导入深度 PNG。' : guide === 'pose' ? '导入 Fisher 兼容的彩色 OpenPose 身体骨架。'
+      : guide === 'depth' ? '可从原图直接估计，也可接入深度 IMAGE 或导入 PNG。'
         : '默认从当前机位粗图生成；也可导入外部 Canny 图。';
   $('#canny-options').hidden = !base || guide !== 'canny' || !!doc.conditioning.map;
   $('#canny-low').value = doc.conditioning.cannyLow; $('#canny-high').value = doc.conditioning.cannyHigh;
@@ -185,22 +204,25 @@ function refresh() {
     : base ? '底模将结构图作为第二张参考图理解；姿势、深度和轮廓的遵循程度需实测。'
     : 'AnyAngle 必须使用当前机位粗图。请把 LoRA 强度输出接至模型加载器。';
   $('#protocol-hint').classList.toggle('wiring-warning', base && unwiredAnyAngle);
-  $('#openpose-status').textContent = doc.openpose ? `已导入 ${doc.openpose.name || '骨架'}，可调整前后深度。` : '未导入骨架';
+  $('#openpose-status').textContent = doc.openpose ? `${doc.openpose.name || '骨架'} · 可调整关节前后深度。${linkedStructure.connected && doc.openpose.origin === 'dwpose' ? '当前使用原图提取结果。' : ''}` : '尚未生成骨架';
   $('#pose-flips').hidden = !doc.openpose;
   document.querySelectorAll('[data-flip]').forEach(button => button.classList.toggle('on', !!doc.openpose?.flips?.[button.dataset.flip]));
   $('#read-openpose').hidden = !linkedStructure.connected;
   $('#guide').hidden = !hasGuide();
-  $('#guide-state').textContent = !hasGuide() ? '选择三维主体或导入当前模式需要的引导图。'
+  $('#guide-state').textContent = !hasGuide() ? guide === 'pose' ? '先连接原图提取姿势，或导入 OpenPose 图。'
+    : guide === 'depth' ? '请导入深度图或连接 structure_image。'
+      : guide === 'canny' ? '请连接原图或载入三维主体，也可导入 Canny 图。'
+        : '请先载入三维主体。'
     : guide === 'coarse' ? '网格与控制器不会进入粗图。' : '预览即将输出到 image_2 的实际引导图。';
   $('#save-shot').disabled = $('#fit-frame').disabled = empty;
   $('#download-guide').disabled = !hasGuide();
   $('#apply').disabled = busy || !ready || !hasGuide() || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending))
-    || (linkedStructure.connected && !!linkedStructure.pending);
+    || (linkedStructure.connected && !!linkedStructure.pending && !usesLocalGuide(guide));
   $('#edit-mode').disabled = splat || empty;
   $('#edit-mode').title = splat ? '原图重建主体没有可编辑骨架；请使用拍摄机位' : empty ? '请先载入三维主体' : '';
   $('#mode-hint').hidden = !splat;
   $('#fit-frame').textContent = splat ? '回到原图机位' : '适合画幅';
-  $('.eyebrow').textContent = splat ? '相对于模型预测的原图机位' : '相对于已校准的场景正面';
+  $('.eyebrow').textContent = `${splat ? '原图预测机位' : '场景正面'} · Y-UP · 透视`;
   $('[data-angle="0"]').textContent = splat ? '原图机位' : '正面';
   $('#bone-name').textContent = selectedBone || '未选择';
   $('#bone-select').value = selectedBone;
@@ -299,12 +321,14 @@ $('#ratio').onchange = event => {
 $('#background').onchange = event => { begin(); doc.background = event.target.value; changed(); };
 $('#model-anyangle').onclick = () => { if (doc.conditioning.model === 'anyangle') return; begin(); doc.conditioning.model = 'anyangle'; changed(); };
 $('#model-base').onclick = () => { if (doc.conditioning.model === 'base') return; begin(); doc.conditioning.model = 'base'; changed(); };
-$('#guide-type').onchange = event => run(async () => {
-  begin(); doc.conditioning.guide = event.target.value;
-  if (doc.conditioning.mapKind !== event.target.value) doc.conditioning.map = null;
-  if (linkedStructure.asset && ['pose', 'depth', 'canny'].includes(event.target.value)) await applyStructureAsset(linkedStructure.asset);
+document.querySelectorAll('[data-guide]').forEach(button => button.onclick = () => run(async () => {
+  const guide = button.dataset.guide;
+  if (doc.conditioning.model === 'base' && doc.conditioning.guide === guide) return;
+  begin(); doc.conditioning.model = 'base'; doc.conditioning.guide = guide;
+  if (doc.conditioning.mapKind !== guide) { doc.conditioning.map = null; doc.conditioning.mapOrigin = null; }
+  if (linkedStructure.asset && ['pose', 'depth', 'canny'].includes(guide) && !usesLocalGuide(guide)) await applyStructureAsset(linkedStructure.asset);
   else changed();
-});
+}));
 for (const [id, key] of [['canny-low', 'cannyLow'], ['canny-high', 'cannyHigh']]) {
   $(`#${id}`).onchange = event => { begin(); doc.conditioning[key] = Math.max(0, Math.min(255, Number(event.target.value) || 0)); changed(); };
 }
@@ -331,9 +355,13 @@ async function upload(file) {
   const response = await fetch('/anyangle-studio/assets', { method: 'POST', body: form });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || '导入失败'); return result;
 }
-async function applyOpenPoseAsset(asset) {
-  const image = new Image(); image.src = assetURL(asset.name); await image.decode();
-  const people = readSkeletonImage(image);
+async function applyOpenPoseAsset(asset, detectedPoints = null) {
+  let people;
+  if (detectedPoints) people = [detectedPoints];
+  else {
+    const image = new Image(); image.src = assetURL(asset.name); await image.decode();
+    people = readSkeletonImage(image);
+  }
   const height = person => Math.max(...Object.values(person).map(point => point[1])) - Math.min(...Object.values(person).map(point => point[1]));
   const points = people.slice().sort((a, b) => height(b) - height(a))[0];
   if (!points) throw new Error('没有找到可用的 OpenPose 身体骨架');
@@ -344,9 +372,9 @@ async function applyOpenPoseAsset(asset) {
       doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1; doc.camera = defaultScene().camera;
       await studio.restore(doc); await ensureHumanTools();
     }
-    doc.openpose = { name: asset.label || 'OpenPose 骨架', sourceName: asset.name, points, flips: {} };
+    doc.openpose = { name: asset.label || 'OpenPose 骨架', sourceName: asset.name, origin: detectedPoints ? 'dwpose' : 'import', points, flips: {} };
     doc.conditioning.model = 'base'; doc.conditioning.guide = 'pose';
-    doc.conditioning.map = null; doc.conditioning.mapKind = null;
+    doc.conditioning.map = null; doc.conditioning.mapKind = null; doc.conditioning.mapOrigin = null;
     const facingAway = studio.applyOpenPose(points);
     changed();
     const notes = [facingAway ? '识别为背面' : '识别为正面'];
@@ -357,10 +385,47 @@ async function applyOpenPoseAsset(asset) {
 }
 async function applyStructureAsset(asset) {
   if (currentGuide() === 'pose') return applyOpenPoseAsset(asset);
-  begin(); doc.conditioning.map = asset; doc.conditioning.mapKind = currentGuide(); changed();
+  begin(); doc.conditioning.map = asset; doc.conditioning.mapKind = currentGuide(); doc.conditioning.mapOrigin = 'import'; changed();
 }
 $('#import-openpose').onclick = () => $('#openpose-file').click();
-$('#import-map').onclick = () => (currentGuide() === 'pose' ? $('#openpose-file') : $('#map-file')).click();
+$('#extract-pose').onclick = () => run(async () => {
+  if (!doc.reference?.name) throw new Error('请先连接或导入原图');
+  $('#loading-text').textContent = '正在从原图提取姿势';
+  $('#loading-detail').textContent = '首次使用可能需要下载 DWPose 模型';
+  $('#loading').hidden = false;
+  try {
+    const response = await fetch('/anyangle-studio/dwpose', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference: doc.reference.name }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'DWPose 提取失败');
+    await applyOpenPoseAsset(result.asset, result.points);
+    if (result.lowConfidence) toast(`${result.lowConfidence} 个关节置信度较低，请在编辑场景中检查姿势`);
+  } finally { $('#loading').hidden = true; }
+});
+$('#import-map').onclick = () => $('#map-file').click();
+$('#extract-depth').onclick = () => run(async () => {
+  if (!doc.reference?.name) throw new Error('请先连接或导入原图');
+  $('#loading-text').textContent = '正在估计原图深度';
+  $('#loading-detail').textContent = '首次使用可能需要下载 Depth Anything 3 Small 模型';
+  $('#loading').hidden = false;
+  try {
+    const response = await fetch('/anyangle-studio/depth', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference: doc.reference.name }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || '深度估计失败');
+    begin(); doc.conditioning.map = result.asset; doc.conditioning.mapKind = 'depth';
+    doc.conditioning.mapOrigin = 'da3'; changed();
+  } finally { $('#loading').hidden = true; }
+});
+$('#generate-canny').onclick = () => {
+  if (doc.source.kind === 'empty' && !doc.reference) return;
+  begin(); doc.conditioning.map = null; doc.conditioning.mapKind = null;
+  doc.conditioning.mapOrigin = 'auto'; changed();
+};
 $('#openpose-file').onchange = event => run(async () => {
   const file = event.target.files[0]; event.target.value = ''; if (!file) return;
   await applyOpenPoseAsset(await upload(file));
@@ -370,6 +435,7 @@ $('#map-file').onchange = event => run(async () => {
   await applyStructureAsset(await upload(file));
 });
 $('#read-map').onclick = $('#read-openpose').onclick = () => {
+  explicitStructureRead = true;
   linkedStructure = { ...linkedStructure, connected: true, pending: true, message: '正在读取上游结构图…' };
   refresh(); send('anyangle-read-structure');
 };
@@ -580,7 +646,8 @@ async function start(token, reference = { connected: false }, structure = { conn
     studio = new StudioScene($('#viewport'), { begin, change: changed, camera: () => { revision++; refresh(); schedulePreview(); $('#status').textContent = '机位草稿 · 尚未应用'; $('#status').dataset.state = 'dirty'; }, select: name => { selectedBone = name || ''; refresh(); }, error });
     await studio.init(doc);
     if (doc.source.kind === 'human') await ensureHumanTools();
-    if (structure.asset && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(doc.conditioning.guide))
+    if (structure.asset && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(doc.conditioning.guide)
+        && !usesLocalGuide())
       await applyStructureAsset(structure.asset);
     selectedShot = doc.shots.find(shot => shot.width === doc.width && shot.height === doc.height
       && Object.keys(doc.camera).every(key => Number(shot.camera[key] || 0) === Number(doc.camera[key] || 0)))?.id || null;
@@ -609,6 +676,8 @@ function readPendingReference() {
 function readPendingStructure() {
   if (busy || !pendingStructure) return;
   const structure = pendingStructure; pendingStructure = null;
+  const applyLinked = explicitStructureRead || !usesLocalGuide();
+  explicitStructureRead = false;
   run(async () => {
     const oldAsset = linkedStructure.asset?.name;
     linkedStructure = structure;
@@ -616,7 +685,7 @@ function readPendingStructure() {
     if (!structure.connected && oldAsset && doc.conditioning.map?.name === oldAsset) {
       begin(); doc.conditioning.map = null; doc.conditioning.mapKind = null; changed();
     }
-    if (structure.asset && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(doc.conditioning.guide))
+    if (applyLinked && structure.asset && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(doc.conditioning.guide))
       await applyStructureAsset(structure.asset);
     refresh(); schedulePreview();
   });

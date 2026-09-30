@@ -7,6 +7,8 @@ from aiohttp import web
 from PIL import UnidentifiedImageError
 from server import PromptServer
 from .reconstruction import reconstruction_config
+from .dwpose import extract_pose
+from .depth import extract_depth
 
 
 def register_routes(store_factory):
@@ -15,6 +17,42 @@ def register_routes(store_factory):
     @routes.get("/anyangle-studio/reconstruction-config")
     async def reconstruction_models(request):
         return web.json_response(reconstruction_config())
+
+    @routes.post("/anyangle-studio/dwpose")
+    async def photo_to_pose(request):
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid pose request")
+            store = store_factory()
+            name = payload.get("reference")
+            if not isinstance(name, str) or not name.endswith(".png"):
+                raise ValueError("请先连接或导入参考原图")
+            photo = await asyncio.to_thread(store.read_asset, name)
+            points, preview, low_confidence = await asyncio.to_thread(extract_pose, photo)
+            asset = await asyncio.to_thread(store.asset, preview, "png")
+            asset["label"] = "DWPose · 原图姿势"
+            return web.json_response({"asset": asset, "points": points, "lowConfidence": low_confidence})
+        except (ValueError, TypeError, OSError, RuntimeError, UnidentifiedImageError) as error:
+            return web.json_response({"error": str(error)}, status=400)
+
+    @routes.post("/anyangle-studio/depth")
+    async def photo_to_depth(request):
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid depth request")
+            store = store_factory()
+            name = payload.get("reference")
+            if not isinstance(name, str) or not name.endswith(".png"):
+                raise ValueError("请先连接或导入参考原图")
+            photo = await asyncio.to_thread(store.read_asset, name)
+            png = await asyncio.to_thread(extract_depth, photo)
+            asset = await asyncio.to_thread(store.asset, png, "png")
+            asset["label"] = "Depth Anything 3 · 原图深度"
+            return web.json_response({"asset": asset})
+        except (ValueError, TypeError, OSError, RuntimeError, UnidentifiedImageError) as error:
+            return web.json_response({"error": str(error)}, status=400)
 
     @routes.post("/anyangle-studio/poses")
     async def save_pose(request):

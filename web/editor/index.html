@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css?v=20260930"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css?v=20260930c"></head>
 <body>
 <header class="topbar">
   <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small>T8</small></div>
@@ -11,7 +11,7 @@
   <aside class="left-panel">
     <section class="reference-section">
       <div class="section-heading"><h2>原图 <small>· image_1</small></h2><button id="reference-button" class="icon-button" title="导入原图" aria-label="导入原图"><img src="../icons/upload.svg" alt=""></button></div>
-      <button id="reference-drop" class="reference-drop" aria-label="选择参考原图"><img id="reference" alt="完整参考原图" hidden><span id="reference-empty"><img src="../icons/photo.svg" alt=""><strong>导入参考原图</strong><small>用于构图对照 · 下游单独接 image_1</small></span></button>
+      <button id="reference-drop" class="reference-drop" aria-label="选择参考原图"><img id="reference" alt="完整参考原图" hidden><span id="reference-empty"><img src="../icons/photo.svg" alt=""><strong>导入参考原图</strong><small>姿势提取 / 3D 重建 / image_1</small></span></button>
       <p id="reference-origin" class="hint">支持节点左侧 IMAGE 连线，也可上传原图。</p>
       <button id="read-reference" hidden><img src="../icons/refresh.svg" alt="">读取上游图像</button>
       <button id="reconstruct" class="primary reconstruct-button" disabled>从原图重建 3D</button>
@@ -20,7 +20,6 @@
       <p class="asset-label" id="asset-label">正在载入场景</p>
     </section>
     <details class="panel-block" open id="pose-panel" hidden><summary>姿势库 <span class="tag amber">实验</span></summary><div class="preset-grid" id="presets"></div><div class="compact-actions"><button id="save-pose"><img src="../icons/device-floppy.svg" alt="">保存姿势</button><button id="import-pose" title="导入本编辑器导出的姿势 JSON">导入</button><button id="export-pose" title="导出姿势 JSON">导出</button></div><div id="saved-poses" class="saved-poses"></div></details>
-    <details class="panel-block" id="openpose-panel" hidden><summary>OpenPose 导入 <span class="tag amber">Fisher 兼容</span></summary><p class="hint">导入黑底彩色身体骨架图，将姿势应用到当前人偶。普通照片请使用三维重建。</p><button id="import-openpose" class="wide-button">导入 OpenPose 图</button><button id="read-openpose" class="wide-button" hidden>读取连线骨架图</button><p id="openpose-status" class="hint">未导入骨架</p><div id="pose-flips" class="flip-grid" hidden><button data-flip="body">正背翻转</button><button data-flip="torso">躯干前后</button><button data-flip="lArmUpper">左上臂</button><button data-flip="lArmLower">左小臂</button><button data-flip="rArmUpper">右上臂</button><button data-flip="rArmLower">右小臂</button><button data-flip="lLegUpper">左大腿</button><button data-flip="lLegLower">左小腿</button><button data-flip="rLegUpper">右大腿</button><button data-flip="rLegLower">右小腿</button></div></details>
     <details class="panel-block" id="hands-panel" hidden><summary>手势 <small>人物自身左右</small></summary><div id="hands"></div></details>
     <details class="panel-block" id="body-panel" hidden><summary>体型</summary><div id="body-sliders"></div></details>
     <details class="panel-block" id="joint-panel" hidden><summary>关节精调 <small id="bone-name">未选择</small></summary><p class="hint">切换“编辑场景”，点选关节或拖动 IK 手脚控制点。</p><select id="bone-select" aria-label="选择关节"><option value="">选择关节</option></select><div id="bone-sliders"></div><button id="reset-bone">复位当前关节</button></details>
@@ -32,18 +31,18 @@
       <div class="stage-toolbar"><div class="mode-switch" role="group" aria-label="编辑模式"><button id="camera-mode" class="active"><img src="../icons/camera.svg" alt="">拍摄机位</button><button id="edit-mode"><img src="../icons/cube.svg" alt="">编辑场景</button></div><button id="reference-overlay-toggle" class="overlay-toggle" title="叠加原图校准">原图叠加</button><select id="ratio" aria-label="输出画幅"><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option><option value="custom">自定义</option></select></div>
       <img id="reference-overlay" class="reference-overlay" alt="半透明原图校准" hidden>
       <p id="mode-hint" class="mode-hint" hidden>原图重建姿势固定 · 仅可调整机位</p>
-      <div class="stage-meta"><span id="source-badge">正在载入场景</span><span>Y-UP / PERSPECTIVE</span></div>
+      <div class="stage-meta"><span id="source-badge">正在载入场景</span></div>
       <button id="use-view" class="use-view" hidden><img src="../icons/focus-2.svg" alt="">将当前视图设为机位</button>
       <button id="fit-frame" class="fit-frame" title="将整个资产放入拍摄画幅"><img src="../icons/focus-2.svg" alt="">适合画幅</button>
-      <div class="stage-help" id="stage-help">拖动调整拍摄机位 <span>中键或 Shift 平移 · 滚轮缩放</span></div>
       <div id="empty-scene" class="empty-scene" hidden><img src="../icons/aperture.svg" alt=""><strong>让原图成为三维场景</strong><span>连接参考图或上传图片<br>重建对应主体后，拖动相机探索新视角</span></div>
       <div id="loading" class="loading" role="status"><img src="../icons/aperture.svg" alt=""><strong id="loading-text">正在准备 3D 工作台</strong><span id="loading-detail">加载本地渲染资源</span></div>
     </div>
+    <div class="stage-help" id="stage-help">拖动调整拍摄机位 <span>中键或 Shift 平移 · 滚轮缩放</span></div>
     <section class="shot-shelf"><div class="section-heading"><h2>已保存机位 <small id="shot-count">0</small></h2><button id="save-shot"><img src="../icons/plus.svg" alt="">收藏当前机位</button></div><div id="shots" class="shots"><p class="empty-note">把满意的机位留在这里。切换收藏只改变相机，姿势保持当前状态。</p></div></section>
   </section>
   <aside class="right-panel">
-    <section class="guide-mode-section"><div class="section-heading"><h2>引导策略</h2><span id="model-badge">ANYANGLE</span></div><div class="model-switch" role="group" aria-label="生成模型"><button id="model-anyangle" class="active">AnyAngle LoRA</button><button id="model-base">Qwen 底模</button></div><label class="guide-select-label">引导图<select id="guide-type" aria-label="引导图类型"><option value="coarse">三维粗渲染</option><option value="pose">OpenPose 姿势</option><option value="depth">Depth Anything 深度</option><option value="canny">Canny 轮廓</option></select></label><div id="map-inputs" hidden><button id="import-map" class="wide-button">导入结构图</button><button id="read-map" class="wide-button" hidden>读取连线结构图</button><p id="map-status" class="hint">深度图可由 Depth Anything 3 输出后接入左侧 IMAGE 端口，或上传 PNG。</p></div><div id="canny-options" hidden><label>低阈值 <input id="canny-low" type="number" min="0" max="255" value="50"></label><label>高阈值 <input id="canny-high" type="number" min="0" max="255" value="150"></label></div><p id="guide-explanation" class="hint">同一场景的新机位粗图，配合 AnyAngle LoRA 使用。</p></section>
-    <div class="section-heading"><h1>拍摄相机</h1><img class="heading-icon" src="../icons/camera.svg" alt=""></div><p class="eyebrow">相对于已校准的场景正面</p>
+<section class="guide-mode-section"><div class="section-heading"><h2>引导策略</h2><span id="model-badge">ANYANGLE</span></div><div class="model-switch" role="group" aria-label="生成模型"><button id="model-anyangle" class="active">AnyAngle LoRA</button><button id="model-base">Qwen 底模</button></div><p class="guide-label">引导图</p><div class="guide-choice-grid" role="group" aria-label="引导图类型"><button type="button" data-guide="coarse"><strong>三维粗图</strong><small>AnyAngle / 底模</small></button><button type="button" data-guide="pose"><strong>POSE 姿势</strong><small>原图提取 / 导入</small></button><button type="button" data-guide="depth"><strong>Depth 深度</strong><small>原图估计 / 导入</small></button><button type="button" data-guide="canny"><strong>Canny 轮廓</strong><small>自动生成 / 导入</small></button></div><div id="openpose-panel" class="guide-actions" hidden><p class="hint">从原图提取二维姿势并应用到可编辑人偶；遮挡与前后深度可手动校正。也可导入 Fisher 兼容骨架图。</p><button id="extract-pose" class="wide-button accent-button">从原图提取姿势 · DWPose</button><button id="import-openpose" class="wide-button">导入 OpenPose 图</button><button id="read-openpose" class="wide-button" hidden>读取连线骨架图</button><p id="openpose-status" class="hint">未导入骨架</p><div id="pose-flips" class="flip-grid" hidden><button data-flip="body">正背翻转</button><button data-flip="torso">躯干前后</button><button data-flip="lArmUpper">左上臂</button><button data-flip="lArmLower">左小臂</button><button data-flip="rArmUpper">右上臂</button><button data-flip="rArmLower">右小臂</button><button data-flip="lLegUpper">左大腿</button><button data-flip="lLegLower">左小腿</button><button data-flip="rLegUpper">右大腿</button><button data-flip="rLegLower">右小腿</button></div></div><div id="map-inputs" class="guide-actions" hidden><button id="extract-depth" class="wide-button accent-button">从原图估计深度 · DA3</button><button id="generate-canny" class="wide-button accent-button" hidden>从当前画面生成 Canny</button><button id="import-map" class="wide-button">导入结构图</button><button id="read-map" class="wide-button" hidden>读取连线结构图</button><p id="map-status" class="hint">直接从原图估计深度，也可连接 Depth Anything 3 输出或导入 PNG。</p></div><div id="canny-options" hidden><label>低阈值 <input id="canny-low" type="number" min="0" max="255" value="50"></label><label>高阈值 <input id="canny-high" type="number" min="0" max="255" value="150"></label></div><p id="guide-explanation" class="hint">同一场景的新机位粗图，配合 AnyAngle LoRA 使用。</p></section>
+    <div class="section-heading"><h1>拍摄相机</h1><img class="heading-icon" src="../icons/camera.svg" alt=""></div><p class="eyebrow">场景正面 · Y-UP · 透视</p>
     <div id="camera-sliders"></div>
     <section class="view-presets"><h2>预设视角</h2><div class="three-buttons"><button data-angle="0">正面</button><button data-angle="90">侧面</button><button data-angle="180">背面</button></div></section>
     <section class="output-section"><h2>输出尺寸</h2><div class="dimensions"><label>宽度<input id="width" type="number" min="64" max="4096" step="32" value="1024"></label><label>高度<input id="height" type="number" min="64" max="4096" step="32" value="1024"></label></div><label class="background-label">粗图背景<input type="color" id="background" value="#69717b" aria-label="粗图背景色"></label></section>
@@ -55,5 +54,5 @@
 <div id="toast" role="status" hidden></div>
 <dialog id="name-dialog"><form method="dialog"><h2 id="name-title">命名</h2><input id="name-input" maxlength="48" required autocomplete="off"><div><button value="cancel" formnovalidate>取消</button><button value="ok" class="primary">保存</button></div></form></dialog>
 <input type="file" id="reference-file" accept="image/*" hidden><input type="file" id="glb-file" accept=".glb" hidden><input type="file" id="pose-file" accept=".json,application/json" hidden><input type="file" id="openpose-file" accept="image/png,image/jpeg,image/webp" hidden><input type="file" id="map-file" accept="image/*" hidden>
-<script type="module" src="./app.mjs?v=20260930b"></script>
+<script type="module" src="./app.mjs?v=20260930f"></script>
 </body></html>
