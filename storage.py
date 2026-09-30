@@ -12,6 +12,25 @@ import tempfile
 from PIL import Image, ImageOps
 
 PROMPT = "Change the camera angle from <image2> to <image1>."
+BASE_PROMPTS = {
+    "coarse": "Use <image1> as the identity, clothing and style reference. Recreate the same subject at the camera angle and composition shown by <image2>.",
+    "pose": "Use <image1> as the identity, clothing and style reference. Recreate the same subject in the body pose and framing shown by <image2>.",
+    "depth": "Use <image1> as the identity, clothing and style reference. Follow the spatial depth, layout and occlusion relationships shown by <image2>.",
+    "canny": "Use <image1> as the identity, clothing and style reference. Follow the silhouette, contours and major edge layout shown by <image2>.",
+}
+
+
+def conditioning_for(scene):
+    conditioning = scene.get("conditioning") or {}
+    if not isinstance(conditioning, dict):
+        raise ValueError("Invalid guide settings")
+    model = conditioning.get("model", "anyangle")
+    guide = conditioning.get("guide", "coarse")
+    if model not in ("anyangle", "base") or guide not in BASE_PROMPTS:
+        raise ValueError("Unknown model or guide mode")
+    return model, guide, conditioning
+
+
 TOKEN = re.compile(r"[a-f0-9]{64}\Z")
 ASSET = re.compile(r"[a-f0-9]{64}\.(png|glb|ply)\Z")
 
@@ -128,8 +147,23 @@ class StudioStore:
                 raise ValueError(f"Invalid camera {key}")
         if scene["camera"]["zoom"] <= 0:
             raise ValueError("Camera zoom must be positive")
-        if scene.get("source", {}).get("kind") not in ("human", "glb", "splat"):
+        model, guide_mode, conditioning = conditioning_for(scene)
+        source_kind = scene.get("source", {}).get("kind")
+        if source_kind not in ("human", "glb", "splat", "empty"):
             raise ValueError("Select a reconstructed scene, human or GLB source")
+        if model == "base" and guide_mode == "depth" and not conditioning.get("map"):
+            raise ValueError("Import a Depth Anything map before applying")
+        if model == "base" and guide_mode == "pose" and source_kind != "human":
+            raise ValueError("OpenPose guide requires the human mannequin")
+        if source_kind == "empty" and not (model == "base" and guide_mode in ("depth", "canny") and
+                                           (conditioning.get("map") or scene.get("reference"))):
+            raise ValueError("Current guide requires a 3D scene or an imported image")
+        guide_asset = conditioning.get("map")
+        if guide_asset:
+            name = guide_asset.get("name") if isinstance(guide_asset, dict) else None
+            if not isinstance(name, str) or not name.endswith(".png"):
+                raise ValueError("Structural guide must be a PNG image")
+            self.read_asset(name)
         if scene["source"]["kind"] in ("glb", "splat"):
             expected = ".glb" if scene["source"]["kind"] == "glb" else ".ply"
             source_name = scene["source"].get("name")
@@ -156,7 +190,7 @@ class StudioStore:
         guide = self.asset(data, "png")
         if (guide["width"], guide["height"]) != (width, height):
             raise ValueError("Guide dimensions do not match the scene; capture again")
-        document = {"scene": scene, "guide": guide, "prompt": PROMPT}
+        document = {"scene": scene, "guide": guide, "prompt": PROMPT if model == "anyangle" else BASE_PROMPTS[guide_mode]}
         encoded = json.dumps(document, ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":")).encode()
         digest = hashlib.sha256(encoded).hexdigest()
         self.write(f"{digest}.json", encoded)

@@ -1,6 +1,6 @@
 // Work from ComfyUI's executable graph so reroutes and bypassed nodes resolve normally.
-export function referencePlan(output, nodeId) {
-  const link = output[String(nodeId)]?.inputs?.reference_image;
+export function referencePlan(output, nodeId, inputName = 'reference_image') {
+  const link = output[String(nodeId)]?.inputs?.[inputName];
   if (!link) return null;
   const upstream = {};
   function visit(id) {

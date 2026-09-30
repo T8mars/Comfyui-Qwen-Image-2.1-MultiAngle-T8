@@ -23,14 +23,17 @@
     }
   },
   "4": {
-    "class_type": "LoraLoaderModelOnly",
+    "class_type": "AnyAngleOptionalLoRAT8",
     "inputs": {
       "model": [
         "3",
         0
       ],
       "lora_name": "QI2.1_AnyAngle.safetensors",
-      "strength_model": 1
+      "strength_model": [
+        "1",
+        3
+      ]
     }
   },
   "5": {

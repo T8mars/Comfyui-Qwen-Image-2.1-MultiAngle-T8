@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 520" role="img" aria-labelledby="title desc">
   <title id="title">AnyAngle Studio connection diagram</title>
-  <desc id="desc">The reference image feeds both AnyAngle Studio and image_1. The Studio guide and prompt feed image_2 and prompt on the Qwen Image 2.1 encoder.</desc>
+  <desc id="desc">The reference image feeds both AnyAngle Studio and image_1. An optional structure image enters the Studio. The Studio guide and prompt feed image_2 and prompt; its model strength output controls the optional AnyAngle LoRA loader.</desc>
   <defs>
     <linearGradient id="bg" x2="1" y2="1">
       <stop stop-color="#0c151e"/>
@@ -32,19 +32,22 @@
   <rect width="1160" height="520" rx="28" fill="url(#grid)"/>
   <circle cx="1120" cy="24" r="260" fill="#225469" opacity=".12"/>
   <text x="48" y="52" class="eyebrow">ANYANGLE STUDIO · T8</text>
-  <text x="48" y="95" class="title">One reference. Two images. A new camera view.</text>
-  <text x="48" y="123" class="sub">Wire the original image to both paths; the Studio supplies the camera guide and prompt.</text>
+  <text x="48" y="95" class="title">One workbench. Multiple guide strategies.</text>
+  <text x="48" y="123" class="sub">Original image + optional pose/depth/Canny map. Studio selects the guide, prompt, and LoRA strength.</text>
 
   <path d="M288 242H354" fill="none" stroke="url(#cyan)" stroke-width="4" stroke-linecap="round"/>
   <path d="M288 242C320 242 306 455 697 455C732 455 739 390 769 390" fill="none" stroke="#93a8ff" stroke-width="3" stroke-linecap="round"/>
   <path d="M662 255H769" fill="none" stroke="url(#cyan)" stroke-width="4" stroke-linecap="round"/>
   <path d="M662 321H769" fill="none" stroke="#e2b96e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M662 362H769" fill="none" stroke="#92dbb4" stroke-width="3" stroke-linecap="round"/>
   <circle cx="288" cy="242" r="6" fill="#70ddea"/>
   <circle cx="354" cy="242" r="6" fill="#70ddea"/>
   <circle cx="662" cy="255" r="6" fill="#70ddea"/>
   <circle cx="662" cy="321" r="6" fill="#e2b96e"/>
+  <circle cx="662" cy="362" r="6" fill="#92dbb4"/>
   <circle cx="769" cy="255" r="6" fill="#70ddea"/>
   <circle cx="769" cy="321" r="6" fill="#e2b96e"/>
+  <circle cx="769" cy="362" r="6" fill="#92dbb4"/>
   <circle cx="769" cy="390" r="6" fill="#93a8ff"/>
 
   <g filter="url(#shadow)">
@@ -56,19 +59,21 @@
     <text x="67" y="316" class="name">Reference image</text>
     <text x="67" y="340" class="small">Original pose and identity</text>
 
-    <rect class="card" x="354" y="170" width="308" height="190" rx="18"/>
+    <rect class="card" x="354" y="170" width="308" height="213" rx="18"/>
     <rect x="373" y="189" width="270" height="34" rx="8" fill="#203d4c"/>
     <text x="388" y="212" fill="#8fe9f3" font-family="Inter,ui-sans-serif,system-ui" font-size="14" font-weight="750" letter-spacing="1.4">ANYANGLE STUDIO · T8</text>
     <text x="374" y="260" class="socket">reference_image</text>
+    <text x="374" y="289" class="small">structure_image · optional</text>
     <text x="643" y="260" text-anchor="end" class="socket">guide_image_2</text>
     <text x="643" y="326" text-anchor="end" class="socket">prompt</text>
-    <text x="374" y="329" class="small">Reconstruct · orbit · frame</text>
+    <text x="643" y="367" text-anchor="end" class="socket">LoRA strength</text>
 
     <rect class="card" x="769" y="170" width="343" height="244" rx="18"/>
     <rect x="788" y="189" width="305" height="34" rx="8" fill="#293248"/>
-    <text x="803" y="212" fill="#c9d4ff" font-family="Inter,ui-sans-serif,system-ui" font-size="14" font-weight="750" letter-spacing="1.1">QWEN IMAGE 2.1 · ANYANGLE</text>
+    <text x="803" y="212" fill="#c9d4ff" font-family="Inter,ui-sans-serif,system-ui" font-size="14" font-weight="750" letter-spacing="1.1">QWEN IMAGE 2.1 · OPTIONAL LORA</text>
     <text x="790" y="260" class="socket">image_2</text>
     <text x="790" y="326" class="socket">prompt</text>
+    <text x="790" y="367" class="socket">strength_model · 0 or 1</text>
     <text x="790" y="395" class="socket">image_1</text>
     <text x="871" y="395" class="small">original image</text>
   </g>

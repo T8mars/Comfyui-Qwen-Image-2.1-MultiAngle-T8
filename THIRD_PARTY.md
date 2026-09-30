@@ -3,6 +3,7 @@
 | Component | Pinned source | License / local notice |
 |---|---|---|
 | VNCCS PoseViewerCore, morph runtime, hand presets | Fisher `d116451f25b1c9da36dd852fdc9df321068f4d98`, upstream AHEKOT/VNCCS `70b752f2` | MIT, `web/vendor/LICENSE`, upstream notes in `web/vendor/README.md` |
+| OpenPose color-skeleton parser and 2D-to-3D lift | Fisher `d116451f25b1c9da36dd852fdc9df321068f4d98`, `web/editor/pose-import.mjs` and `web/editor/openpose-lift.mjs`; adapted into `web/editor/openpose.mjs` | MIT, `web/editor/openpose.LICENSE`; retains Work-Fisher copyright |
 | MakeHuman body pack | Same Fisher commit | CC0; `web/vendor/assets/pose_studio_makehuman.v2.LICENSE.md` and CC0 text |
 | Fisher skin texture | Same Fisher commit; source's modified mannequin texture | Retain upstream provenance notes in `web/vendor/README.md`; not claimed as original T8 art |
 | Three.js + OrbitControls + TransformControls | r160 from the above vendored distribution | MIT, `web/vendor/THREE-LICENSE` |

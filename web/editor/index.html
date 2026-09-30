@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css?v=20260930"></head>
 <body>
 <header class="topbar">
   <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small>T8</small></div>
@@ -20,6 +20,7 @@
       <p class="asset-label" id="asset-label">正在载入场景</p>
     </section>
     <details class="panel-block" open id="pose-panel" hidden><summary>姿势库 <span class="tag amber">实验</span></summary><div class="preset-grid" id="presets"></div><div class="compact-actions"><button id="save-pose"><img src="../icons/device-floppy.svg" alt="">保存姿势</button><button id="import-pose" title="导入本编辑器导出的姿势 JSON">导入</button><button id="export-pose" title="导出姿势 JSON">导出</button></div><div id="saved-poses" class="saved-poses"></div></details>
+    <details class="panel-block" id="openpose-panel" hidden><summary>OpenPose 导入 <span class="tag amber">Fisher 兼容</span></summary><p class="hint">导入黑底彩色身体骨架图，将姿势应用到当前人偶。普通照片请使用三维重建。</p><button id="import-openpose" class="wide-button">导入 OpenPose 图</button><button id="read-openpose" class="wide-button" hidden>读取连线骨架图</button><p id="openpose-status" class="hint">未导入骨架</p><div id="pose-flips" class="flip-grid" hidden><button data-flip="body">正背翻转</button><button data-flip="torso">躯干前后</button><button data-flip="lArmUpper">左上臂</button><button data-flip="lArmLower">左小臂</button><button data-flip="rArmUpper">右上臂</button><button data-flip="rArmLower">右小臂</button><button data-flip="lLegUpper">左大腿</button><button data-flip="lLegLower">左小腿</button><button data-flip="rLegUpper">右大腿</button><button data-flip="rLegLower">右小腿</button></div></details>
     <details class="panel-block" id="hands-panel" hidden><summary>手势 <small>人物自身左右</small></summary><div id="hands"></div></details>
     <details class="panel-block" id="body-panel" hidden><summary>体型</summary><div id="body-sliders"></div></details>
     <details class="panel-block" id="joint-panel" hidden><summary>关节精调 <small id="bone-name">未选择</small></summary><p class="hint">切换“编辑场景”，点选关节或拖动 IK 手脚控制点。</p><select id="bone-select" aria-label="选择关节"><option value="">选择关节</option></select><div id="bone-sliders"></div><button id="reset-bone">复位当前关节</button></details>
@@ -27,30 +28,32 @@
   </aside>
   <section class="center-panel">
     <div class="stage" id="stage">
-      <canvas id="viewport" aria-label="交互 3D 场景：拖动改变机位，Shift 拖动平移，滚轮缩放" tabindex="0"></canvas>
-      <div class="stage-toolbar"><div class="mode-switch" role="group" aria-label="编辑模式"><button id="camera-mode" class="active"><img src="../icons/camera.svg" alt="">拍摄机位</button><button id="edit-mode"><img src="../icons/cube.svg" alt="">编辑场景</button></div><select id="ratio" aria-label="输出画幅"><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option><option value="custom">自定义</option></select></div>
+      <canvas id="viewport" aria-label="交互 3D 场景：拖动改变机位，中键或 Shift 拖动平移，滚轮缩放" tabindex="0"></canvas>
+      <div class="stage-toolbar"><div class="mode-switch" role="group" aria-label="编辑模式"><button id="camera-mode" class="active"><img src="../icons/camera.svg" alt="">拍摄机位</button><button id="edit-mode"><img src="../icons/cube.svg" alt="">编辑场景</button></div><button id="reference-overlay-toggle" class="overlay-toggle" title="叠加原图校准">原图叠加</button><select id="ratio" aria-label="输出画幅"><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option><option value="custom">自定义</option></select></div>
+      <img id="reference-overlay" class="reference-overlay" alt="半透明原图校准" hidden>
       <p id="mode-hint" class="mode-hint" hidden>原图重建姿势固定 · 仅可调整机位</p>
       <div class="stage-meta"><span id="source-badge">正在载入场景</span><span>Y-UP / PERSPECTIVE</span></div>
       <button id="use-view" class="use-view" hidden><img src="../icons/focus-2.svg" alt="">将当前视图设为机位</button>
       <button id="fit-frame" class="fit-frame" title="将整个资产放入拍摄画幅"><img src="../icons/focus-2.svg" alt="">适合画幅</button>
-      <div class="stage-help" id="stage-help">拖动调整拍摄机位 <span>Shift 平移 · 滚轮缩放</span></div>
+      <div class="stage-help" id="stage-help">拖动调整拍摄机位 <span>中键或 Shift 平移 · 滚轮缩放</span></div>
       <div id="empty-scene" class="empty-scene" hidden><img src="../icons/aperture.svg" alt=""><strong>让原图成为三维场景</strong><span>连接参考图或上传图片<br>重建对应主体后，拖动相机探索新视角</span></div>
       <div id="loading" class="loading" role="status"><img src="../icons/aperture.svg" alt=""><strong id="loading-text">正在准备 3D 工作台</strong><span id="loading-detail">加载本地渲染资源</span></div>
     </div>
     <section class="shot-shelf"><div class="section-heading"><h2>已保存机位 <small id="shot-count">0</small></h2><button id="save-shot"><img src="../icons/plus.svg" alt="">收藏当前机位</button></div><div id="shots" class="shots"><p class="empty-note">把满意的机位留在这里。切换收藏只改变相机，姿势保持当前状态。</p></div></section>
   </section>
   <aside class="right-panel">
+    <section class="guide-mode-section"><div class="section-heading"><h2>引导策略</h2><span id="model-badge">ANYANGLE</span></div><div class="model-switch" role="group" aria-label="生成模型"><button id="model-anyangle" class="active">AnyAngle LoRA</button><button id="model-base">Qwen 底模</button></div><label class="guide-select-label">引导图<select id="guide-type" aria-label="引导图类型"><option value="coarse">三维粗渲染</option><option value="pose">OpenPose 姿势</option><option value="depth">Depth Anything 深度</option><option value="canny">Canny 轮廓</option></select></label><div id="map-inputs" hidden><button id="import-map" class="wide-button">导入结构图</button><button id="read-map" class="wide-button" hidden>读取连线结构图</button><p id="map-status" class="hint">深度图可由 Depth Anything 3 输出后接入左侧 IMAGE 端口，或上传 PNG。</p></div><div id="canny-options" hidden><label>低阈值 <input id="canny-low" type="number" min="0" max="255" value="50"></label><label>高阈值 <input id="canny-high" type="number" min="0" max="255" value="150"></label></div><p id="guide-explanation" class="hint">同一场景的新机位粗图，配合 AnyAngle LoRA 使用。</p></section>
     <div class="section-heading"><h1>拍摄相机</h1><img class="heading-icon" src="../icons/camera.svg" alt=""></div><p class="eyebrow">相对于已校准的场景正面</p>
     <div id="camera-sliders"></div>
     <section class="view-presets"><h2>预设视角</h2><div class="three-buttons"><button data-angle="0">正面</button><button data-angle="90">侧面</button><button data-angle="180">背面</button></div></section>
     <section class="output-section"><h2>输出尺寸</h2><div class="dimensions"><label>宽度<input id="width" type="number" min="64" max="4096" step="32" value="1024"></label><label>高度<input id="height" type="number" min="64" max="4096" step="32" value="1024"></label></div><label class="background-label">粗图背景<input type="color" id="background" value="#69717b" aria-label="粗图背景色"></label></section>
-    <section class="guide-section"><div class="section-heading"><h2>实际粗渲染 <small>· image_2</small></h2><span id="guide-size">1024 × 1024</span></div><div class="guide-wrap"><img id="guide" alt="当前拍摄机位的实际粗渲染"></div><p id="guide-state" class="hint">只有画面内容会输出，网格与控制器不会进入粗图。</p><button id="download-guide"><img src="../icons/download.svg" alt="">导出粗图 PNG</button></section>
-    <details class="protocol"><summary>AnyAngle 接线</summary><p>原图 → image_1<br>这里的粗图 → image_2</p><code>Change the camera angle from &lt;image2&gt; to &lt;image1&gt;.</code><p class="hint">LoRA 1 · CFG 3 · 至少 20 步。原图重建主体用于保持动作和视角对应；遮挡区域由模型推测。</p></details>
+    <section class="guide-section"><div class="section-heading"><h2 id="guide-heading">实际粗渲染 <small>· image_2</small></h2><span id="guide-size">1024 × 1024</span></div><div class="guide-wrap"><img id="guide" alt="当前会输出到 image_2 的引导图"></div><p id="guide-state" class="hint">只有画面内容会输出，网格与控制器不会进入粗图。</p><button id="download-guide"><img src="../icons/download.svg" alt="">导出当前引导图 PNG</button></section>
+    <details class="protocol" open><summary>接线与提示词</summary><p>原图 → image_1<br>当前引导图 → image_2<br><span id="lora-hint">LoRA 强度 → AnyAngle 模型加载器</span></p><code id="prompt-preview">Change the camera angle from &lt;image2&gt; to &lt;image1&gt;.</code><p class="hint" id="protocol-hint">AnyAngle 模式下将 LoRA 强度接到加载器；底模模式自动输出 0。</p></details>
   </aside>
 </main>
-<footer><div id="status" role="status">准备中</div><span>IMAGE <b>·</b> PROMPT <b>·</b> SCENE JSON</span></footer>
+<footer><div id="status" role="status">准备中</div><span>IMAGE <b>·</b> PROMPT <b>·</b> SCENE JSON <b>·</b> LORA 0/1</span></footer>
 <div id="toast" role="status" hidden></div>
 <dialog id="name-dialog"><form method="dialog"><h2 id="name-title">命名</h2><input id="name-input" maxlength="48" required autocomplete="off"><div><button value="cancel" formnovalidate>取消</button><button value="ok" class="primary">保存</button></div></form></dialog>
-<input type="file" id="reference-file" accept="image/*" hidden><input type="file" id="glb-file" accept=".glb" hidden><input type="file" id="pose-file" accept=".json,application/json" hidden>
-<script type="module" src="./app.mjs?v=20260929"></script>
+<input type="file" id="reference-file" accept="image/*" hidden><input type="file" id="glb-file" accept=".glb" hidden><input type="file" id="pose-file" accept=".json,application/json" hidden><input type="file" id="openpose-file" accept="image/png,image/jpeg,image/webp" hidden><input type="file" id="map-file" accept="image/*" hidden>
+<script type="module" src="./app.mjs?v=20260930b"></script>
 </body></html>

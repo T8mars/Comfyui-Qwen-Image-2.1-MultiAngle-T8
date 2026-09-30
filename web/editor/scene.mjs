@@ -4,6 +4,7 @@ import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs';
 import { loadMorphPack, solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
 import { SplatScene } from './splat.mjs';
+import { liftOpenPose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs';
 
 export const PRESETS = [
   { name: '自然站立', bones: { upperarm_l: [0, 0, -8], upperarm_r: [0, 0, 8] } },
@@ -18,6 +19,8 @@ export const defaultScene = () => ({
   mesh: { age: 25, gender: 0.5, weight: 0.5, muscle: 0.5, height: 0.5, breast_size: 0, firmness: 0.5, show_genitals: false },
   pose: { bones: PRESETS[0].bones }, shots: [], front: 0, scale: 1,
   background: '#69717b',
+  conditioning: { model: 'anyangle', guide: 'coarse', map: null, cannyLow: 50, cannyHigh: 150 },
+  openpose: null,
 });
 export const assetURL = name => `/anyangle-studio/assets/${encodeURIComponent(name)}`;
 const radians = THREE.MathUtils.degToRad;
@@ -356,6 +359,59 @@ export class StudioScene {
 
   hand(side, preset) { this.viewer.applyHandPreset(side, HAND_PRESETS[preset]); this.syncPose(); }
 
+  applyOpenPose(points, flips = {}) {
+    if (this.doc.source.kind !== 'human') throw new Error('OpenPose 姿势需要先切换到人偶');
+    const viewer = this.viewer;
+    viewer.resetPose();
+    viewer.skinnedMesh.updateMatrixWorld(true);
+    const worldOf = name => viewer.bones[name].getWorldPosition(new THREE.Vector3()).toArray();
+    const joints = { ls: 'upperarm_l', le: 'lowerarm_l', lw: 'hand_l', rs: 'upperarm_r', re: 'lowerarm_r', rw: 'hand_r',
+      lh: 'thigh_l', lk: 'calf_l', la: 'foot_l', rh: 'thigh_r', rk: 'calf_r', ra: 'foot_r' };
+    const rest = Object.fromEntries(Object.entries(joints).map(([key, bone]) => [key, worldOf(bone)]));
+    rest.neck = rest.ls.map((value, i) => (value + rest.rs[i]) / 2);
+    rest.hipMid = rest.lh.map((value, i) => (value + rest.rh[i]) / 2);
+    const head = worldOf('head'), pelvis = worldOf('pelvis');
+    const { kps, facingAway } = liftOpenPose(points, rest, flips);
+    const distance = Math.hypot(...head.map((value, i) => value - rest.neck[i]));
+    const direction = kps.head.map((value, i) => value - kps.neck[i]);
+    const norm = Math.hypot(...direction) || 1;
+    kps.head = kps.neck.map((value, i) => value + direction[i] / norm * distance);
+    const worldKps = Object.fromEntries(Object.entries(WORLD_KEYPOINT_NAMES).map(([key, name]) =>
+      [name, new THREE.Vector3(...kps[key].map((value, i) => value + pelvis[i]))]));
+    const applied = viewer.applyWorldKeypointImport(worldKps, { drawFigure: false, placeHipRoots: false, alignHead: false,
+      alignHands: false, alignFeet: false, dispatchPoseChange: false });
+    if (!applied) throw new Error('无法将 OpenPose 骨架应用到人偶，请检查骨架图');
+    this.doc.pose = this.pose();
+    this.updateShot(true);
+    return facingAway;
+  }
+
+  captureOpenPose(width = this.doc.width, height = this.doc.height) {
+    if (this.doc.source.kind !== 'human') throw new Error('OpenPose 引导图需要人偶场景');
+    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#000'; context.fillRect(0, 0, width, height);
+    this.viewer.captureCamera.updateMatrixWorld(true);
+    const project = bone => {
+      const point = this.viewer.bones[bone].getWorldPosition(new THREE.Vector3()).project(this.viewer.captureCamera);
+      return [(point.x + 1) * width / 2, (1 - point.y) * height / 2];
+    };
+    const bones = { head: 'head', rs: 'upperarm_r', re: 'lowerarm_r', rw: 'hand_r', ls: 'upperarm_l', le: 'lowerarm_l', lw: 'hand_l',
+      rh: 'thigh_r', rk: 'calf_r', ra: 'foot_r', lh: 'thigh_l', lk: 'calf_l', la: 'foot_l' };
+    const positions = Object.fromEntries(Object.entries(bones).map(([name, bone]) => [name, project(bone)]));
+    positions.neck = positions.ls.map((value, i) => (value + positions.rs[i]) / 2);
+    context.lineCap = 'round'; context.lineJoin = 'round'; context.lineWidth = Math.max(3, Math.min(width, height) / 120);
+    LIMBS.forEach(([from, to], index) => {
+      context.strokeStyle = COLORS[index]; context.beginPath(); context.moveTo(...positions[ORDER[from]]);
+      context.lineTo(...positions[ORDER[to]]); context.stroke();
+    });
+    ORDER.forEach((name, index) => {
+      context.fillStyle = COLORS[index]; context.beginPath();
+      context.arc(...positions[name], Math.max(3, Math.min(width, height) / 85), 0, Math.PI * 2); context.fill();
+    });
+    return canvas.toDataURL('image/png');
+  }
+
   async morph() {
     const pose = { bones: this.pose().bones, modelRotation: this.pose().modelRotation };
     this.restoring = true;
@@ -373,12 +429,13 @@ export class StudioScene {
     let drag = null;
     const end = () => { if (drag) { drag = null; this.callbacks.change(); } };
     canvas.addEventListener('pointerdown', event => {
-      if (this.mode !== 'camera' || event.button !== 0) return;
+      if (this.mode !== 'camera' || (event.button !== 0 && event.button !== 1)) return;
       event.stopImmediatePropagation(); event.preventDefault();
       this.callbacks.begin();
-      drag = { x: event.clientX, y: event.clientY, camera: { ...this.doc.camera }, pan: event.shiftKey };
+      drag = { x: event.clientX, y: event.clientY, camera: { ...this.doc.camera }, pan: event.button === 1 || event.shiftKey };
       canvas.setPointerCapture(event.pointerId);
     }, true);
+    canvas.addEventListener('auxclick', event => { if (this.mode === 'camera' && event.button === 1) event.preventDefault(); });
     canvas.addEventListener('pointermove', event => {
       if (this.mode === 'camera') event.stopImmediatePropagation();
       if (!drag) return;

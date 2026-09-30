@@ -12,7 +12,7 @@ import zlib
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from storage import StudioStore
+from storage import StudioStore, BASE_PROMPTS
 
 
 class SnapshotTests(unittest.TestCase):
@@ -39,6 +39,27 @@ class SnapshotTests(unittest.TestCase):
         second = self.store.save_scene(self.scene, self.png)
         self.assertNotEqual(first, second)
         self.assertEqual(self.store.load_scene(first)[0]["scene"]["camera"]["azimuth"], 45)
+
+    def test_base_model_structure_modes_change_prompt_and_allow_external_depth(self):
+        scene = copy.deepcopy(self.scene)
+        scene["source"] = {"kind": "empty"}
+        scene["conditioning"] = {"model": "base", "guide": "depth", "map": None}
+        with self.assertRaisesRegex(ValueError, "Depth Anything"):
+            self.store.save_scene(scene, self.png)
+        scene["conditioning"]["map"] = self.store.asset(base64.b64decode(self.png.split(",")[1]), "png")
+        token = self.store.save_scene(scene, self.png)
+        self.assertEqual(self.store.load_scene(token)[0]["prompt"], BASE_PROMPTS["depth"])
+        scene["conditioning"]["guide"] = "canny"
+        self.assertEqual(self.store.load_scene(self.store.save_scene(scene, self.png))[0]["prompt"], BASE_PROMPTS["canny"])
+        scene["conditioning"]["guide"] = "pose"
+        with self.assertRaisesRegex(ValueError, "human mannequin"):
+            self.store.save_scene(scene, self.png)
+
+    def test_unknown_guide_or_model_is_rejected(self):
+        scene = copy.deepcopy(self.scene)
+        scene["conditioning"] = {"model": "other", "guide": "coarse"}
+        with self.assertRaisesRegex(ValueError, "Unknown model"):
+            self.store.save_scene(scene, self.png)
 
     def test_missing_and_corrupted_guide_fail(self):
         token = self.store.save_scene(self.scene, self.png)

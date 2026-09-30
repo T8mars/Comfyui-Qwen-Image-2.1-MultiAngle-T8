@@ -34,3 +34,15 @@ test('annotated paths retain the correct ComfyUI directory and unicode filename'
   assert.equal(url.searchParams.get('filename'), '子目录/照片.png');
   assert.equal(url.searchParams.get('type'), 'output');
 });
+
+test('structure input resolves independently from the original image', () => {
+  const graph = {
+    '1': { inputs: { reference_image: ['2', 0], structure_image: ['3', 0] } },
+    '2': { class_type: 'LoadImage', inputs: { image: 'portrait.png' } },
+    '3': { class_type: 'DepthAnything3', inputs: { image: ['2', 0] } },
+  };
+  const structure = referencePlan(graph, 1, 'structure_image');
+  assert.equal(structure.filename, null);
+  assert.deepEqual(Object.keys(structure.upstream), ['2', '3']);
+  assert.equal(referencePlan(graph, 1).filename, 'portrait.png');
+});

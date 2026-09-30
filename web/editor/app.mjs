@@ -1,5 +1,7 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20260929';
+import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20260930';
 import { reconstruct } from './reconstruct.mjs';
+import { readSkeletonImage } from './openpose.mjs';
+import { GUIDE_LABELS, guidePrompt, cannyEdges } from './guides.mjs?v=20260930b';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);
@@ -11,7 +13,11 @@ let undo = [], redo = [], previewTimer, previewRunning = false, selectedBone = '
 let selectedShot = null, snapshot = null;
 let humanToolsReady = false;
 let linkedReference = { connected: false };
+let linkedStructure = { connected: false };
+let unwiredAnyAngle = false;
 let pendingReference = null;
+let pendingStructure = null;
+let overlayShown = false;
 const controls = new Map();
 let poseLibrary;
 try { poseLibrary = JSON.parse(localStorage.getItem('anyangle-studio.poses.v1') || '[]'); }
@@ -23,10 +29,20 @@ function toast(message) {
   clearTimeout(toast.timer); toast.timer = setTimeout(() => { $('#toast').hidden = true; }, 4500);
 }
 function error(error) { console.error(error); toast(error?.message || String(error)); }
+function currentGuide() { return doc.conditioning.model === 'anyangle' ? 'coarse' : doc.conditioning.guide; }
+function hasGuide() {
+  const guide = currentGuide();
+  if (linkedStructure.connected && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(guide)
+      && (!linkedStructure.asset || linkedStructure.pending)) return false;
+  return guide === 'depth' ? !!doc.conditioning.map : guide === 'pose' ? doc.source.kind === 'human'
+    : guide === 'canny' ? doc.source.kind !== 'empty' || !!doc.conditioning.map || !!doc.reference : doc.source.kind !== 'empty';
+}
 function setBusy(value) {
-  busy = value; $('#workspace').inert = value; $('#apply').disabled = value || !ready || doc.source.kind === 'empty' || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending));
+  busy = value; $('#workspace').inert = value; $('#apply').disabled = value || !ready || !hasGuide()
+    || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending)) || (linkedStructure.connected && !!linkedStructure.pending);
   $('#undo').disabled = value || !undo.length; $('#redo').disabled = value || !redo.length;
   if (!value && pendingReference) queueMicrotask(readPendingReference);
+  if (!value && pendingStructure) queueMicrotask(readPendingStructure);
 }
 async function run(task) {
   if (busy) return;
@@ -56,14 +72,45 @@ function changed() {
 function schedulePreview() {
   clearTimeout(previewTimer); previewTimer = setTimeout(renderPreview, 110);
 }
+async function imageCanvas(source, width, height) {
+  const image = new Image(); image.src = source; await image.decode();
+  const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.fillStyle = '#000'; context.fillRect(0, 0, width, height);
+  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+  const w = image.naturalWidth * scale, h = image.naturalHeight * scale;
+  context.drawImage(image, (width - w) / 2, (height - h) / 2, w, h);
+  return canvas;
+}
+async function captureGuide(width = doc.width, height = doc.height) {
+  const guide = currentGuide();
+  if (guide === 'pose') return studio.captureOpenPose(width, height);
+  if ((guide === 'depth' || guide === 'canny') && doc.conditioning.map)
+    return (await imageCanvas(assetURL(doc.conditioning.map.name), width, height)).toDataURL('image/png');
+  if (guide === 'depth') throw new Error('请接入或导入 Depth Anything 深度图');
+  if (guide !== 'canny') return studio.capture(width, height);
+  const source = doc.source.kind === 'empty' ? assetURL(doc.reference.name) : await studio.capture(width, height);
+  const scale = Math.min(1, 1536 / Math.max(width, height));
+  const workWidth = Math.max(1, Math.round(width * scale)), workHeight = Math.max(1, Math.round(height * scale));
+  const work = await imageCanvas(source, workWidth, workHeight);
+  const context = work.getContext('2d', { willReadFrequently: true });
+  const pixels = context.getImageData(0, 0, workWidth, workHeight);
+  pixels.data.set(cannyEdges(pixels.data, workWidth, workHeight, doc.conditioning.cannyLow, doc.conditioning.cannyHigh));
+  context.putImageData(pixels, 0, 0);
+  if (workWidth === width && workHeight === height) return work.toDataURL('image/png');
+  const target = document.createElement('canvas'); target.width = width; target.height = height;
+  const targetContext = target.getContext('2d'); targetContext.imageSmoothingEnabled = false;
+  targetContext.drawImage(work, 0, 0, width, height);
+  return target.toDataURL('image/png');
+}
 async function renderPreview() {
-  if (!ready || doc.source.kind === 'empty' || busy) return;
+  if (!ready || !hasGuide() || busy) return;
   if (previewRunning) { schedulePreview(); return; }
   previewRunning = true;
   const version = revision;
   try {
     const scale = Math.min(1, 500 / Math.max(doc.width, doc.height));
-    const png = await studio.capture(Math.round(doc.width * scale), Math.round(doc.height * scale));
+    const png = await captureGuide(Math.round(doc.width * scale), Math.round(doc.height * scale));
     if (version === revision) $('#guide').src = png;
   } catch (e) { error(e); }
   finally { previewRunning = false; }
@@ -91,13 +138,17 @@ function refresh() {
         : 'GLB 默认 Y 轴朝上。旋转资产以校准正面；资产尺度与镜头缩放相互独立。';
   $('#asset-label').textContent = empty ? '等待原图重建' : human ? 'MakeHuman · 手动人偶' : doc.source.label || 'GLB 场景';
   $('#source-badge').textContent = empty ? 'PHOTO → 3D' : splat ? 'TRIPOSPLAT · 原图重建' : human ? 'HUMAN · 手动人偶' : 'GLB · 场景';
-  for (const id of ['pose-panel', 'hands-panel', 'body-panel', 'joint-panel']) {
+  for (const id of ['pose-panel', 'openpose-panel', 'hands-panel', 'body-panel', 'joint-panel']) {
     $(`#${id}`).classList.toggle('disabled-panel', !human);
     $(`#${id}`).inert = !human;
     $(`#${id}`).hidden = !human;
   }
   $('#reference').hidden = !doc.reference; $('#reference-empty').hidden = !!doc.reference;
   if (doc.reference) $('#reference').src = assetURL(doc.reference.name);
+  $('#reference-overlay-toggle').disabled = !doc.reference;
+  $('#reference-overlay-toggle').classList.toggle('active', overlayShown && !!doc.reference);
+  $('#reference-overlay').hidden = !overlayShown || !doc.reference;
+  if (doc.reference) $('#reference-overlay').src = assetURL(doc.reference.name);
   $('#reference-button').disabled = $('#reference-drop').disabled = linkedReference.connected;
   $('#read-reference').hidden = !linkedReference.connected;
   $('#read-reference').disabled = !!linkedReference.pending;
@@ -107,10 +158,44 @@ function refresh() {
   $('#reconstruct').disabled = !doc.reference;
   $('#reconstruct').textContent = splat ? '重新载入原图 3D' : '从原图重建 3D';
   $('#empty-scene').hidden = !empty;
-  $('#guide').hidden = empty;
-  $('#guide-state').textContent = empty ? '生成对应主体后显示新机位粗图。' : '只有画面内容会输出，网格与控制器不会进入粗图。';
-  $('#save-shot').disabled = $('#download-guide').disabled = $('#fit-frame').disabled = empty;
-  $('#apply').disabled = busy || !ready || empty || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending));
+  const guide = currentGuide(), base = doc.conditioning.model === 'base';
+  $('#model-anyangle').classList.toggle('active', !base); $('#model-base').classList.toggle('active', base);
+  $('#model-badge').textContent = base ? 'QWEN 2.1' : 'ANYANGLE';
+  $('#guide-type').disabled = !base; $('#guide-type').value = guide;
+  $('#map-inputs').hidden = !base || !['pose', 'depth', 'canny'].includes(guide);
+  $('#import-map').textContent = guide === 'pose' ? '导入 OpenPose 图' : guide === 'depth' ? '导入 Depth Anything 图' : '导入 Canny 图';
+  $('#read-map').hidden = !linkedStructure.connected;
+  $('#read-map').disabled = !!linkedStructure.pending;
+  $('#import-map').disabled = linkedStructure.connected;
+  $('#map-status').textContent = linkedStructure.connected ? linkedStructure.message || '结构图已连接'
+    : doc.conditioning.map && doc.conditioning.mapKind === guide ? `已导入 ${doc.conditioning.map.label || GUIDE_LABELS[guide]}`
+      : guide === 'depth' ? '接入 Depth Anything 3 的 IMAGE 输出，或导入深度 PNG。' : guide === 'pose' ? '导入 Fisher 兼容的彩色 OpenPose 身体骨架。'
+        : '默认从当前机位粗图生成；也可导入外部 Canny 图。';
+  $('#canny-options').hidden = !base || guide !== 'canny' || !!doc.conditioning.map;
+  $('#canny-low').value = doc.conditioning.cannyLow; $('#canny-high').value = doc.conditioning.cannyHigh;
+  $('#guide-explanation').textContent = !base ? '同一场景的新机位粗图，配合 AnyAngle LoRA 使用。'
+    : guide === 'depth' ? '深度图决定空间层次；从原图估计的深度仍对应原机位。'
+      : guide === 'pose' ? '彩色骨架先驱动可编辑人偶，再输出当前机位的 OpenPose 图。'
+        : guide === 'canny' ? '输出当前画面的轮廓；外接 Canny 图会覆盖自动提取结果。'
+          : '底模参考粗图，机位遵循程度需实测。';
+  $('#guide-heading').innerHTML = `${GUIDE_LABELS[guide]} <small>· image_2</small>`;
+  $('#prompt-preview').textContent = guidePrompt(doc.conditioning);
+  $('#lora-hint').textContent = base ? 'LoRA 强度输出 0 → 使用底模' : 'LoRA 强度输出 1 → AnyAngle';
+  $('#protocol-hint').textContent = base && unwiredAnyAngle ? '当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的强度输出，或移除 LoRA 加载器。'
+    : base ? '底模将结构图作为第二张参考图理解；姿势、深度和轮廓的遵循程度需实测。'
+    : 'AnyAngle 必须使用当前机位粗图。请把 LoRA 强度输出接至模型加载器。';
+  $('#protocol-hint').classList.toggle('wiring-warning', base && unwiredAnyAngle);
+  $('#openpose-status').textContent = doc.openpose ? `已导入 ${doc.openpose.name || '骨架'}，可调整前后深度。` : '未导入骨架';
+  $('#pose-flips').hidden = !doc.openpose;
+  document.querySelectorAll('[data-flip]').forEach(button => button.classList.toggle('on', !!doc.openpose?.flips?.[button.dataset.flip]));
+  $('#read-openpose').hidden = !linkedStructure.connected;
+  $('#guide').hidden = !hasGuide();
+  $('#guide-state').textContent = !hasGuide() ? '选择三维主体或导入当前模式需要的引导图。'
+    : guide === 'coarse' ? '网格与控制器不会进入粗图。' : '预览即将输出到 image_2 的实际引导图。';
+  $('#save-shot').disabled = $('#fit-frame').disabled = empty;
+  $('#download-guide').disabled = !hasGuide();
+  $('#apply').disabled = busy || !ready || !hasGuide() || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending))
+    || (linkedStructure.connected && !!linkedStructure.pending);
   $('#edit-mode').disabled = splat || empty;
   $('#edit-mode').title = splat ? '原图重建主体没有可编辑骨架；请使用拍摄机位' : empty ? '请先载入三维主体' : '';
   $('#mode-hint').hidden = !splat;
@@ -192,7 +277,7 @@ function setMode(mode) {
   $('#camera-mode').classList.toggle('active', mode === 'camera'); $('#edit-mode').classList.toggle('active', mode === 'edit');
   $('#camera-mode').setAttribute('aria-pressed', String(mode === 'camera')); $('#edit-mode').setAttribute('aria-pressed', String(mode === 'edit'));
   $('#use-view').hidden = mode !== 'edit';
-  $('#stage-help').textContent = mode === 'camera' ? '拖动调整拍摄机位 · Shift 平移 · 滚轮缩放'
+  $('#stage-help').textContent = mode === 'camera' ? '拖动调整拍摄机位 · 中键或 Shift 平移 · 滚轮缩放'
     : doc.source.kind === 'human' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移 · 拍摄机位保持不变'
       : '右键环绕 · 中键平移 · 可将当前视图设为机位';
 }
@@ -212,6 +297,18 @@ $('#ratio').onchange = event => {
   dimensions(a >= b ? long : Math.round(long * a / b / 32) * 32, a >= b ? Math.round(long * b / a / 32) * 32 : long);
 };
 $('#background').onchange = event => { begin(); doc.background = event.target.value; changed(); };
+$('#model-anyangle').onclick = () => { if (doc.conditioning.model === 'anyangle') return; begin(); doc.conditioning.model = 'anyangle'; changed(); };
+$('#model-base').onclick = () => { if (doc.conditioning.model === 'base') return; begin(); doc.conditioning.model = 'base'; changed(); };
+$('#guide-type').onchange = event => run(async () => {
+  begin(); doc.conditioning.guide = event.target.value;
+  if (doc.conditioning.mapKind !== event.target.value) doc.conditioning.map = null;
+  if (linkedStructure.asset && ['pose', 'depth', 'canny'].includes(event.target.value)) await applyStructureAsset(linkedStructure.asset);
+  else changed();
+});
+for (const [id, key] of [['canny-low', 'cannyLow'], ['canny-high', 'cannyHigh']]) {
+  $(`#${id}`).onchange = event => { begin(); doc.conditioning[key] = Math.max(0, Math.min(255, Number(event.target.value) || 0)); changed(); };
+}
+$('#reference-overlay-toggle').onclick = () => { overlayShown = !overlayShown; refresh(); };
 async function undoRedo(source, target) {
   if (!source.length) return;
   studio.syncPose(); target.push(clone(doc)); doc = source.pop();
@@ -234,6 +331,56 @@ async function upload(file) {
   const response = await fetch('/anyangle-studio/assets', { method: 'POST', body: form });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || '导入失败'); return result;
 }
+async function applyOpenPoseAsset(asset) {
+  const image = new Image(); image.src = assetURL(asset.name); await image.decode();
+  const people = readSkeletonImage(image);
+  const height = person => Math.max(...Object.values(person).map(point => point[1])) - Math.min(...Object.values(person).map(point => point[1]));
+  const points = people.slice().sort((a, b) => height(b) - height(a))[0];
+  if (!points) throw new Error('没有找到可用的 OpenPose 身体骨架');
+  const previous = clone(doc);
+  begin();
+  try {
+    if (doc.source.kind !== 'human') {
+      doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1; doc.camera = defaultScene().camera;
+      await studio.restore(doc); await ensureHumanTools();
+    }
+    doc.openpose = { name: asset.label || 'OpenPose 骨架', sourceName: asset.name, points, flips: {} };
+    doc.conditioning.model = 'base'; doc.conditioning.guide = 'pose';
+    doc.conditioning.map = null; doc.conditioning.mapKind = null;
+    const facingAway = studio.applyOpenPose(points);
+    changed();
+    const notes = [facingAway ? '识别为背面' : '识别为正面'];
+    if (people.length > 1) notes.push(`检测到 ${people.length} 人，已取最大主体`);
+    if (people.warnings?.length) notes.push('部分关节已近似补全');
+    $('#openpose-status').textContent = `${asset.label || 'OpenPose 骨架'}：${notes.join('，')}`;
+  } catch (error) { doc = previous; await studio.restore(doc); throw error; }
+}
+async function applyStructureAsset(asset) {
+  if (currentGuide() === 'pose') return applyOpenPoseAsset(asset);
+  begin(); doc.conditioning.map = asset; doc.conditioning.mapKind = currentGuide(); changed();
+}
+$('#import-openpose').onclick = () => $('#openpose-file').click();
+$('#import-map').onclick = () => (currentGuide() === 'pose' ? $('#openpose-file') : $('#map-file')).click();
+$('#openpose-file').onchange = event => run(async () => {
+  const file = event.target.files[0]; event.target.value = ''; if (!file) return;
+  await applyOpenPoseAsset(await upload(file));
+});
+$('#map-file').onchange = event => run(async () => {
+  const file = event.target.files[0]; event.target.value = ''; if (!file) return;
+  await applyStructureAsset(await upload(file));
+});
+$('#read-map').onclick = $('#read-openpose').onclick = () => {
+  linkedStructure = { ...linkedStructure, connected: true, pending: true, message: '正在读取上游结构图…' };
+  refresh(); send('anyangle-read-structure');
+};
+document.querySelectorAll('[data-flip]').forEach(button => {
+  button.onclick = () => {
+    if (!doc.openpose || doc.source.kind !== 'human') return;
+    begin(); const key = button.dataset.flip;
+    doc.openpose.flips = { ...doc.openpose.flips, [key]: !doc.openpose.flips[key] };
+    studio.applyOpenPose(doc.openpose.points, doc.openpose.flips); changed();
+  };
+});
 $('#reference-button').onclick = $('#reference-drop').onclick = () => $('#reference-file').click();
 $('#read-reference').onclick = () => {
   linkedReference = { ...linkedReference, connected: true, pending: true, message: '正在读取上游图像…' };
@@ -241,8 +388,10 @@ $('#read-reference').onclick = () => {
 };
 $('#reference-file').onchange = event => run(async () => {
   const file = event.target.files[0]; event.target.value = ''; if (!file) return; const asset = await upload(file);
-  begin(); doc.reference = asset; doc.source = { kind: 'empty' }; await studio.restore(doc); changed();
-  await reconstructPhoto();
+  begin(); doc.reference = asset;
+  if (doc.source.kind === 'splat') doc.source = { kind: 'empty' };
+  await studio.restore(doc); changed();
+  if (doc.source.kind === 'empty' && currentGuide() === 'coarse') await reconstructPhoto();
 });
 const referenceCamera = () => ({ azimuth: 0, elevation: 0, zoom: 1, offsetX: 0, offsetY: 0, offsetZ: 0 });
 async function reconstructPhoto() {
@@ -325,14 +474,15 @@ function renderLibrary() {
   for (const pose of poseLibrary) {
     const row = document.createElement('div'); row.className = 'saved-row';
     const button = document.createElement('button'); button.textContent = pose.name;
-    button.onclick = () => run(async () => { begin(); doc.mesh = clone(pose.mesh); doc.pose = clone(pose.pose); await studio.restore(doc); changed(); });
+    button.onclick = () => run(async () => { begin(); doc.mesh = clone(pose.mesh); doc.pose = clone(pose.pose);
+      doc.openpose = pose.openpose ? clone(pose.openpose) : null; await studio.restore(doc); changed(); });
     const remove = iconButton('trash', `删除姿势 ${pose.name}`); remove.onclick = () => { poseLibrary = poseLibrary.filter(p => p.id !== pose.id); saveLibrary(); };
     row.append(button, remove); $('#saved-poses').append(row);
   }
 }
 $('#save-pose').onclick = async () => {
   const name = await askName('保存姿势', `姿势 ${poseLibrary.length + 1}`); if (!name) return;
-  poseLibrary.push({ id: crypto.randomUUID(), name, mesh: clone(doc.mesh), pose: studio.pose() });
+  poseLibrary.push({ id: crypto.randomUUID(), name, mesh: clone(doc.mesh), pose: studio.pose(), openpose: clone(doc.openpose) });
   try { saveLibrary(); toast('姿势已保存到当前浏览器'); } catch (e) { error(e); }
 };
 function download(data, name) {
@@ -343,7 +493,7 @@ function download(data, name) {
 }
 $('#export-pose').onclick = () => run(async () => {
   const response = await fetch('/anyangle-studio/poses', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ version: 1, kind: 'anyangle-pose', mesh: doc.mesh, pose: studio.pose() }) });
+    body: JSON.stringify({ version: 1, kind: 'anyangle-pose', mesh: doc.mesh, pose: studio.pose(), openpose: doc.openpose }) });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || '姿势导出失败');
   download(`/anyangle-studio/poses/${encodeURIComponent(result.id)}`, 'anyangle-pose.json');
 });
@@ -355,15 +505,16 @@ $('#pose-file').onchange = event => run(async () => {
   if (!imported.mesh || typeof imported.mesh !== 'object' || Array.isArray(imported.mesh)) throw new Error('姿势包含无效的体型参数');
   const previous = clone(doc);
   begin(); doc.mesh = { ...defaultScene().mesh, ...imported.mesh, breast_size: 0, show_genitals: false }; doc.pose = imported.pose;
+  doc.openpose = imported.openpose || null;
   try { await studio.restore(doc); changed(); }
   catch (e) { doc = previous; await studio.restore(doc); throw e; }
 });
 $('#download-guide').onclick = () => run(async () => {
-  const png = await studio.capture();
+  const png = await captureGuide();
   const blob = await (await fetch(png)).blob();
   const asset = await upload(new File([blob], 'anyangle-guide.png', { type: 'image/png' }));
-  download(assetURL(asset.name), 'anyangle-guide.png');
-  toast('粗图 PNG 已导出');
+  download(assetURL(asset.name), `${currentGuide()}-guide.png`);
+  toast('引导图 PNG 已导出');
 });
 
 function send(type, payload = {}) { parent.postMessage({ type, session, ...payload }, location.origin); }
@@ -371,7 +522,7 @@ $('#cancel').onclick = () => { if (embedded) send('anyangle-close'); else locati
 $('#apply').onclick = () => run(async () => {
   clearTimeout(previewTimer); studio.syncPose();
   const frozen = clone(doc), appliedRevision = revision;
-  const png = await studio.capture();
+  const png = await captureGuide();
   const response = await fetch('/anyangle-studio/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scene: frozen, png }) });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || '保存失败');
   if (revision !== appliedRevision) throw new Error('场景在保存时发生变化，请重新应用');
@@ -411,21 +562,26 @@ async function ensureHumanTools() {
   humanToolsReady = true;
 }
 
-async function start(token, reference = { connected: false }) {
+async function start(token, reference = { connected: false }, structure = { connected: false }, needsWiring = false) {
   try {
     if (token?.id) {
       const response = await fetch(`/anyangle-studio/snapshots/${encodeURIComponent(token.id)}`);
       const saved = await response.json(); if (!response.ok) throw new Error(saved.error || '读取快照失败');
       doc = saved.scene; snapshot = token;
     }
+    doc.conditioning = { ...defaultScene().conditioning, ...doc.conditioning };
+    doc.openpose ??= null;
     linkedReference = reference;
+    linkedStructure = structure;
+    unwiredAnyAngle = needsWiring;
     const referenceChanged = reference.connected && !!reference.asset && reference.asset.name !== doc.reference?.name;
     if (reference.connected) doc.reference = reference.asset || null;
-    if ((referenceChanged && doc.source.kind === 'human') ||
-        (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name)) doc.source = { kind: 'empty' };
+    if (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name) doc.source = { kind: 'empty' };
     studio = new StudioScene($('#viewport'), { begin, change: changed, camera: () => { revision++; refresh(); schedulePreview(); $('#status').textContent = '机位草稿 · 尚未应用'; $('#status').dataset.state = 'dirty'; }, select: name => { selectedBone = name || ''; refresh(); }, error });
     await studio.init(doc);
     if (doc.source.kind === 'human') await ensureHumanTools();
+    if (structure.asset && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(doc.conditioning.guide))
+      await applyStructureAsset(structure.asset);
     selectedShot = doc.shots.find(shot => shot.width === doc.width && shot.height === doc.height
       && Object.keys(doc.camera).every(key => Number(shot.camera[key] || 0) === Number(doc.camera[key] || 0)))?.id || null;
     ready = true; $('#loading').hidden = true; refresh(); renderShots(); renderLibrary();
@@ -433,7 +589,7 @@ async function start(token, reference = { connected: false }) {
     $('#status').dataset.state = snapshot ? 'saved' : 'dirty';
     if (referenceChanged) { $('#status').textContent = '连线原图已更新 · 应用后保存到场景'; $('#status').dataset.state = 'dirty'; }
     setBusy(false); await renderPreview();
-    if (doc.reference && doc.source.kind === 'empty') await run(reconstructPhoto);
+    if (doc.reference && doc.source.kind === 'empty' && currentGuide() === 'coarse') await run(reconstructPhoto);
   } catch (e) { $('#loading-text').textContent = e.message || String(e); error(e); }
 }
 function readPendingReference() {
@@ -445,8 +601,24 @@ function readPendingReference() {
     if (reference.error) toast(reference.error);
     if (sameAsset) { refresh(); return; }
     begin(); doc.reference = reference.asset || null;
-    doc.source = { kind: 'empty' }; await studio.restore(doc); changed();
-    if (doc.reference) await reconstructPhoto();
+    if (doc.source.kind === 'splat') doc.source = { kind: 'empty' };
+    await studio.restore(doc); changed();
+    if (doc.reference && doc.source.kind === 'empty' && currentGuide() === 'coarse') await reconstructPhoto();
+  });
+}
+function readPendingStructure() {
+  if (busy || !pendingStructure) return;
+  const structure = pendingStructure; pendingStructure = null;
+  run(async () => {
+    const oldAsset = linkedStructure.asset?.name;
+    linkedStructure = structure;
+    if (structure.error) toast(structure.error);
+    if (!structure.connected && oldAsset && doc.conditioning.map?.name === oldAsset) {
+      begin(); doc.conditioning.map = null; doc.conditioning.mapKind = null; changed();
+    }
+    if (structure.asset && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(doc.conditioning.guide))
+      await applyStructureAsset(structure.asset);
+    refresh(); schedulePreview();
   });
 }
 if (embedded) {
@@ -454,9 +626,11 @@ if (embedded) {
   window.addEventListener('message', event => {
     if (event.source !== parent || event.origin !== location.origin || event.data?.session !== session) return;
     if (event.data.type === 'anyangle-load' && !started) {
-      started = true; start(event.data.snapshot, event.data.reference);
+      started = true; start(event.data.snapshot, event.data.reference, event.data.structure, event.data.unwiredAnyAngle);
     } else if (event.data.type === 'anyangle-reference' && ready) {
       pendingReference = event.data.reference; readPendingReference();
+    } else if (event.data.type === 'anyangle-structure' && ready) {
+      pendingStructure = event.data.structure; readPendingStructure();
     } else if (event.data.type === 'anyangle-apply-error') {
       $('#status').textContent = '尚未应用到节点'; $('#status').dataset.state = 'dirty'; toast(event.data.message);
     }

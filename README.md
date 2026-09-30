@@ -2,7 +2,7 @@
 <h1 align="center">AnyAngle Studio · T8</h1>
 <p align="center"><strong>从参考图重建三维主体，在 ComfyUI 里直观地寻找新机位。</strong></p>
 <p align="center"><strong>简体中文</strong> · <a href="README_EN.md">English</a></p>
-<p align="center">ComfyUI 自定义节点 · Qwen Image 2.1 AnyAngle · TripoSplat · MIT</p>
+<p align="center">ComfyUI 自定义节点 · Qwen Image 2.1 · 可关闭的 AnyAngle LoRA · TripoSplat · MIT</p>
 
 ![AnyAngle Studio 真实工作台：左侧参考图、中间三维机位、右侧粗图](docs/images/studio-photo.png)
 
@@ -20,9 +20,10 @@
 
 - **参考图直接连线**：左侧 `reference_image` 接收 ComfyUI IMAGE，也支持在工作台上传。
 - **原图对应主体**：本地 TripoSplat 重建后，拖动相机探索视角；调整机位时保持重建姿势。
-- **真正可交互**：环绕、Shift 平移、滚轮缩放、精确角度、构图、机位收藏、撤销与重做。
+- **真正可交互**：环绕、中键或 Shift+左键平移、滚轮缩放、精确角度、构图、机位收藏、撤销与重做。
 - **三种场景来源**：原图重建、带材质 GLB、内置 MakeHuman 手动人偶。人偶资源随仓库安装，无需 Fisher 插件。
-- **可复用输出**：粗图 `guide_image_2`、`prompt`、`scene_json`；应用后可直接运行已保存的工作流。
+- **可切换模型**：AnyAngle 模式使用原模型提示词与粗图；关闭 AnyAngle 后，Qwen Image 2.1 底模可将粗图、OpenPose、深度或 Canny 图作为第二张参考图。
+- **可复用输出**：`guide_image_2`、`prompt`、`scene_json`、`anyangle_lora_strength`；应用后可直接运行已保存的工作流。
 
 原图重建的 TripoSplat 主体**没有可编辑骨架**，所以该模式只能调整相机；需要手动摆姿时请选择独立的人偶模式。
 
@@ -32,17 +33,30 @@
 
 内置人偶支持姿势预设、手势、体型和关节编辑；它是独立的手动摆姿模式，不会自动复制参考图动作。截图为独立预览页面；从节点打开时，右上角为“应用到节点”。
 
+### 底模与结构图
+
+在右侧“引导策略”选择 **Qwen 底模**，节点将 `anyangle_lora_strength` 输出为 **0**；切回 **AnyAngle LoRA** 时输出 **1**。新版基础和进阶工作流使用随节点提供的“AnyAngle 可选 LoRA”加载器，已把该输出接到 `strength_model`：强度为 0 时直接透传底模，无需安装 AnyAngle 权重。旧工作流需替换加载器并补上强度连线，或移除 LoRA 加载器；仅切换工作台按钮不会改写旧工作流中固定的强度。
+
+| 底模引导图 | 来源及行为 |
+|---|---|
+| 三维粗渲染 | 当前机位的无网格渲染，适合已有 3D 主体。 |
+| OpenPose 姿势 | 导入 Fisher 兼容的黑底彩色骨架图，自动摆放内置人偶；可调整肢体前后深度并旋转相机，输出**当前机位**骨架图。普通照片不会自动提取骨架。 |
+| Depth Anything 深度 | 把 Depth Anything 3 等节点输出接到左侧 `structure_image`，或上传深度 PNG；输出该图到 `image_2`。原图深度仍属于原机位，不会随相机旋转自动生成新视角深度。 |
+| Canny 轮廓 | 默认从当前 3D 机位粗图提取边缘；也可接入或上传现成 Canny 图。没有 3D 时可从原图提取边缘。 |
+
+`reference_image` 仍接原图并另接编码器 `image_1`；`guide_image_2` 接编码器 `image_2`。各引导方式会自动生成相应编辑提示词。底模把结构图作为**图像参考**理解，没有独立的 ControlNet 控制端口；姿势、深度和轮廓的遵循程度取决于底模与提示词，不能保证像专用控制模型一样严格。导入图会按输出尺寸等比留黑边，不会被拉伸。
+
 ## 快速开始
 
 1. 按下方说明安装节点与所需模型，重启 ComfyUI，导入 [基础工作流](workflows/AnyAngle-Studio-Qwen21.json)。
-2. 把原图同时接入 Studio 的 `reference_image` 和编码器的 `image_1`。Studio 的 `guide_image_2` 接编码器 `image_2`，`prompt` 接 `prompt`。
+2. 把原图同时接入 Studio 的 `reference_image` 和编码器的 `image_1`。Studio 的 `guide_image_2` 接编码器 `image_2`，`prompt` 接 `prompt`，`anyangle_lora_strength` 接“AnyAngle 可选 LoRA”的 `strength_model`。结构图可接 `structure_image`。
 3. 在 **Comfyui-Qwen-Image-2.1-MultiAngle-T8** 节点中打开 AnyAngle Studio，等待原图重建；拖动选角，检查右侧粗图，点击 **应用到节点**，再运行工作流。
 
-![原图、Studio 与 Qwen Image 2.1 AnyAngle 的接线示意](docs/images/wiring.svg)
+![原图、可选结构图、Studio 与 Qwen Image 2.1 的接线示意](docs/images/wiring.svg)
 
 Load Image 连线会自动读取；连接其他上游图像节点时，点击“读取上游图像”。批量输入使用第一张。原图重建模式的 **0°** 是模型预测的原图机位。网格、控制器和取景线不会进入粗图。
 
-基础工作流的起始参数：**LoRA 1 · CFG 3 · 20 步 · euler / simple**。默认提示词为：
+基础工作流的起始参数：**AnyAngle 模式 LoRA 1 · CFG 3 · 20 步 · euler / simple**。默认提示词为：
 
 ```text
 Change the camera angle from <image2> to <image1>.
@@ -64,7 +78,7 @@ python install_reconstruction.py
 
 节点标题显示完整的 GitHub 仓库名。节点上方的黑色**来源标签**由 ComfyUI 根据安装目录生成；若直接用含 `2.1` 的仓库名作文件夹名，当前前端会在小数点处截断为 `Comfyui-Qwen-Image-2`。使用上面的无点目录名；旧安装可将节点文件夹重命名为 `ComfyUI-AnyAngle-Studio-T8`，重启 ComfyUI 后来源标签将显示 `AnyAngle-Studio-T8`。节点类型与工作流连线不变。
 
-仓库已包含 MakeHuman 人偶资源及贴图。`install_assets.py --download-lora` 会校验资源并下载 AnyAngle LoRA；`install_reconstruction.py` 下载约 **3.78 GB** 的重建权重。请使用 **ComfyUI 的 Python 环境**；整合包用户将 `python` 换成内置 Python 路径。
+仓库已包含 MakeHuman 人偶资源及贴图。`install_assets.py --download-lora` 会校验资源并下载 AnyAngle LoRA；只用底模时可运行 `python install_assets.py`，无需下载 LoRA。`install_reconstruction.py` 下载约 **3.78 GB** 的重建权重；只用内置人偶或外部结构图时可跳过。请使用 **ComfyUI 的 Python 环境**；整合包用户将 `python` 换成内置 Python 路径。
 
 | 模型 | 来源 / 安装位置 |
 |---|---|

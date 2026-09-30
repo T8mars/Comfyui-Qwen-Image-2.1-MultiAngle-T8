@@ -2,7 +2,7 @@
 <h1 align="center">AnyAngle Studio · T8</h1>
 <p align="center"><strong>Reconstruct a reference subject and explore new camera views directly in ComfyUI.</strong></p>
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
-<p align="center">ComfyUI custom node · Qwen Image 2.1 AnyAngle · TripoSplat · MIT</p>
+<p align="center">ComfyUI custom node · Qwen Image 2.1 · optional AnyAngle LoRA · TripoSplat · MIT</p>
 
 ![The real AnyAngle Studio UI with a reference image, 3D camera view, and guide preview](docs/images/studio-photo.png)
 
@@ -20,9 +20,10 @@ The middle image was **exported by the node** to condition AnyAngle. The right i
 
 - **Direct reference connection:** the left `reference_image` socket accepts a ComfyUI IMAGE; uploads work in the editor too.
 - **Reference-based subject:** local TripoSplat reconstruction provides a scene whose pose stays fixed while you move the camera.
-- **Interactive camera:** orbit, Shift-pan, wheel zoom, numeric angles, framing, saved views, undo, and redo.
+- **Interactive camera:** orbit, middle-button or Shift+left-button pan, wheel zoom, numeric angles, framing, saved views, undo, and redo.
 - **Three scene sources:** photo reconstruction, textured GLB, and a built-in MakeHuman mannequin for manual posing. The mannequin ships with this repository; Fisher is not required.
-- **Reusable outputs:** `guide_image_2`, `prompt`, and `scene_json`. Applied scenes run from saved workflows without reopening the editor.
+- **Switchable model:** AnyAngle mode uses the original LoRA and coarse-view prompt. With AnyAngle off, the Qwen Image 2.1 base model can use a coarse render, OpenPose, depth, or Canny map as its second image reference.
+- **Reusable outputs:** `guide_image_2`, `prompt`, `scene_json`, and `anyangle_lora_strength`. Applied scenes run from saved workflows without reopening the editor.
 
 A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode for that source; choose the separate mannequin mode when you need to pose joints by hand.
 
@@ -32,17 +33,30 @@ A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode 
 
 The included mannequin supports pose presets, hands, body proportions, and joint editing. It does not automatically copy the reference photo's pose. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
 
+### Base model and structure maps
+
+Select **Qwen base** under Guide Strategy to output `anyangle_lora_strength = 0`; switch back to **AnyAngle LoRA** for `1`. The updated basic and advanced workflows use the bundled **AnyAngle Optional LoRA** loader and connect this output to `strength_model`. At strength 0 it passes the base model through without requiring the AnyAngle file. For an older workflow, replace its loader and connect the strength output, or remove its LoRA loader. Switching the editor alone cannot override a fixed strength in an old workflow.
+
+| Base-model guide | Source and behavior |
+|---|---|
+| Coarse 3D render | A clean render from the current camera when a 3D subject is available. |
+| OpenPose | Import a Fisher-compatible colored body skeleton on black. It poses the bundled mannequin, with front/back depth flips, then exports the skeleton from the **current camera**. A normal photograph is not automatically pose-estimated. |
+| Depth Anything | Connect an IMAGE output from Depth Anything 3 or another depth node to `structure_image`, or upload a depth PNG. Depth estimated from the original photo remains at its original view; rotating the camera does not synthesize a new depth view. |
+| Canny | Extract edges from the current 3D camera render by default, or connect/upload an existing Canny map. Without a 3D scene, edges can be extracted from the reference photo. |
+
+The original still goes to `reference_image` and encoder `image_1`; `guide_image_2` goes to encoder `image_2`. Each guide mode supplies a matching edit prompt. The base model treats the structure map as an **image reference** rather than a dedicated ControlNet input. Pose, depth, and edge adherence are therefore model-dependent, not guaranteed hard constraints. Imported maps are letterboxed to the output size instead of stretched.
+
 ## Quick start
 
 1. Install the node and models below, restart ComfyUI, and load the [basic workflow](workflows/AnyAngle-Studio-Qwen21.json).
-2. Connect the original image to both Studio `reference_image` and encoder `image_1`. Connect Studio `guide_image_2` to encoder `image_2`, and Studio `prompt` to encoder `prompt`.
+2. Connect the original image to both Studio `reference_image` and encoder `image_1`. Connect Studio `guide_image_2` to encoder `image_2`, Studio `prompt` to encoder `prompt`, and `anyangle_lora_strength` to **AnyAngle Optional LoRA** `strength_model`. Optionally connect a structural IMAGE to `structure_image`.
 3. Open AnyAngle Studio from the **Comfyui-Qwen-Image-2.1-MultiAngle-T8** node, wait for reconstruction, drag to choose a camera, inspect the guide, click **Apply to node**, and run the workflow.
 
-![How to connect the original image, AnyAngle Studio, and Qwen Image 2.1 AnyAngle](docs/images/wiring.svg)
+![How to connect the original, optional structure map, Studio, and Qwen Image 2.1](docs/images/wiring.svg)
 
 A Load Image connection is read automatically. For other upstream IMAGE nodes, click **读取上游图像** (Read upstream image). A batch uses its first image. In photo mode, **0°** means the model's predicted reference camera. Grids, controls, and camera frames are excluded from the guide.
 
-The basic workflow starts with **LoRA 1 · CFG 3 · 20 steps · euler / simple**. Its default prompt is:
+The basic workflow starts in **AnyAngle mode: LoRA 1 · CFG 3 · 20 steps · euler / simple**. Its default prompt is:
 
 ```text
 Change the camera angle from <image2> to <image1>.
@@ -64,7 +78,7 @@ python install_reconstruction.py
 
 The node title shows the full GitHub repository name. The black **source badge** above it comes from ComfyUI's installation folder name. When the folder contains `2.1`, the current frontend splits it at the dot and shows only `Comfyui-Qwen-Image-2`. Use the dot-free folder name in the command above. For an existing installation, rename the node folder to `ComfyUI-AnyAngle-Studio-T8` and restart ComfyUI; the badge will then read `AnyAngle-Studio-T8`. Node types and workflow connections are unchanged.
 
-The MakeHuman pack and skin texture are included in the repository. `install_assets.py --download-lora` verifies them and downloads the AnyAngle LoRA; `install_reconstruction.py` downloads approximately **3.78 GB** of reconstruction weights. Use **ComfyUI's Python environment**; in a portable build, replace `python` with its bundled executable.
+The MakeHuman pack and skin texture are included. `install_assets.py --download-lora` verifies them and downloads the AnyAngle LoRA. For base-model-only use, run `python install_assets.py` without the LoRA download. `install_reconstruction.py` downloads approximately **3.78 GB** of weights and can be skipped when using only the bundled mannequin or imported maps. Use **ComfyUI's Python environment**; in a portable build, replace `python` with its bundled executable.
 
 | Model | Source / location |
 |---|---|
