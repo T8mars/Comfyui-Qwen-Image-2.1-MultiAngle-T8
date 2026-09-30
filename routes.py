@@ -2,6 +2,7 @@ import asyncio
 import json
 import hashlib
 import math
+from functools import wraps
 
 from aiohttp import web
 from PIL import UnidentifiedImageError
@@ -11,14 +12,25 @@ from .dwpose import extract_pose
 from .depth import extract_depth
 
 
+def _local_only(handler):
+    @wraps(handler)
+    async def wrapped(request):
+        if request.remote not in ("127.0.0.1", "::1"):
+            return web.json_response({"error": "Forbidden"}, status=403)
+        return await handler(request)
+    return wrapped
+
+
 def register_routes(store_factory):
     routes = PromptServer.instance.routes
 
     @routes.get("/anyangle-studio/reconstruction-config")
+    @_local_only
     async def reconstruction_models(request):
         return web.json_response(reconstruction_config())
 
     @routes.post("/anyangle-studio/dwpose")
+    @_local_only
     async def photo_to_pose(request):
         try:
             payload = await request.json()
@@ -37,6 +49,7 @@ def register_routes(store_factory):
             return web.json_response({"error": str(error)}, status=400)
 
     @routes.post("/anyangle-studio/depth")
+    @_local_only
     async def photo_to_depth(request):
         try:
             payload = await request.json()
@@ -55,6 +68,7 @@ def register_routes(store_factory):
             return web.json_response({"error": str(error)}, status=400)
 
     @routes.post("/anyangle-studio/poses")
+    @_local_only
     async def save_pose(request):
         try:
             payload = await request.json()
@@ -74,6 +88,7 @@ def register_routes(store_factory):
             return web.json_response({"error": str(error)}, status=400)
 
     @routes.get("/anyangle-studio/poses/{id}")
+    @_local_only
     async def download_pose(request):
         try:
             data = await asyncio.to_thread(store_factory().read_asset, request.match_info["id"] + ".json")
@@ -84,6 +99,7 @@ def register_routes(store_factory):
             return web.json_response({"error": str(error)}, status=404)
 
     @routes.post("/anyangle-studio/assets")
+    @_local_only
     async def upload(request):
         try:
             reader = await request.multipart()
@@ -103,6 +119,7 @@ def register_routes(store_factory):
             return web.json_response({"error": str(error)}, status=400)
 
     @routes.get("/anyangle-studio/assets/{name}")
+    @_local_only
     async def asset(request):
         try:
             name = request.match_info["name"]
@@ -116,6 +133,7 @@ def register_routes(store_factory):
             return web.json_response({"error": str(error)}, status=404)
 
     @routes.post("/anyangle-studio/snapshots")
+    @_local_only
     async def snapshot(request):
         try:
             payload = await request.json()
@@ -127,6 +145,7 @@ def register_routes(store_factory):
             return web.json_response({"error": str(error)}, status=400)
 
     @routes.get("/anyangle-studio/snapshots/{id}")
+    @_local_only
     async def read_snapshot(request):
         try:
             document, _ = await asyncio.to_thread(store_factory().load_scene, {"version": 1, "id": request.match_info["id"]})
