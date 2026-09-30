@@ -80,6 +80,8 @@ Change the camera angle from <image2> to <image1>.
 
 在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
 
+Registry 上传成功不等于安全审核通过；[查看实时版本状态](https://api.comfy.org/nodes/qwen-image-21-multiangle-t8/versions)。管理器中未显示正式版本时，请先使用下方 Git 安装。
+
 需要包含 **Qwen Image 2.1、TripoSplat、BiRefNet、DINOv3 原生节点**的 ComfyUI；已验证版本为 **0.36.0**。浏览器需开启 WebGL 硬件加速。在 ComfyUI 目录运行：
 
 ```bash

@@ -80,6 +80,8 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 
+A successful Registry upload does not mean security approval; [check the live version status](https://api.comfy.org/nodes/qwen-image-21-multiangle-t8/versions). If a release is not listed in Manager, use the Git installation below.
+
 Use ComfyUI with native **Qwen Image 2.1, TripoSplat, BiRefNet, and DINOv3 nodes**. Tested with **ComfyUI 0.36.0**. Enable WebGL hardware acceleration in your browser. Run from your ComfyUI directory:
 
 ```bash
