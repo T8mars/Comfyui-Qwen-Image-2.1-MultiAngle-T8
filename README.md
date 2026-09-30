@@ -1,12 +1,12 @@
 <p align="center"><img src="web/icons/aperture.svg" width="48" alt="AnyAngle Studio"></p>
 <h1 align="center">AnyAngle Studio · T8</h1>
-<p align="center"><strong>从参考图重建三维主体，在 ComfyUI 里直观地寻找新机位。</strong></p>
+<p align="center"><strong>在 ComfyUI 中调整三维机位，或直接从原图提取姿势、深度与轮廓。</strong></p>
 <p align="center"><strong>简体中文</strong> · <a href="README_EN.md">English</a></p>
 <p align="center">ComfyUI 自定义节点 · Qwen Image 2.1 · 可关闭的 AnyAngle LoRA · TripoSplat · MIT</p>
 
-![AnyAngle Studio 真实工作台：左侧参考图、中间三维机位、右侧粗图](docs/images/studio-photo.png)
+![同一张原图实际提取的 DWPose 骨架、Depth Anything 3 深度和 Canny 轮廓](docs/images/structure-guides.png)
 
-<p align="center"><sub>真实工作台截图 · 原创示例图经本地 TripoSplat 重建 · 方位角 28° / 俯仰角 6°</sub></p>
+<p align="center"><sub>同一张原创示例图的真实提取结果 · DWPose / Depth Anything 3 Small / Canny · 非最终生成图</sub></p>
 
 **原模型：[lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [基础工作流](workflows/AnyAngle-Studio-Qwen21.json) · [进阶工作流](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [English README](README_EN.md)
 
@@ -22,10 +22,16 @@
 - **原图对应主体**：本地 TripoSplat 重建后，拖动相机探索视角；调整机位时保持重建姿势。
 - **真正可交互**：环绕、中键或 Shift+左键平移、滚轮缩放、精确角度、构图、机位收藏、撤销与重做。
 - **三种场景来源**：原图重建、带材质 GLB、内置 MakeHuman 手动人偶。人偶资源随仓库安装，无需 Fisher 插件。
-- **统一的引导策略**：右侧直接选择粗图、POSE、Depth 或 Canny；姿势、深度和轮廓都能从原图或当前画面直接生成，也保留导入与连线。关闭 AnyAngle 后，Qwen Image 2.1 底模使用所选结构图与对应提示词。
+- **统一的引导策略**：右侧选择粗图、POSE、Depth 或 Canny。DWPose 与 DA3 直接提取原图，Canny 可选原图或三维机位；也支持导入与连线。关闭 AnyAngle 后，底模使用所选结构图与对应提示词。
 - **可复用输出**：`guide_image_2`、`prompt`、`scene_json`、`anyangle_lora_strength`；应用后可直接运行已保存的工作流。
 
 原图重建的 TripoSplat 主体**没有可编辑骨架**，所以该模式只能调整相机；需要手动摆姿时请选择独立的人偶模式。
+
+### 三维相机工作台
+
+![AnyAngle Studio 三维工作台：参考图、交互相机与实际粗图](docs/images/studio-photo.png)
+
+拖动环绕，中键或 Shift+左键平移，滚轮缩放。重建完成后保持三维交互；点击“预览当前机位粗图”查看无网格的输出。截图展示三维场景模式，四种引导方式统一在右侧选择。
 
 ### 手动人偶工作台
 
@@ -43,6 +49,10 @@
 | POSE 姿势 | DWPose 直接输出原图可见身体、手部和面部骨架，保留原构图；也可导入 Fisher 兼容骨架图。全身骨架可选择三维人偶编辑，输出调整后的机位骨架。 |
 | Depth Anything 深度 | 点击“从原图估计深度”运行内置 Depth Anything 3 Small；也可将其他深度节点接到 `structure_image`，或上传深度 PNG。原图深度属于原机位，不会随相机旋转自动生成新视角深度。 |
 | Canny 轮廓 | 默认从原图提取边缘；也可明确选择“从三维机位生成 Canny”，或接入、导入现成轮廓图。 |
+
+**原图提取用法**：连接 `reference_image` → 选择 **Qwen 底模** → 选择 **POSE / Depth / Canny** → 点击该模式的原图提取按钮 → 检查中央引导图 → **应用到节点**。导出 PNG、输出尺寸和对应提示词均使用当前选中的引导图。
+
+查看原始示例输出：[POSE](docs/images/demo-pose.png) · [Depth](docs/images/demo-depth.png) · [Canny](docs/images/demo-canny.png)。这些是结构条件图，底模的最终生成效果还取决于提示词和采样设置。
 
 重建完成后默认进入可旋转的“3D 工作台”。点击“预览当前机位粗图”查看实际 `image_2` 输出，也可切回工作台继续调整。原图骨架和深度图直接显示在中央“引导图预览”，保留原机位；半身照片不会自动变成人偶的完整姿势。
 
@@ -68,6 +78,8 @@ Change the camera angle from <image2> to <image1>.
 
 ## 安装
 
+在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
+
 需要包含 **Qwen Image 2.1、TripoSplat、BiRefNet、DINOv3 原生节点**的 ComfyUI；已验证版本为 **0.36.0**。浏览器需开启 WebGL 硬件加速。在 ComfyUI 目录运行：
 
 ```bash
@@ -83,13 +95,29 @@ python install_reconstruction.py
 
 仓库已包含 MakeHuman 人偶资源及贴图。`install_assets.py --download-lora` 会校验资源并下载 AnyAngle LoRA；只用底模时可运行 `python install_assets.py`，无需下载 LoRA。`install_reconstruction.py` 下载约 **3.78 GB** 的重建权重；只用内置人偶或外部结构图时可跳过。DWPose 的两份 ONNX 权重在首次点击“从原图提取姿势”时下载到节点 `.local/dwpose/`（约 351 MB）；若已安装 `comfyui_controlnet_aux` 及相同权重，会直接复用。Depth Anything 3 Small 在首次点击“从原图估计深度”时下载约 **137 MB**，可复用已安装在 `models/geometry_estimation/` 的相同模型。请使用 **ComfyUI 的 Python 环境**；整合包用户将 `python` 换成内置 Python 路径。
 
-| 模型 | 来源 / 安装位置 |
+### 按功能准备模型
+
+下表路径相对于 `ComfyUI/`，`<节点目录>` 表示实际安装的节点文件夹。
+
+| 功能 | 文件与位置 | 来源 |
+|---|---|---|
+| AnyAngle 换机位（可选） | `models/loras/QI2.1_AnyAngle.safetensors` | [原模型](https://huggingface.co/lilylilith/QI_2.1_AnyAngle) |
+| POSE 原图提取 | `yolox_l.onnx`、`dw-ll_ucoco_384.onnx`，首次下载至 `<节点目录>/.local/dwpose/` | [DWPose ONNX 权重](https://huggingface.co/yzd-v/DWPose/tree/main) |
+| Depth 原图提取 | `depth_anything_3_small.safetensors`，推荐放入 `models/geometry_estimation/` | [ComfyUI 适配权重](https://huggingface.co/Comfy-Org/Depth-Anything-3/tree/main/geometry_estimation) · [DA3 原项目](https://github.com/ByteDance-Seed/Depth-Anything-3) |
+| Canny 轮廓 / 手动人偶 | **无需新增模型权重**；Canny 在浏览器计算，人偶资源已包含 | [轮廓实现](web/editor/guides.mjs) · [人偶来源与许可](THIRD_PARTY.md) |
+| Qwen Image 2.1 主模型 / Qwen3-VL 8B / VAE | 自行准备，分别放入 `models/diffusion_models`、`models/text_encoders`、`models/vae` | 使用与工作流兼容的底模权重 |
+
+DWPose 优先复用 `custom_nodes/comfyui_controlnet_aux/ckpts/yzd-v/DWPose/` 中的上述两个文件；否则使用节点自身缓存。DA3 优先读取 `models/geometry_estimation/`；若未放置权重，首次点击会下载到 `<节点目录>/.local/da3/geometry_estimation/depth_anything_3_small.safetensors`。内置深度提取使用 **Small**；其他 DA3 变体可在外部节点生成后接入 `structure_image`。
+
+**原图三维重建**还需下列 5 个文件，均来自 [TripoSplat 官方权重包](https://huggingface.co/VAST-AI/TripoSplat/tree/main)，`python install_reconstruction.py` 会下载到对应位置：
+
+| 文件 | ComfyUI 目录 |
 |---|---|
-| AnyAngle LoRA | [原模型](https://huggingface.co/lilylilith/QI_2.1_AnyAngle) · `models/loras/QI2.1_AnyAngle.safetensors` |
-| TripoSplat 及配套权重 | [官方权重](https://huggingface.co/VAST-AI/TripoSplat) · 安装脚本放入对应模型目录 |
-| DWPose 人体姿势 | [ONNX 权重](https://huggingface.co/yzd-v/DWPose) · 首次明确点击提取时下载；也可复用已有 `comfyui_controlnet_aux` 权重 |
-| Depth Anything 3 Small | [ComfyUI 官方适配权重](https://huggingface.co/Comfy-Org/Depth-Anything-3) · 首次明确点击估计深度时下载，或复用 `models/geometry_estimation/` |
-| Qwen Image 2.1 主模型 / Qwen3-VL 8B 编码器 / Qwen Image 2.1 VAE | 自行准备，分别放入 `models/diffusion_models`、`models/text_encoders`、`models/vae` |
+| `triposplat_fp16.safetensors` | `models/diffusion_models/` |
+| `birefnet.safetensors` | `models/background_removal/` |
+| `dino_v3_vit_h.safetensors` | `models/clip_vision/` |
+| `flux2-vae.safetensors` | `models/vae/` |
+| `triposplat_vae_decoder_fp16.safetensors` | `models/vae/` |
 
 示例工作流中的模型名需替换为本机已有的兼容权重。AnyAngle 和 TripoSplat 权重由安装命令下载；DWPose 与 Depth Anything 3 仅在点击对应功能时下载。姿势与深度推理、重建和渲染在本地完成。
 

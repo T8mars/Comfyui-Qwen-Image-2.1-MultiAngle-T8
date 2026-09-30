@@ -1,12 +1,12 @@
 <p align="center"><img src="web/icons/aperture.svg" width="48" alt="AnyAngle Studio"></p>
 <h1 align="center">AnyAngle Studio · T8</h1>
-<p align="center"><strong>Reconstruct a reference subject and explore new camera views directly in ComfyUI.</strong></p>
+<p align="center"><strong>Adjust a 3D camera or extract pose, depth and contours from a reference photo in ComfyUI.</strong></p>
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 <p align="center">ComfyUI custom node · Qwen Image 2.1 · optional AnyAngle LoRA · TripoSplat · MIT</p>
 
-![The real AnyAngle Studio UI with a reference image, 3D camera view, and guide preview](docs/images/studio-photo.png)
+![Actual DWPose, Depth Anything 3 and Canny guides extracted from the same reference](docs/images/structure-guides.png)
 
-<p align="center"><sub>Actual workbench · original demo image reconstructed locally with TripoSplat · azimuth 28° / elevation 6°</sub></p>
+<p align="center"><sub>Actual extraction from one original demo image · DWPose / Depth Anything 3 Small / Canny · structure maps, not final generated images</sub></p>
 
 **Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Basic workflow](workflows/AnyAngle-Studio-Qwen21.json) · [Advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [中文说明](README.md)
 
@@ -22,10 +22,16 @@ The middle image was **exported by the node** to condition AnyAngle. The right i
 - **Reference-based subject:** local TripoSplat reconstruction provides a scene whose pose stays fixed while you move the camera.
 - **Interactive camera:** orbit, middle-button or Shift+left-button pan, wheel zoom, numeric angles, framing, saved views, undo, and redo.
 - **Three scene sources:** photo reconstruction, textured GLB, and a built-in MakeHuman mannequin for manual posing. The mannequin ships with this repository; Fisher is not required.
-- **Unified guide controls:** choose coarse render, POSE, Depth, or Canny in the right panel. Generate pose, depth, and edges directly from the photo or current view, or import/connect existing maps. With AnyAngle off, Qwen Image 2.1 uses the selected guide and matching prompt.
+- **Unified guide controls:** choose coarse render, POSE, Depth, or Canny in the right panel. DWPose and DA3 extract from the photo; Canny can use the photo or 3D camera. Import/connect existing maps too. With AnyAngle off, the base model uses the selected guide and matching prompt.
 - **Reusable outputs:** `guide_image_2`, `prompt`, `scene_json`, and `anyangle_lora_strength`. Applied scenes run from saved workflows without reopening the editor.
 
 A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode for that source; choose the separate mannequin mode when you need to pose joints by hand.
+
+### 3D camera workbench
+
+![The 3D workbench with a reference, interactive camera and clean output](docs/images/studio-photo.png)
+
+Drag to orbit, middle-button or Shift+left-button drag to pan, and scroll to zoom. Reconstruction opens the interactive 3D view; choose **Preview current camera render** for the clean output. The screenshot illustrates 3D scene mode; all four guide types are selected in the right panel.
 
 ### Manual mannequin workbench
 
@@ -43,6 +49,10 @@ Select **Qwen base** under Guide Strategy to output `anyangle_lora_strength = 0`
 | POSE | DWPose directly outputs visible body, hand, and face keypoints at the original framing. Fisher-compatible skeletons can also be imported. Full-body skeletons can optionally be edited with the 3D mannequin and exported from the adjusted camera. |
 | Depth Anything | Click **Estimate depth from photo** to run the bundled Depth Anything 3 Small integration, or connect another depth node to `structure_image` / upload a PNG. Original-photo depth remains at the original view; rotating the camera does not synthesize a new depth view. |
 | Canny | Extract photo edges by default. Explicitly choose **Generate Canny from 3D camera** for scene edges, or connect/import an existing map. |
+
+**Photo extraction:** connect `reference_image` → select **Qwen base** → choose **POSE / Depth / Canny** → click the mode's photo-extraction action → inspect the central preview → **Apply to node**. PNG export, output size and prompts use the selected guide.
+
+Full-resolution examples: [POSE](docs/images/demo-pose.png) · [Depth](docs/images/demo-depth.png) · [Canny](docs/images/demo-canny.png). These are conditioning images; final base-model results also depend on prompts and sampling settings.
 
 Reconstruction opens the interactive **3D workbench** by default. Choose **Preview current camera render** to inspect the actual `image_2` output, then switch back to adjust the camera. Photo skeletons and depth appear directly in the central **Guide preview** at the original view; a cropped portrait is not automatically converted into a full mannequin pose.
 
@@ -68,6 +78,8 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 ## Install
 
+Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
+
 Use ComfyUI with native **Qwen Image 2.1, TripoSplat, BiRefNet, and DINOv3 nodes**. Tested with **ComfyUI 0.36.0**. Enable WebGL hardware acceleration in your browser. Run from your ComfyUI directory:
 
 ```bash
@@ -83,13 +95,29 @@ The node title shows the full GitHub repository name. The black **source badge**
 
 The MakeHuman pack and skin texture are included. `install_assets.py --download-lora` verifies them and downloads the AnyAngle LoRA. For base-model-only use, run `python install_assets.py` without the LoRA download. `install_reconstruction.py` downloads approximately **3.78 GB** of weights and can be skipped when using only the bundled mannequin or imported maps. The two DWPose ONNX files download to the node's `.local/dwpose/` directory on the first explicit **Extract pose from photo** click (about 351 MB); existing `comfyui_controlnet_aux` weights are reused when present. Depth Anything 3 Small downloads about **137 MB** on the first explicit depth action, or reuses a matching model in `models/geometry_estimation/`. Use **ComfyUI's Python environment**; in a portable build, replace `python` with its bundled executable.
 
-| Model | Source / location |
+### Models by feature
+
+Paths below are relative to `ComfyUI/`; `<node-directory>` is the installed node folder.
+
+| Feature | Files and location | Source |
+|---|---|---|
+| AnyAngle camera changes (optional) | `models/loras/QI2.1_AnyAngle.safetensors` | [Original model](https://huggingface.co/lilylilith/QI_2.1_AnyAngle) |
+| POSE extraction | `yolox_l.onnx` and `dw-ll_ucoco_384.onnx`; first-use downloads go to `<node-directory>/.local/dwpose/` | [DWPose ONNX weights](https://huggingface.co/yzd-v/DWPose/tree/main) |
+| Depth extraction | `depth_anything_3_small.safetensors`; recommended location: `models/geometry_estimation/` | [ComfyUI-compatible weights](https://huggingface.co/Comfy-Org/Depth-Anything-3/tree/main/geometry_estimation) · [Original DA3 project](https://github.com/ByteDance-Seed/Depth-Anything-3) |
+| Canny / manual mannequin | **No additional model weights**; Canny runs in the browser and the mannequin is bundled | [Edge implementation](web/editor/guides.mjs) · [Mannequin provenance](THIRD_PARTY.md) |
+| Qwen Image 2.1 diffusion model / Qwen3-VL 8B / VAE | Provide separately in `models/diffusion_models`, `models/text_encoders`, and `models/vae` | Use base-model weights compatible with the workflow |
+
+DWPose first reuses the two files from `custom_nodes/comfyui_controlnet_aux/ckpts/yzd-v/DWPose/`, then uses its own cache. DA3 first checks `models/geometry_estimation/`; if absent, the first depth action downloads to `<node-directory>/.local/da3/geometry_estimation/depth_anything_3_small.safetensors`. Built-in extraction uses **Small**; other DA3 variants can be generated externally and connected to `structure_image`.
+
+**Photo-to-3D reconstruction** requires five more files from the [official TripoSplat weight bundle](https://huggingface.co/VAST-AI/TripoSplat/tree/main). `python install_reconstruction.py` installs them here:
+
+| File | ComfyUI directory |
 |---|---|
-| AnyAngle LoRA | [Original model](https://huggingface.co/lilylilith/QI_2.1_AnyAngle) · `models/loras/QI2.1_AnyAngle.safetensors` |
-| TripoSplat and companion weights | [Official weights](https://huggingface.co/VAST-AI/TripoSplat) · the installer places them in the relevant model directories |
-| DWPose body pose | [ONNX weights](https://huggingface.co/yzd-v/DWPose) · downloaded on the first explicit extraction, or reused from `comfyui_controlnet_aux` |
-| Depth Anything 3 Small | [ComfyUI-compatible weights](https://huggingface.co/Comfy-Org/Depth-Anything-3) · downloaded on explicit depth estimation, or reused from `models/geometry_estimation/` |
-| Qwen Image 2.1 diffusion model / Qwen3-VL 8B encoder / Qwen Image 2.1 VAE | Provide separately in `models/diffusion_models`, `models/text_encoders`, and `models/vae` |
+| `triposplat_fp16.safetensors` | `models/diffusion_models/` |
+| `birefnet.safetensors` | `models/background_removal/` |
+| `dino_v3_vit_h.safetensors` | `models/clip_vision/` |
+| `flux2-vae.safetensors` | `models/vae/` |
+| `triposplat_vae_decoder_fp16.safetensors` | `models/vae/` |
 
 Replace model filenames in the example workflow with compatible weights installed locally. AnyAngle and TripoSplat weights download from installation commands; DWPose and Depth Anything 3 download only when their actions are requested. Pose and depth inference, reconstruction, and rendering run locally.
 

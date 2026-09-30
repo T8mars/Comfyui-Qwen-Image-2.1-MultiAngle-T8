@@ -1,0 +1,24 @@
+[project]
+name = "qwen-image-21-multiangle-t8"
+version = "1.0.0"
+description = "Interactive 3D camera and pose studio for Qwen Image 2.1, with TripoSplat reconstruction, DWPose, Depth Anything 3 and Canny guides."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "onnxruntime>=1.18,<2",
+    "opencv-python-headless>=4.8,<5",
+    "huggingface_hub>=0.26",
+]
+classifiers = ["Operating System :: OS Independent"]
+
+[project.urls]
+Repository = "https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8"
+Documentation = "https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8#readme"
+"Bug Tracker" = "https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/issues"
+
+[tool.comfy]
+PublisherId = "t8star"
+DisplayName = "Comfyui-Qwen-Image-2.1-MultiAngle-T8"
+Icon = "https://raw.githubusercontent.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/main/web/icons/aperture.svg"
+requires-comfyui = ">=0.36.0"
