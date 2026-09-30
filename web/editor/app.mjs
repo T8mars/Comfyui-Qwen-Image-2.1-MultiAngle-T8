@@ -710,7 +710,8 @@ async function start(token, reference = { connected: false }, structure = { conn
       const response = await fetch(`/anyangle-studio/snapshots/${encodeURIComponent(token.id)}`);
       const saved = await response.json().catch(() => ({}));
       if (response.ok) { doc = saved.scene; snapshot = token; }
-      else toast('上次应用的场景不在本机，已回到空白场景 · 重建主体或导入 GLB 后再应用');
+      else if (response.status === 404) toast('上次应用的场景不在本机，已回到空白场景 · 重建主体或导入 GLB 后再应用');
+      else throw new Error(saved.error || `读取快照失败（HTTP ${response.status}）`);
     }
     doc.conditioning = { ...defaultScene().conditioning, ...doc.conditioning };
     doc.openpose ??= null;

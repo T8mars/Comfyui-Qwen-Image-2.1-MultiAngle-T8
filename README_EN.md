@@ -126,9 +126,14 @@ If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` insid
 ## Storage, portability, and limits
 
 - Scenes, guides, and assets live in `ComfyUI/input/anyangle_studio/`. Copy the associated assets when moving a workflow. The [API workflow](workflows/AnyAngle-Studio-Qwen21-API.json) requires an applied snapshot.
+- If a workflow's snapshot is missing on this machine, the editor opens a blank scene so you can read the reference, reconstruct or import a subject, and apply again before running. Authorization and server errors are reported separately.
 - GLBs must embed textures; Draco, Meshopt, and KTX2 compression are unsupported. GLB front calibration applies only to imported GLBs. Use camera angles and framing for photo reconstructions.
 - A single image cannot precisely recover occluded or cropped body parts or the complete background. Guide dimensions and downstream generation resolution are configured separately.
 - Verified on an RTX 5090 Laptop with 24 GB VRAM; adjust models and resolution for other hardware.
+
+### Network access
+
+Node endpoints use the ComfyUI server's access boundary and do not provide a separate login system. For local use, keep ComfyUI's default `--listen 127.0.0.1`. LAN and cloud deployments need a trusted network, VPN or authenticated reverse proxy protecting the entire ComfyUI service, including `/anyangle-studio/*`. Do not expose an unauthenticated port directly to the Internet; a loopback client-IP restriction does not replace authentication.
 
 ## Credits and license
 

@@ -126,9 +126,14 @@ DWPose 优先复用 `custom_nodes/comfyui_controlnet_aux/ckpts/yzd-v/DWPose/` �
 ## 保存、迁移与限制
 
 - 场景、粗图和资产保存在 `ComfyUI/input/anyangle_studio/`。迁移工作流时需一同复制相关资产；[API 工作流](workflows/AnyAngle-Studio-Qwen21-API.json) 需填入已应用的快照。
+- 本机缺少工作流中的快照时，工作台会恢复为空白场景，仍可读取原图、重建或导入主体。重新应用后再运行工作流；权限或服务器错误会单独显示。
 - GLB 需内嵌纹理；不支持 Draco、Meshopt、KTX2 压缩。GLB 正面校准只用于导入的 GLB，原图重建模式请使用相机角度与构图控制。
 - 单图重建无法精确恢复遮挡、画外身体或完整背景。粗图尺寸与下游生成分辨率分别设置。
 - 已在 RTX 5090 Laptop 24 GB 上验证；其他硬件需按本机模型及分辨率调整。
+
+### 网络访问
+
+节点接口使用 ComfyUI 服务器的访问边界，没有独立登录功能。本机使用 ComfyUI 默认的 `--listen 127.0.0.1`；局域网或云端使用需通过受信网络、VPN 或带身份验证的反向代理访问，并保护整个 ComfyUI 服务（包含 `/anyangle-studio/*`）。请勿直接将未经身份验证的端口暴露到公网；仅限制客户端 IP 为回环地址不能替代登录验证。
 
 ## 致谢与许可
 
