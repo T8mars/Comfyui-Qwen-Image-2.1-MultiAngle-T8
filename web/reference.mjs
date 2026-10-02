@@ -26,6 +26,9 @@ export function imageViewURL(filename, type = 'input', subfolder = '') {
 }
 
 export async function importReference(url) {
+  // Only allow same-origin relative paths (e.g. '/view?...') to prevent SSRF via
+  // attacker-supplied absolute/protocol-relative URLs reaching internal/cloud endpoints.
+  if (typeof url !== 'string' || !/^\/(?!\/)/.test(url)) throw new Error('无效的参考图地址');
   const image = await fetch(url, { cache: 'no-store' });
   if (!image.ok) throw new Error('无法读取连线原图，请检查上游文件');
   const form = new FormData(); form.append('file', await image.blob(), 'reference.png');
