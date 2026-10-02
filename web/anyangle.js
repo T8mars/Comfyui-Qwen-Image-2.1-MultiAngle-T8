@@ -1,5 +1,7 @@
 import { app } from '../../scripts/app.js';
-import { referencePlan, executeReference } from './reference.mjs';
+import { api } from '../../scripts/api.js';
+import { referencePlan, executeReference } from './reference.mjs?v=20261002c';
+import { promptForSnapshot } from './batch-queue.mjs?v=20261002c';
 
 let graphRevision = 0;
 let closeActive = null;
@@ -18,6 +20,8 @@ function openEditor(node, widget) {
   let active = true;
   let reference = { connected: false }, referenceSignature = null, readingReference = false;
   let structure = { connected: false }, structureSignature = null, readingStructure = false;
+  let batchGraph = null;
+  const batchRequests = new Map();
   const unwiredAnyAngleLoader = () => {
     const strength = node.outputs?.find(output => output.name === 'anyangle_lora_strength');
     return graph._nodes.some(candidate => {
@@ -97,6 +101,26 @@ function openEditor(node, widget) {
   };
   const close = () => { if (!active) return; active = false; window.removeEventListener('message', receive); dialog.remove(); if (closeActive === close) closeActive = null; };
   const valid = () => active && app.graph === graph && graphRevision === revision && graph.getNodeById(node.id) === node && widget.value === initial;
+  const validateSnapshot = async token => {
+    if (token?.version !== 1 || !/^[a-f0-9]{64}$/.test(token.id)) throw new Error('无效的场景快照');
+    if (((await getPlan())?.signature || null) !== referenceSignature) throw new Error('上游已变化，请重新打开工作台读取原图');
+    if (((await getStructurePlan())?.signature || null) !== structureSignature) throw new Error('结构图上游已变化，请重新读取');
+    const response = await fetch(`/anyangle-studio/snapshots/${token.id}`);
+    if (!response.ok) throw new Error('无法验证已保存的场景，请重新应用');
+    const saved = await response.json(), scene = saved.scene, settings = scene.conditioning || {};
+    if (settings.model === 'base' && unwiredAnyAngleLoader())
+      throw new Error('当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的 anyangle_lora_strength，或移除该加载器。');
+    if (reference.connected && scene.reference?.name !== reference.asset?.name) throw new Error('参考图已变化，请重新读取并重建主体');
+    const photoGuide = settings.guide === 'pose' && scene.openpose?.origin === 'dwpose'
+      || settings.guide === 'depth' && settings.mapOrigin === 'da3'
+      || settings.guide === 'canny' && ['auto', 'reference'].includes(settings.mapOrigin);
+    if (structure.connected && settings.model === 'base' && !photoGuide) {
+      const name = settings.guide === 'pose' ? scene.openpose?.sourceName : settings.map?.name;
+      if (['pose', 'depth', 'canny'].includes(settings.guide) && name !== structure.asset?.name)
+        throw new Error('结构图已变化，请先在工作台重新读取并应用');
+    }
+    if (!valid()) throw new Error('工作流已改变，请重新打开工作台');
+  };
   const receive = async event => {
     if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.session !== session) return;
     if (!valid()) { close(); return; }
@@ -110,24 +134,30 @@ function openEditor(node, widget) {
     } else if (event.data.type === 'anyangle-read-structure') {
       await readStructure(true); send('anyangle-structure', { structure });
     } else if (event.data.type === 'anyangle-close') close();
+    else if (event.data.type === 'anyangle-batch-request') {
+      const requestId = event.data.requestId;
+      if (typeof requestId !== 'string' || requestId.length > 100) return;
+      if (!batchRequests.has(requestId)) batchRequests.set(requestId, (async () => {
+        if (event.data.action === 'prepare') {
+          batchGraph = await app.graphToPrompt();
+          if (!batchGraph.output[String(node.id)] || !node.outputs?.find(output => output.name === 'guide_image_2')?.links?.length)
+            throw new Error('请将 Studio 的 guide_image_2 连入当前生成工作流');
+          return {};
+        }
+        if (event.data.action !== 'queue' || !batchGraph) throw new Error('请先准备批量工作流');
+        await validateSnapshot(event.data.snapshot);
+        const result = await api.queuePrompt(0, promptForSnapshot(batchGraph, node.id, event.data.snapshot));
+        if (!result.prompt_id) throw new Error('提交未返回任务编号，请检查 ComfyUI 队列');
+        return { prompt_id: result.prompt_id };
+      })());
+      try { send('anyangle-batch-reply', { requestId, result: await batchRequests.get(requestId) }); }
+      catch (error) { send('anyangle-batch-reply', { requestId, error: error.message }); }
+    }
     else if (event.data.type === 'anyangle-apply') {
       const token = event.data.snapshot;
       if (token?.version !== 1 || !/^[a-f0-9]{64}$/.test(token.id) || !Number.isInteger(event.data.revision)) return;
       try {
-        if (((await getPlan())?.signature || null) !== referenceSignature) throw new Error('上游已变化，请重新打开工作台读取原图');
-        if (((await getStructurePlan())?.signature || null) !== structureSignature) throw new Error('结构图上游已变化，请重新读取');
-        const response = await fetch(`/anyangle-studio/snapshots/${token.id}`);
-        if (!response.ok) throw new Error('无法验证已保存的场景，请重新应用');
-        const saved = await response.json();
-        if (saved.scene.conditioning?.model === 'base' && unwiredAnyAngleLoader())
-          throw new Error('当前工作流的 AnyAngle LoRA 强度仍固定。请将 Studio 的 anyangle_lora_strength 接至 LoRA 加载器 strength_model，或移除该加载器。');
-        if (reference.connected && saved.scene.reference?.name !== reference.asset?.name) throw new Error('参考图已变化，请等待对应主体重建后再应用');
-        if (structure.connected && saved.scene.conditioning?.model === 'base') {
-          const guide = saved.scene.conditioning.guide;
-          const name = guide === 'pose' ? saved.scene.openpose?.sourceName : saved.scene.conditioning.map?.name;
-          if (['pose', 'depth', 'canny'].includes(guide) && name !== structure.asset?.name)
-            throw new Error('结构图已变化，请先在工作台重新读取并应用');
-        }
+        await validateSnapshot(token);
         if (!valid()) return;
         widget.value = JSON.stringify(token); widget.callback?.(widget.value);
         app.graph.setDirtyCanvas(true, true); close();

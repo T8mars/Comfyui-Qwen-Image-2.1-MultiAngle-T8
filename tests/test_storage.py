@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 import zlib
+import zipfile
 
 from PIL import Image
 
@@ -39,6 +40,31 @@ class SnapshotTests(unittest.TestCase):
         second = self.store.save_scene(self.scene, self.png)
         self.assertNotEqual(first, second)
         self.assertEqual(self.store.load_scene(first)[0]["scene"]["camera"]["azimuth"], 45)
+
+    def test_batch_archive_contains_distinct_guides_and_camera_manifest(self):
+        first = self.store.save_scene(self.scene, self.png)
+        self.scene["camera"]["azimuth"] = 90
+        buffer = io.BytesIO(); Image.new("RGB", (96, 64), (119, 77, 32)).save(buffer, format="PNG")
+        second = self.store.save_scene(self.scene, "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode())
+        batch = self.store.save_batch([{"snapshot": first, "prompt_id": "first-job"}, {"snapshot": second, "prompt_id": "second-job"}])
+        self.assertEqual(batch["count"], 2)
+        with self.store.batch_archive(batch["id"]) as archive:
+            data = archive.read()
+        with zipfile.ZipFile(io.BytesIO(data)) as package:
+            self.assertEqual(package.namelist(), ["manifest.json", "view-0001.png", "view-0002.png"])
+            manifest = json.loads(package.read("manifest.json"))
+            self.assertEqual([view["camera"]["azimuth"] for view in manifest["views"]], [45, 90])
+            self.assertEqual([view["prompt_id"] for view in manifest["views"]], ["first-job", "second-job"])
+            self.assertEqual(Image.open(io.BytesIO(package.read("view-0001.png"))).getpixel((0, 0)), (32, 77, 119))
+            self.assertEqual(Image.open(io.BytesIO(package.read("view-0002.png"))).getpixel((0, 0)), (119, 77, 32))
+
+    def test_batch_rejects_missing_snapshots_and_other_json_documents(self):
+        for views in [[], None, [None], [{"snapshot": {"version": 1, "id": "../private"}}]]:
+            with self.subTest(views=views), self.assertRaises(ValueError):
+                self.store.save_batch(views)
+        token = self.store.save_scene(self.scene, self.png)
+        with self.assertRaisesRegex(ValueError, "not an AnyAngle batch"):
+            self.store.batch_archive(token["id"])
 
     def test_base_model_structure_modes_change_prompt_and_allow_external_depth(self):
         scene = copy.deepcopy(self.scene)

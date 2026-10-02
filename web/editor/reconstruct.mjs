@@ -17,8 +17,34 @@ export function reconstructionGraph(reference, models, seed = 46) {
   };
 }
 
+const MODEL_SELECTION_KEY = 'anyangle-reconstruction.models.v1';
+
+export function selectedReconstructionModels() {
+  try {
+    const selected = JSON.parse(localStorage.getItem(MODEL_SELECTION_KEY));
+    if (selected && typeof selected === 'object' && !Array.isArray(selected)) return selected;
+  } catch { /* Use automatic discovery if browser preferences are unavailable. */ }
+  return {};
+}
+
+export async function reconstructionConfig(selections = selectedReconstructionModels()) {
+  const query = new URLSearchParams(selections).toString();
+  const response = await fetch('/anyangle-studio/reconstruction-config' + (query ? `?${query}` : ''));
+  const config = await response.json();
+  if (!response.ok) throw new Error(config.error || '无法检查本地重建模型，请确认 ComfyUI 服务正常运行');
+  return config;
+}
+
+export async function saveReconstructionModels(selections) {
+  const config = await reconstructionConfig(selections);
+  localStorage.setItem(MODEL_SELECTION_KEY, JSON.stringify(selections));
+  return config;
+}
+
 export async function reconstruct(reference, onProgress, retryStaleJob = true) {
-  const key = `anyangle-reconstruction:${reference.name}`;
+  const selections = selectedReconstructionModels();
+  const suffix = Object.keys(selections).length ? ':' + JSON.stringify(Object.fromEntries(Object.entries(selections).sort())) : '';
+  const key = `anyangle-reconstruction:${reference.name}${suffix}`;
   let cached;
   try { cached = JSON.parse(localStorage.getItem(key)); } catch { /* Ignore an incomplete browser save. */ }
   if (cached?.source?.reference?.name === reference.name) {
@@ -26,10 +52,12 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true) {
     if (existing.ok) return cached.source;
     localStorage.removeItem(key); cached = null;
   }
-  const configResponse = await fetch('/anyangle-studio/reconstruction-config');
-  if (!configResponse.ok) throw new Error('无法检查本地重建模型，请确认 ComfyUI 服务正常运行');
-  const config = await configResponse.json();
-  if (!config.available) throw new Error(`缺少本地重建模型：${config.missing.join('、')}。请运行节点目录中的 install_reconstruction.py。`);
+  const config = await reconstructionConfig(selections);
+  if (!config.available) {
+    const hint = Object.keys(config.ambiguous || {}).length ? '发现多个同名文件，请在左侧「重建模型」手动选择。'
+      : '请在左侧「重建模型」选择兼容权重，或运行节点目录中的 install_reconstruction.py。';
+    throw new Error(`缺少或尚未选择本地重建模型：${config.missing.join('、')}。${hint}`);
+  }
   let job = typeof cached === 'string' ? cached : cached?.job;
   if (!job) {
     const response = await fetch('/prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' },

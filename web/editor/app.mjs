@@ -1,7 +1,8 @@
 import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261002a';
-import { reconstruct } from './reconstruct.mjs';
+import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261002c';
 import { readSkeletonImage } from './openpose.mjs';
 import { GUIDE_LABELS, guidePrompt, guideSource, cannyEdges } from './guides.mjs?v=20260930g';
+import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261002c';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);
@@ -20,6 +21,8 @@ let pendingStructure = null;
 let explicitStructureRead = false;
 let overlayShown = false;
 let previewVisible = false, previewGuide = null, previewRevision = -1;
+let batchRunning = false, batchController = null, batchViews = [], batchId = null;
+const batchReplies = new Map();
 const controls = new Map();
 let poseLibrary;
 try { poseLibrary = JSON.parse(localStorage.getItem('anyangle-studio.poses.v1') || '[]'); }
@@ -254,6 +257,9 @@ function refresh() {
         : '请先载入三维主体。'
     : guide === 'coarse' ? '网格与控制器不会进入粗图。' : '预览即将输出到 image_2 的实际引导图。';
   $('#save-shot').disabled = $('#fit-frame').disabled = empty;
+  $('#open-batch').disabled = !supportsCameraBatch(doc);
+  $('#open-batch').title = supportsCameraBatch(doc) ? '按角度步进或收藏机位批量渲染 / 生成'
+    : '需使用三维粗图、人偶骨架或三维 Canny；原图提取的结构图保持原视角';
   $('#download-guide').disabled = !hasGuide();
   $('#apply').disabled = busy || !ready || !hasGuide() || (linkedReference.connected && (!linkedReference.asset || linkedReference.pending))
     || (linkedStructure.connected && !!linkedStructure.pending && !usesLocalGuide(guide));
@@ -531,6 +537,54 @@ $('#reference-file').onchange = event => run(async () => {
   if (doc.source.kind === 'empty' && currentGuide() === 'coarse') await reconstructPhoto();
 });
 const referenceCamera = () => ({ azimuth: 0, elevation: 0, zoom: 1, offsetX: 0, offsetY: 0, offsetZ: 0 });
+const reconstructionModelLabels = {
+  background_removal: '背景移除 · BiRefNet', clip_vision: '图像编码 · DINOv3', diffusion_models: '三维重建 · TripoSplat',
+  vae_encoder: '图像 VAE · Flux2', vae_decoder: '三维解码 · TripoSplat VAE',
+};
+function showModelStatus(config) {
+  $('#reconstruction-model-state').textContent = config.available ? '5 个模型已就绪 · 下次重建使用当前选择'
+    : `尚需选择或准备：${config.missing.join('、')}`;
+}
+async function loadReconstructionModels() {
+  $('#reconstruction-model-state').textContent = '正在读取本机模型列表…';
+  $('#reconstruction-model-save').disabled = true;
+  try {
+    const config = await reconstructionConfig({});
+    if (!config.choices) throw new Error('请重启 ComfyUI 以启用新版模型选择功能');
+    const selected = selectedReconstructionModels(), fields = $('#reconstruction-model-fields');
+    fields.replaceChildren();
+    for (const [role, title] of Object.entries(reconstructionModelLabels)) {
+      const label = document.createElement('label'), select = document.createElement('select');
+      label.textContent = title; select.dataset.role = role; select.setAttribute('aria-label', title);
+      const automatic = document.createElement('option'); automatic.value = '';
+      automatic.textContent = '自动识别 · ' + (config.ambiguous[role] ? '同名文件需选择'
+        : config.choices[role].includes(config.models[role]) ? config.models[role] : '未找到');
+      select.append(automatic);
+      for (const name of config.choices[role]) {
+        const option = document.createElement('option'); option.value = option.textContent = name; select.append(option);
+      }
+      if (selected[role] && !config.choices[role].includes(selected[role])) {
+        const missing = document.createElement('option'); missing.value = selected[role];
+        missing.textContent = `文件已移动 · ${selected[role]}`; missing.disabled = true; select.append(missing);
+      }
+      select.value = selected[role] || ''; label.append(select); fields.append(label);
+    }
+    $('#reconstruction-model-save').disabled = false;
+    const chosen = await reconstructionConfig(selected);
+    showModelStatus(chosen);
+  } catch (e) { $('#reconstruction-model-state').textContent = e.message; throw e; }
+}
+$('#reconstruction-model-panel').ontoggle = () => {
+  if ($('#reconstruction-model-panel').open && ready) run(loadReconstructionModels);
+};
+$('#reconstruction-model-refresh').onclick = () => run(loadReconstructionModels);
+$('#reconstruction-model-save').onclick = () => run(async () => {
+  const selections = {};
+  for (const select of $('#reconstruction-model-fields').querySelectorAll('select'))
+    if (select.value) selections[select.dataset.role] = select.value;
+  const config = await saveReconstructionModels(selections);
+  showModelStatus(config); toast('模型选择已保存 · 点击从原图重建 3D 使用新选择');
+});
 async function reconstructPhoto() {
   if (!doc.reference) return;
   clearTimeout(previewTimer);
@@ -660,6 +714,79 @@ $('#download-guide').onclick = () => run(async () => {
 });
 
 function send(type, payload = {}) { parent.postMessage({ type, session, ...payload }, location.origin); }
+function batchRequest(action, payload = {}) {
+  const requestId = crypto.randomUUID();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { batchReplies.delete(requestId); reject(new Error('批量提交未收到确认，请检查 ComfyUI 队列；本机位不会自动重复提交')); }, 60000);
+    batchReplies.set(requestId, { resolve, reject, timer });
+    send('anyangle-batch-request', { requestId, action, ...payload });
+  });
+}
+function batchSettings() {
+  return { mode: $('#batch-mode').value, start: Number($('#batch-start').value),
+    end: Number($('#batch-end').value), step: Number($('#batch-step').value) };
+}
+function updateBatchPlan() {
+  $('#batch-range').hidden = $('#batch-mode').value === 'saved';
+  try {
+    const plan = cameraBatchPlan(doc, batchSettings());
+    $('#batch-count').textContent = `${plan.count} 个机位 · ${$('#batch-mode').value === 'saved' ? '使用收藏的相机与尺寸，保留当前姿势' : '保留当前姿势、俯仰角与构图'} · 沿用工作流采样设置`;
+    $('#batch-guides').disabled = false; $('#batch-final').disabled = !embedded;
+  } catch (e) {
+    $('#batch-count').textContent = e.message; $('#batch-guides').disabled = $('#batch-final').disabled = true;
+  }
+}
+$('#open-batch').onclick = () => { updateBatchPlan(); $('#batch-dialog').showModal(); };
+for (const id of ['batch-mode', 'batch-start', 'batch-end', 'batch-step']) $(`#${id}`).oninput = updateBatchPlan;
+$('#batch-close').onclick = () => { if (batchRunning) batchController.abort(); else $('#batch-dialog').close(); };
+$('#batch-dialog').addEventListener('cancel', event => { if (batchRunning) { event.preventDefault(); batchController.abort(); } });
+$('#batch-stop').onclick = () => batchController?.abort();
+$('#batch-zip').onclick = () => { if (batchId) download(`/anyangle-studio/batch-guides/${batchId}`, 'anyangle-guides.zip'); };
+$('#batch-manifest').onclick = () => download(new Blob([JSON.stringify({ version: 1, kind: 'anyangle-batch', views: batchViews }, null, 2)],
+  { type: 'application/json' }), 'anyangle-batch.json');
+async function startCameraBatch(queueFinal) {
+  clearTimeout(previewTimer); studio.syncPose();
+  const plan = cameraBatchPlan(doc, batchSettings()), original = doc;
+  batchRunning = true; batchController = new AbortController(); batchViews = []; batchId = null;
+  $('#batch-options').inert = true; $('#batch-stop').disabled = false; $('#batch-close').textContent = '停止后续机位';
+  $('#batch-zip').disabled = $('#batch-manifest').disabled = true;
+  $('#batch-state').textContent = queueFinal ? '正在准备当前生成工作流…' : '正在准备批量粗图…';
+  try {
+    if (queueFinal) await batchRequest('prepare');
+    const result = await runCameraBatch(plan, {
+      signal: batchController.signal,
+      capture: async scene => { doc = scene; studio.doc = doc; studio.updateShot(); return captureGuide(); },
+      save: async (scene, png) => {
+        const response = await fetch('/anyangle-studio/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scene, png }) });
+        const saved = await response.json(); if (!response.ok) throw new Error(saved.error || '批量粗图保存失败'); return saved;
+      },
+      queue: queueFinal ? async snapshot => (await batchRequest('queue', { snapshot })).prompt_id : null,
+      onProgress: ({ index, total, label, phase }) => {
+        $('#batch-state').textContent = phase === 'capture' ? `渲染 ${index + 1} / ${total} · ${label}`
+          : `${phase === 'queued' ? '已入队' : '已保存'} ${index} / ${total} · ${label}`;
+      },
+    });
+    batchViews = result.views;
+    const queued = batchViews.filter(view => view.prompt_id).length;
+    $('#batch-state').textContent = `${result.error ? '提交中止' : result.stopped ? '已停止后续机位' : '批量准备完成'} · 粗图 ${batchViews.length} 张${queueFinal ? ` · 已入队 ${queued} 个生成任务` : ''}`;
+    if (result.error) error(result.error);
+    if (batchViews.length) {
+      $('#batch-manifest').disabled = false;
+      const response = await fetch('/anyangle-studio/batches', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ views: batchViews }) });
+      const saved = await response.json(); if (!response.ok) throw new Error(saved.error || '批量清单保存失败');
+      batchId = saved.id; $('#batch-zip').disabled = false;
+    }
+  } catch (e) { $('#batch-state').textContent = e.message; throw e; }
+  finally {
+    doc = original; studio.doc = doc; studio.updateShot();
+    batchRunning = false; $('#batch-options').inert = false; $('#batch-stop').disabled = true;
+    $('#batch-close').textContent = '关闭'; refresh(); updateBatchPlan();
+  }
+}
+$('#batch-guides').onclick = () => run(() => startCameraBatch(false));
+$('#batch-final').onclick = () => run(() => startCameraBatch(true));
 $('#cancel').onclick = () => { if (embedded) send('anyangle-close'); else location.reload(); };
 $('#apply').onclick = () => run(async () => {
   clearTimeout(previewTimer); studio.syncPose();
@@ -778,6 +905,12 @@ if (embedded) {
       pendingReference = event.data.reference; readPendingReference();
     } else if (event.data.type === 'anyangle-structure' && ready) {
       pendingStructure = event.data.structure; readPendingStructure();
+    } else if (event.data.type === 'anyangle-batch-reply') {
+      const pending = batchReplies.get(event.data.requestId);
+      if (pending) {
+        clearTimeout(pending.timer); batchReplies.delete(event.data.requestId);
+        if (event.data.error) pending.reject(new Error(event.data.error)); else pending.resolve(event.data.result);
+      }
     } else if (event.data.type === 'anyangle-apply-error') {
       $('#status').textContent = '尚未应用到节点'; $('#status').dataset.state = 'dirty'; toast(event.data.message);
     }
@@ -787,4 +920,8 @@ if (embedded) {
   $('#apply').lastChild.textContent = '保存场景'; $('#cancel').textContent = '重载';
   start(params.has('snapshot') ? { version: 1, id: params.get('snapshot') } : null);
 }
-window.addEventListener('pagehide', () => { clearTimeout(previewTimer); studio?.dispose(); });
+window.addEventListener('pagehide', () => {
+  batchController?.abort();
+  for (const pending of batchReplies.values()) { clearTimeout(pending.timer); pending.reject(new Error('工作台已关闭')); }
+  batchReplies.clear(); clearTimeout(previewTimer); studio?.dispose();
+});

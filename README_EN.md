@@ -58,6 +58,18 @@ Reconstruction opens the interactive **3D workbench** by default. Choose **Previ
 
 The original still goes to `reference_image` and encoder `image_1`; `guide_image_2` goes to encoder `image_2`. Each guide mode supplies a matching edit prompt. DWPose extracts **2D joints**; inspect occluded limbs and front/back depth in the editor. The base model treats the structure map as an **image reference** rather than a dedicated ControlNet input. Pose, depth, and edge adherence are therefore model-dependent, not guaranteed hard constraints. Imported maps are letterboxed to the output size instead of stretched.
 
+### Batch views and generation · 1.1.0
+
+![Batch views: choose angles, render independent guides, queue Qwen jobs and save outputs](docs/images/batch-flow.svg)
+
+Click **批量机位** (Batch views) below the 3D viewport. Choose an angle range or saved camera views: `0° → 330° / 30°` produces 12 views; `0° → 360° / 1°` produces 360 views, omitting the duplicate endpoint. Angle ranges keep the current pose, elevation and framing; saved views use their own camera settings and dimensions.
+
+- **批量渲染粗图 (Render guides):** saves independent guides for every view, with a PNG ZIP and task manifest. Qwen inference is not required.
+- **批量生成最终图 (Generate final images):** available when the studio is opened from its node. Each view queues the workflow, seed and sampling settings captured when the batch starts. Connect **Save Image** to save results in `ComfyUI/output/`. Each PNG records its own view in workflow metadata; the currently edited node snapshot stays unchanged.
+- **停止后续机位 (Stop remaining views):** queued jobs keep running. Saved guides and the manifest remain downloadable. The studio reports submission progress; check ComfyUI's queue for generation progress.
+
+Supports 3D coarse renders, 3D mannequin POSE and Canny from 3D views, with no additional weights. Extracted or imported 2D POSE / Depth / Canny maps retain their original view and cannot produce new camera angles.
+
 ## Quick start
 
 1. Install the node and models below, restart ComfyUI, and load the [basic workflow](workflows/AnyAngle-Studio-Qwen21.json).
@@ -124,6 +136,8 @@ DWPose first reuses the two files from `custom_nodes/comfyui_controlnet_aux/ckpt
 | `triposplat_vae_decoder_fp16.safetensors` | `models/vae/` |
 
 Replace model filenames in the example workflow with compatible weights installed locally. AnyAngle and TripoSplat weights download from installation commands; DWPose and Depth Anything 3 download only when their actions are requested. Pose and depth inference, reconstruction, and rendering run locally.
+
+**Reconstruction model selection (1.1.0):** supports subdirectories and extra model paths registered with ComfyUI. Standard filenames are discovered automatically. For renamed weights or multiple matching copies, expand **重建模型** (Reconstruction models) in the left panel, choose compatible weights for all five roles, save the selection, then reconstruct. Preferences stay in the current browser; changing models does not reuse the old reconstruction cache. Restart ComfyUI and refresh with `Ctrl+F5` after updating.
 
 If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` inside the node directory, confirm that `web/vendor/assets/pose_studio_makehuman.v2.bin` and `web/vendor/textures/skin.png` exist, restart ComfyUI, and hard-refresh the browser. Run `python install_assets.py` if either file is still missing.
 

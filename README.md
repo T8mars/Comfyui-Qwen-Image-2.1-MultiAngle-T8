@@ -58,6 +58,18 @@
 
 `reference_image` 仍接原图并另接编码器 `image_1`；`guide_image_2` 接编码器 `image_2`。各引导方式会自动生成相应编辑提示词。DWPose 提取的是**二维关节位置**，遮挡处和肢体前后深度仍需在工作台检查。底模把结构图作为**图像参考**理解，没有独立的 ControlNet 控制端口；姿势、深度和轮廓的遵循程度取决于底模与提示词，不能保证像专用控制模型一样严格。导入图会按输出尺寸等比留黑边，不会被拉伸。
 
+### 批量机位与出图 · 1.1.0
+
+![批量机位：选择角度、逐张渲染引导图、提交 Qwen 队列并保存结果](docs/images/batch-flow.svg)
+
+在三维工作台下方点击 **批量机位**，选择「角度步进」或「已收藏机位」。例如 `0° → 330° / 30°` 生成 12 个机位；`0° → 360° / 1°` 生成 360 个机位，自动去掉重复的 360° 端点。角度步进保持当前姿势、俯仰角与构图，收藏模式使用各机位的相机与尺寸。
+
+- **批量渲染粗图：**逐机位保存独立引导图，可下载 PNG ZIP 和任务清单，无需运行 Qwen。
+- **批量生成最终图：**从节点打开工作台后可用。按批量开始时的工作流、种子和采样设置逐张提交 ComfyUI 队列；请连接 **Save Image**，结果保存到 `ComfyUI/output/`。每张 PNG 的工作流记录对应机位，不会覆盖当前编辑中的节点快照。
+- **停止后续机位：**已入队任务继续运行；已保存的粗图与任务清单仍可下载。界面显示的是提交进度，最终生成进度在 ComfyUI 队列查看。
+
+支持三维粗图、三维人偶 POSE 和三维机位 Canny，不需新增模型。原图提取或导入的二维 POSE / Depth / Canny 保持原机位，不能通过角度步进生成新视角。
+
 ## 快速开始
 
 1. 按下方说明安装节点与所需模型，重启 ComfyUI，导入 [基础工作流](workflows/AnyAngle-Studio-Qwen21.json)。
@@ -124,6 +136,8 @@ DWPose 优先复用 `custom_nodes/comfyui_controlnet_aux/ckpts/yzd-v/DWPose/` �
 | `triposplat_vae_decoder_fp16.safetensors` | `models/vae/` |
 
 示例工作流中的模型名需替换为本机已有的兼容权重。AnyAngle 和 TripoSplat 权重由安装命令下载；DWPose 与 Depth Anything 3 仅在点击对应功能时下载。姿势与深度推理、重建和渲染在本地完成。
+
+**重建模型选择（1.1.0）：**支持上述类别的子目录及 ComfyUI 已注册的额外模型路径。标准文件名会自动识别；若文件已改名或存在多个同名副本，在工作台左侧展开「重建模型」，为 5 个角色选择兼容权重并「保存选择」，再点击「从原图重建 3D」。选择保存在当前浏览器；更换模型不会复用旧模型的重建缓存。更新后需重启 ComfyUI，并按 `Ctrl+F5` 刷新。
 
 若旧版安装提示 `MakeHuman asset: HTTP 404`，在节点目录执行 `git pull`，确认 `web/vendor/assets/pose_studio_makehuman.v2.bin` 与 `web/vendor/textures/skin.png` 存在，重启 ComfyUI 并强制刷新浏览器。文件缺失时运行 `python install_assets.py` 补齐。
 

@@ -22,10 +22,32 @@ MODELS = {
 }
 
 
-def reconstruction_config():
-    missing = [name for category, name in MODELS.items()
-               if not folder_paths.get_full_path("vae" if category.startswith("vae_") else category, name)]
-    return {"models": MODELS, "available": not missing, "missing": missing}
+def reconstruction_config(selections=None):
+    if selections is None:
+        selections = {}
+    if not isinstance(selections, dict) or set(selections) - MODELS.keys():
+        raise ValueError("Invalid reconstruction model selections")
+    models, choices, ambiguous, missing = {}, {}, {}, []
+    for role, default in MODELS.items():
+        category = "vae" if role.startswith("vae_") else role
+        files = folder_paths.get_filename_list(category) if category in folder_paths.folder_names_and_paths else []
+        choices[role] = files
+        name = selections.get(role)
+        if name is not None:
+            if not isinstance(name, str) or name not in files:
+                raise ValueError(f"重建模型不在 {category} 的可用列表中：{name}")
+        elif default in files:
+            name = default
+        else:
+            matches = [file for file in files if file.replace("\\", "/").rsplit("/", 1)[-1].casefold() == default.casefold()]
+            if len(matches) == 1:
+                name = matches[0]
+            elif matches:
+                ambiguous[role] = matches
+        models[role] = name or default
+        if not name or not folder_paths.get_full_path(category, name):
+            missing.append(default)
+    return {"models": models, "choices": choices, "ambiguous": ambiguous, "available": not missing, "missing": missing}
 
 
 def image_asset(store, image):

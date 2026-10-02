@@ -16,7 +16,11 @@ def register_routes(store_factory):
 
     @routes.get("/anyangle-studio/reconstruction-config")
     async def reconstruction_models(request):
-        return web.json_response(reconstruction_config())
+        try:
+            config = await asyncio.to_thread(reconstruction_config, dict(request.query))
+            return web.json_response(config)
+        except (ValueError, OSError) as error:
+            return web.json_response({"error": str(error)}, status=400)
 
     @routes.post("/anyangle-studio/dwpose")
     async def photo_to_pose(request):
@@ -125,6 +129,33 @@ def register_routes(store_factory):
             return web.json_response(result)
         except (ValueError, OSError, UnidentifiedImageError) as error:
             return web.json_response({"error": str(error)}, status=400)
+
+    @routes.post("/anyangle-studio/batches")
+    async def save_batch(request):
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid batch payload")
+            result = await asyncio.to_thread(store_factory().save_batch, payload.get("views"))
+            return web.json_response(result)
+        except (ValueError, OSError) as error:
+            return web.json_response({"error": str(error)}, status=400)
+
+    @routes.get("/anyangle-studio/batch-guides/{id}")
+    async def download_batch(request):
+        try:
+            archive = await asyncio.to_thread(store_factory().batch_archive, request.match_info["id"])
+        except (ValueError, OSError) as error:
+            return web.json_response({"error": str(error)}, status=404)
+        try:
+            response = web.StreamResponse(headers={"Content-Type": "application/zip", "Content-Disposition": 'attachment; filename="anyangle-guides.zip"'})
+            await response.prepare(request)
+            while chunk := await asyncio.to_thread(archive.read, 1024 * 1024):
+                await response.write(chunk)
+            await response.write_eof()
+            return response
+        finally:
+            archive.close()
 
     @routes.get("/anyangle-studio/snapshots/{id}")
     async def read_snapshot(request):

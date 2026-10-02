@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 import re
 import tempfile
+import zipfile
 
 from PIL import Image, ImageOps
 
@@ -206,3 +207,37 @@ class StudioStore:
             raise ValueError("This reference is not an AnyAngle scene snapshot")
         guide = self.read_asset(document["guide"]["name"])
         return document, guide
+
+    def save_batch(self, views):
+        if not isinstance(views, list) or not views:
+            raise ValueError("Batch must contain at least one saved view")
+        saved = []
+        for index, view in enumerate(views, 1):
+            if not isinstance(view, dict):
+                raise ValueError("Invalid batch view")
+            document, _ = self.load_scene(view.get("snapshot"))
+            saved.append({"snapshot": view["snapshot"], "file": f"view-{index:04d}.png",
+                          "camera": document["scene"]["camera"], "width": document["scene"]["width"],
+                          "height": document["scene"]["height"], "prompt": document["prompt"],
+                          "prompt_id": view.get("prompt_id")})
+        encoded = json.dumps({"version": 1, "kind": "anyangle-batch", "views": saved}, ensure_ascii=False, allow_nan=False).encode()
+        digest = hashlib.sha256(encoded).hexdigest()
+        self.write(f"{digest}.json", encoded)
+        return {"id": digest, "count": len(saved)}
+
+    def batch_archive(self, batch_id):
+        batch = json.loads(self.read_asset(f"{batch_id}.json"))
+        if batch.get("kind") != "anyangle-batch" or not isinstance(batch.get("views"), list):
+            raise ValueError("This reference is not an AnyAngle batch")
+        archive = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+        try:
+            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as output:
+                output.writestr("manifest.json", json.dumps(batch, ensure_ascii=False, indent=2))
+                for index, view in enumerate(batch["views"], 1):
+                    _, png = self.load_scene(view["snapshot"])
+                    output.writestr(f"view-{index:04d}.png", png)
+            archive.seek(0)
+            return archive
+        except Exception:
+            archive.close()
+            raise
