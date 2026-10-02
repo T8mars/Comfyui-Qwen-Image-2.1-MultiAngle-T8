@@ -4,7 +4,7 @@ import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs';
 import { loadMorphPack, solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
 import { SplatScene } from './splat.mjs';
-import { capturePNG } from './capture.mjs';
+import { capturePNG } from './capture.mjs?v=20261002a';
 import { liftOpenPose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs';
 
 export const PRESETS = [

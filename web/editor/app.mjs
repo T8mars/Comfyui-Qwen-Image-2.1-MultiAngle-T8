@@ -1,4 +1,4 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20260930h';
+import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261002a';
 import { reconstruct } from './reconstruct.mjs';
 import { readSkeletonImage } from './openpose.mjs';
 import { GUIDE_LABELS, guidePrompt, guideSource, cannyEdges } from './guides.mjs?v=20260930g';

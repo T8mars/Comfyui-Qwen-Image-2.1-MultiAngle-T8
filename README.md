@@ -78,6 +78,8 @@ Change the camera angle from <image2> to <image1>.
 
 ## 安装
 
+**1.0.2 构图修复：**修复高 DPI / 系统缩放下，三维取景与导出粗图之间的放大、偏移和裁切。更新后关闭工作台，按 `Ctrl+F5` 刷新 ComfyUI，再打开工作台并重新点击「应用到节点」；旧工作流中已保存的粗图需要重新导出。
+
 在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
 
 Registry 上传成功不等于安全审核通过；[查看实时版本状态](https://api.comfy.org/nodes/qwen-image-21-multiangle-t8/versions)。管理器中未显示正式版本时，请先使用下方 Git 安装。

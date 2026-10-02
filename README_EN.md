@@ -78,6 +78,8 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 ## Install
 
+**1.0.2 framing fix:** corrects zoom, offset and cropping between the 3D camera frame and exported guides on high-DPI / scaled displays. After updating, close the studio, reload ComfyUI with `Ctrl+F5`, reopen the studio and **Apply to node** again. Guides already saved in workflows must be exported again.
+
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 
 A successful Registry upload does not mean security approval; [check the live version status](https://api.comfy.org/nodes/qwen-image-21-multiangle-t8/versions). If a release is not listed in Manager, use the Git installation below.

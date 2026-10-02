@@ -15,7 +15,8 @@ export function capturePNG(renderer, scene, camera, width, height, colorSpace = 
   const scissorTest = renderer.getScissorTest();
   try {
     renderer.setRenderTarget(target);
-    renderer.setViewport(0, 0, width, height);
+    // The target already has a viewport in output pixels. setViewport would
+    // multiply it by the display DPR and crop/shift the exported frame.
     renderer.setScissorTest(false);
     renderer.render(scene, camera);
     const pixels = new Uint8Array(width * height * 4);
@@ -38,10 +39,10 @@ export function capturePNG(renderer, scene, camera, width, height, colorSpace = 
     context.putImageData(image, 0, 0);
     return canvas.toDataURL('image/png');
   } finally {
-    renderer.setRenderTarget(previous);
     renderer.setViewport(viewport);
     renderer.setScissor(scissor);
     renderer.setScissorTest(scissorTest);
+    renderer.setRenderTarget(previous);
     target.dispose();
   }
 }
