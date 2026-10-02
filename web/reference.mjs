@@ -26,7 +26,11 @@ export function imageViewURL(filename, type = 'input', subfolder = '') {
 }
 
 export async function importReference(url) {
-  const image = await fetch(url, { cache: 'no-store' });
+  if (typeof url !== 'string') throw new Error('无效的参考图地址');
+  const target = new URL(url, location.origin);
+  if (target.origin !== location.origin || target.pathname !== '/view' || target.username || target.password)
+    throw new Error('参考图仅支持当前 ComfyUI 的图像地址');
+  const image = await fetch(target.href, { cache: 'no-store', mode: 'same-origin', redirect: 'error' });
   if (!image.ok) throw new Error('无法读取连线原图，请检查上游文件');
   const form = new FormData(); form.append('file', await image.blob(), 'reference.png');
   const response = await fetch('/anyangle-studio/assets', { method: 'POST', body: form });
