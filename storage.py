@@ -44,8 +44,11 @@ class StudioStore:
     def path(self, name):
         if not isinstance(name, str) or (not ASSET.fullmatch(name) and not re.fullmatch(r"[a-f0-9]{64}\.json", name)):
             raise ValueError("Invalid AnyAngle asset reference")
-        path = (self.root / name).resolve()
-        if path.parent != self.root:
+        candidate = self.root / name
+        if candidate.is_symlink():
+            raise ValueError("AnyAngle asset is outside its storage directory")
+        path = candidate.resolve()
+        if path.parent != self.root or path.name != name:
             raise ValueError("AnyAngle asset is outside its storage directory")
         return path
 
