@@ -26,6 +26,7 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
             category = "vae" if role.startswith("vae_") else role
             catalog.setdefault(category, []).append(name)
         catalog["diffusion_models"].append("三维/custom-triposplat.safetensors")
+        self.catalog = catalog
         backend.folder_paths.folder_names_and_paths = {category: ([], set()) for category in catalog}
         backend.folder_paths.get_filename_list = lambda category: catalog[category]
         backend.folder_paths.get_full_path = lambda category, name: name if name in catalog[category] else None
@@ -63,10 +64,18 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unknown_roles_and_model_path_escape_return_400(self):
         for params in [{"other": "model.safetensors"}, {"vae_encoder": "../private.safetensors"},
-                       {"vae_encoder": "C:/private.safetensors"}]:
+                       {"vae_encoder": "C:/private.safetensors"}, {"keep_background": "false"}]:
             response = await self.client.get("/anyangle-studio/reconstruction-config", params=params)
             self.assertEqual(response.status, 400)
             self.assertIn("error", await response.json())
+
+    async def test_background_option_drops_the_birefnet_requirement(self):
+        self.catalog["background_removal"] = []
+        response = await self.client.get("/anyangle-studio/reconstruction-config")
+        self.assertFalse((await response.json())["available"])
+        response = await self.client.get("/anyangle-studio/reconstruction-config", params={"keep_background": "1"})
+        self.assertEqual(response.status, 200)
+        self.assertTrue((await response.json())["available"])
 
     async def test_saved_batch_download_streams_real_pngs_and_task_metadata(self):
         buffer = io.BytesIO(); Image.new("RGB", (96, 64), (42, 68, 91)).save(buffer, format="PNG")

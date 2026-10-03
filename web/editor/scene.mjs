@@ -16,6 +16,7 @@ export const PRESETS = [
 export const defaultScene = () => ({
   version: 1, width: 1024, height: 1024,
   source: { kind: 'empty' }, reference: null,
+  reconstruction: { keepBackground: false },
   camera: { azimuth: 35, elevation: 8, zoom: 1.3, offsetX: 0, offsetY: 0, offsetZ: 0 },
   mesh: { age: 25, gender: 0.5, weight: 0.5, muscle: 0.5, height: 0.5, breast_size: 0, firmness: 0.5, show_genitals: false },
   pose: { bones: PRESETS[0].bones }, shots: [], front: 0, scale: 1,

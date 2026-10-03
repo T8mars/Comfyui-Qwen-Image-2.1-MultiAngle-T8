@@ -80,6 +80,19 @@ test('existing saved snapshot retains its camera and scene without new reconstru
   assert.deepEqual(errors, []);
 });
 
+test('background reconstruction preference restores with its snapshot and old scenes default to subject mode', async () => {
+  for (const keepBackground of [true, false]) {
+    const saved = defaultScene(); delete saved.reconstruction;
+    saved.reference = { name: 'photo.png' };
+    saved.source = { kind: 'splat', name: 'scene.ply', reference: saved.reference, keep_background: keepBackground };
+    const { state, errors } = fixture({ ok: true, json: async () => ({ scene: saved }) });
+    await state.start({ version: 1, id: 'saved-scene' });
+    assert.equal(state.doc.reconstruction.keepBackground, keepBackground);
+    assert.equal(state.reconstructionCount, 0);
+    assert.deepEqual(errors, []);
+  }
+});
+
 test('authorization errors remain visible instead of being reported as a missing scene', async () => {
   const { state, notices, errors } = fixture({ ok: false, status: 403, json: async () => ({ error: 'Authentication required' }) });
   await state.start({ version: 1, id: 'restricted' });

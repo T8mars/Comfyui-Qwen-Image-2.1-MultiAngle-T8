@@ -1,6 +1,53 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reconstruct, reconstructionConfig, saveReconstructionModels, selectedReconstructionModels } from '../web/editor/reconstruct.mjs';
+import { reconstruct, reconstructionGraph, reconstructionConfig, saveReconstructionModels, selectedReconstructionModels } from '../web/editor/reconstruct.mjs';
+
+test('preserving backgrounds replaces segmentation with an opaque mask and keeps the native camera preprocessing', () => {
+  const photo = { name: 'room.png' }, models = { background_removal: 'birefnet.safetensors' };
+  const subject = reconstructionGraph(photo, models), scene = reconstructionGraph(photo, models, 46, true);
+  assert.equal(subject['2'].class_type, 'LoadBackgroundRemovalModel');
+  assert.equal(subject['3'].class_type, 'RemoveBackground');
+  assert.equal(subject['12'].inputs.keep_background, false);
+  assert.equal(scene['2'], undefined);
+  assert.equal(scene['3'].class_type, 'SolidMask');
+  assert.deepEqual(scene['3'].inputs, { value: 1, width: 1, height: 1 });
+  assert.deepEqual(scene['4'], subject['4']);
+  assert.deepEqual(scene['12'].inputs.mask, ['3', 0]);
+  assert.equal(scene['12'].inputs.keep_background, true);
+});
+
+test('subject and full-frame results stay in separate caches and toggling back reuses only the matching mode', async () => {
+  const originalFetch = globalThis.fetch, originalStorage = globalThis.localStorage;
+  const subject = { name: 'subject.ply', reference: { name: 'room.png' } };
+  const scene = { name: 'scene.ply', keep_background: true, reference: { name: 'room.png' } };
+  const storage = new Map([['anyangle-reconstruction:room.png', JSON.stringify({ source: subject })]]);
+  const queued = [];
+  globalThis.localStorage = {
+    getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key),
+  };
+  globalThis.fetch = async (url, options) => {
+    if (url.startsWith('/anyangle-studio/reconstruction-config')) {
+      assert.equal(new URL(url, 'http://localhost').searchParams.get('keep_background'), '1');
+      return { ok: true, json: async () => ({ available: true, models: {} }) };
+    }
+    if (url === '/prompt') {
+      queued.push(JSON.parse(options.body).prompt);
+      return { ok: true, json: async () => ({ prompt_id: 'scene-job' }) };
+    }
+    if (url === '/history/scene-job') return { ok: true, json: async () => ({ 'scene-job': { outputs: { '12': { anyangle_reconstruction: [{ source: scene }] } } } }) };
+    assert.match(url, /^\/anyangle-studio\/assets\/(scene|subject)\.ply$/);
+    return { ok: true };
+  };
+  try {
+    assert.deepEqual(await reconstruct({ name: 'room.png' }, () => {}, true, true), scene);
+    assert.deepEqual(await reconstruct({ name: 'room.png' }, () => {}, true, true), scene);
+    assert.deepEqual(await reconstruct({ name: 'room.png' }, () => {}), subject);
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0]['3'].class_type, 'SolidMask');
+    assert.equal(JSON.parse(storage.get('anyangle-reconstruction:room.png')).source.name, 'subject.ply');
+    assert.equal(JSON.parse(storage.get('anyangle-reconstruction:room.png:keep-background')).source.name, 'scene.ply');
+  } finally { globalThis.fetch = originalFetch; globalThis.localStorage = originalStorage; }
+});
 
 test('a reconstruction job lost after a server restart is queued once more', async () => {
   const originalFetch = globalThis.fetch;

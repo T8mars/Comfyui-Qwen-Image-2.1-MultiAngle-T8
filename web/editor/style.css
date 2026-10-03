@@ -72,3 +72,5 @@ button{white-space:nowrap}input[type=range]{appearance:none;height:3px;border-ra
 @media(max-width:1180px){.canvas-viewbar{padding:8px 12px;gap:8px}.canvas-viewbar>span{display:none}.view-switch{margin-right:auto}.guide-result-meta{left:18px;right:18px}.guide-result-meta span{font-size:9px}.stage-guide-view>img{left:18px;width:calc(100% - 36px)}}
 
 .shot-shelf>.section-heading .compact-actions{margin:0;padding:0}
+
+.reconstruction-option{display:flex;align-items:center;gap:10px;padding:12px;margin-top:14px;border:1px solid #315765;border-radius:8px;background:#112c38;cursor:pointer}.reconstruction-option input{width:16px;height:16px;flex:none;accent-color:var(--cyan)}.reconstruction-option span{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}.reconstruction-option .tag{margin:0}#keep-background-hint{margin:8px 0 4px;line-height:1.7}

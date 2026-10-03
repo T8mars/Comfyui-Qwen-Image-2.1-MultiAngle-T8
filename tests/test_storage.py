@@ -13,7 +13,7 @@ import zipfile
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from storage import StudioStore, BASE_PROMPTS
+from storage import StudioStore, BASE_PROMPTS, SCENE_PROMPT
 
 
 class SnapshotTests(unittest.TestCase):
@@ -40,6 +40,16 @@ class SnapshotTests(unittest.TestCase):
         second = self.store.save_scene(self.scene, self.png)
         self.assertNotEqual(first, second)
         self.assertEqual(self.store.load_scene(first)[0]["scene"]["camera"]["azimuth"], 45)
+
+    def test_background_reconstruction_setting_survives_and_changes_base_coarse_prompt(self):
+        self.scene["reconstruction"] = {"keepBackground": True}
+        self.scene["source"]["keep_background"] = True
+        self.scene["conditioning"] = {"model": "base", "guide": "coarse"}
+        document, _ = self.store.load_scene(self.store.save_scene(self.scene, self.png))
+        self.assertEqual(document["scene"]["reconstruction"], {"keepBackground": True})
+        self.assertEqual(document["prompt"], SCENE_PROMPT)
+        self.scene["conditioning"]["model"] = "anyangle"
+        self.assertEqual(self.store.load_scene(self.store.save_scene(self.scene, self.png))[0]["prompt"], "Change the camera angle from <image2> to <image1>.")
 
     def test_batch_archive_contains_distinct_guides_and_camera_manifest(self):
         first = self.store.save_scene(self.scene, self.png)

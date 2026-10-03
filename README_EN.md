@@ -33,6 +33,16 @@ A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode 
 
 Drag to orbit, middle-button or Shift+left-button drag to pan, and scroll to zoom. Reconstruction opens the interactive 3D view; choose **Preview current camera render** for the clean output. The screenshot illustrates 3D scene mode; all four guide types are selected in the right panel.
 
+**Keep background during reconstruction (1.2.0, experimental):** enable **保留背景参与重建** below the reference image, then click **保留背景重建 3D**. The full image enters TripoSplat without BiRefNet segmentation. Disable the checkbox to return to subject-only reconstruction. Both modes have separate caches; the preference is saved with the scene and requires reconstruction after switching. Camera rotation, guide export and batch views remain available. Base-model coarse prompts request both foreground and background; AnyAngle retains its official prompt.
+
+BiRefNet is not required in this mode, and no additional weights are needed. **TripoSplat primarily generates objects; preserving the input background does not accurately recover a complete room or a 360° environment.** Walls, floors and occluded regions remain inferred, so wider camera changes may show distortions or gaps. The [official preprocessing](https://github.com/VAST-AI-Research/TripoSplat/blob/main/triposplat.py) segments the foreground by default; this node adds the experimental option.
+
+| Input image | Actual 3D result with background |
+|:---:|:---:|
+| <img src="docs/images/demo-reference.png" width="240" alt="Original fictional character and studio background"> | <img src="docs/images/demo-scene-background.png" width="240" alt="TripoSplat reconstructs the character, wall and floor together"> |
+
+The same original demo image produced 262,144 Gaussians, rendered from a new view with ComfyUI's native Render Splat. The background belongs to the generated 3D geometry.
+
 ### Manual mannequin workbench
 
 ![The built-in MakeHuman mannequin, pose presets, and joint editing controls](docs/images/studio-human.png)

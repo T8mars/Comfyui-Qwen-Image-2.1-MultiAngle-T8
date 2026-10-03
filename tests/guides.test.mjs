@@ -13,6 +13,13 @@ test('guide mode changes the edit instruction without changing image roles', () 
   }
 });
 
+test('base coarse scene reconstruction preserves foreground and background while AnyAngle keeps its official prompt', () => {
+  const source = { kind: 'splat', keep_background: true };
+  assert.equal(guidePrompt({ model: 'base', guide: 'coarse' }, source), PROMPTS.scene);
+  assert.equal(guidePrompt({ model: 'base', guide: 'coarse' }), PROMPTS.coarse);
+  assert.equal(guidePrompt({ model: 'anyangle', guide: 'coarse' }, source), PROMPTS.anyangle);
+});
+
 test('photo skeleton and depth use their extracted image even with an unrelated mannequin loaded', () => {
   const map = { name: 'photo-guide.png' }, reference = { name: 'photo.png' };
   for (const guide of ['pose', 'depth']) {

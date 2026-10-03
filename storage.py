@@ -19,6 +19,7 @@ BASE_PROMPTS = {
     "depth": "Use <image1> as the identity, clothing and style reference. Follow the spatial depth, layout and occlusion relationships shown by <image2>.",
     "canny": "Use <image1> as the identity, clothing and style reference. Follow the silhouette, contours and major edge layout shown by <image2>.",
 }
+SCENE_PROMPT = "Use <image1> as the scene, appearance and style reference. Recreate the entire scene, including foreground and background, at the camera angle and composition shown by <image2>."
 
 
 def conditioning_for(scene):
@@ -193,6 +194,8 @@ class StudioStore:
         if (guide["width"], guide["height"]) != (width, height):
             raise ValueError("Guide dimensions do not match the scene; capture again")
         document = {"scene": scene, "guide": guide, "prompt": PROMPT if model == "anyangle" else BASE_PROMPTS[guide_mode]}
+        if model == "base" and guide_mode == "coarse" and scene["source"].get("keep_background"):
+            document["prompt"] = SCENE_PROMPT
         encoded = json.dumps(document, ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":")).encode()
         digest = hashlib.sha256(encoded).hexdigest()
         self.write(f"{digest}.json", encoded)

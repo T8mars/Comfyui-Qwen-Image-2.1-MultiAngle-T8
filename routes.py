@@ -17,7 +17,11 @@ def register_routes(store_factory):
     @routes.get("/anyangle-studio/reconstruction-config")
     async def reconstruction_models(request):
         try:
-            config = await asyncio.to_thread(reconstruction_config, dict(request.query))
+            selections = dict(request.query)
+            keep_background = selections.pop("keep_background", "0")
+            if keep_background not in ("0", "1"):
+                raise ValueError("Invalid keep_background option")
+            config = await asyncio.to_thread(reconstruction_config, selections, keep_background == "1")
             return web.json_response(config)
         except (ValueError, OSError) as error:
             return web.json_response({"error": str(error)}, status=400)

@@ -1,6 +1,6 @@
-export function reconstructionGraph(reference, models, seed = 46) {
+export function reconstructionGraph(reference, models, seed = 46, keepBackground = false) {
   const node = (class_type, inputs) => ({ class_type, inputs });
-  return {
+  const graph = {
     '1': node('LoadImage', { image: `anyangle_studio/${reference.name}` }),
     '2': node('LoadBackgroundRemovalModel', { bg_removal_name: models.background_removal }),
     '3': node('RemoveBackground', { bg_removal_model: ['2', 0], image: ['1', 0] }),
@@ -13,8 +13,13 @@ export function reconstructionGraph(reference, models, seed = 46) {
       seed, steps: 20, cfg: 3, sampler_name: 'dpmpp_2m', scheduler: 'simple', denoise: 1 }),
     '10': node('VAELoader', { vae_name: models.vae_decoder }),
     '11': node('VAEDecodeTripoSplat', { samples: ['9', 0], vae: ['10', 0], num_gaussians: 262144, seed }),
-    '12': node('AnyAngleReconstructionOutputT8', { splat: ['11', 0], samples: ['9', 0], reference: ['1', 0], prepared: ['4', 0], mask: ['3', 0] }),
+    '12': node('AnyAngleReconstructionOutputT8', { splat: ['11', 0], samples: ['9', 0], reference: ['1', 0], prepared: ['4', 0], mask: ['3', 0], keep_background: keepBackground }),
   };
+  if (keepBackground) {
+    delete graph['2'];
+    graph['3'] = node('SolidMask', { value: 1, width: 1, height: 1 });
+  }
+  return graph;
 }
 
 const MODEL_SELECTION_KEY = 'anyangle-reconstruction.models.v1';
@@ -27,32 +32,34 @@ export function selectedReconstructionModels() {
   return {};
 }
 
-export async function reconstructionConfig(selections = selectedReconstructionModels()) {
-  const query = new URLSearchParams(selections).toString();
+export async function reconstructionConfig(selections = selectedReconstructionModels(), keepBackground = false) {
+  const parameters = new URLSearchParams(selections);
+  if (keepBackground) parameters.set('keep_background', '1');
+  const query = parameters.toString();
   const response = await fetch('/anyangle-studio/reconstruction-config' + (query ? `?${query}` : ''));
   const config = await response.json();
   if (!response.ok) throw new Error(config.error || '无法检查本地重建模型，请确认 ComfyUI 服务正常运行');
   return config;
 }
 
-export async function saveReconstructionModels(selections) {
-  const config = await reconstructionConfig(selections);
+export async function saveReconstructionModels(selections, keepBackground = false) {
+  const config = await reconstructionConfig(selections, keepBackground);
   localStorage.setItem(MODEL_SELECTION_KEY, JSON.stringify(selections));
   return config;
 }
 
-export async function reconstruct(reference, onProgress, retryStaleJob = true) {
+export async function reconstruct(reference, onProgress, retryStaleJob = true, keepBackground = false) {
   const selections = selectedReconstructionModels();
   const suffix = Object.keys(selections).length ? ':' + JSON.stringify(Object.fromEntries(Object.entries(selections).sort())) : '';
-  const key = `anyangle-reconstruction:${reference.name}${suffix}`;
+  const key = `anyangle-reconstruction:${reference.name}${suffix}${keepBackground ? ':keep-background' : ''}`;
   let cached;
   try { cached = JSON.parse(localStorage.getItem(key)); } catch { /* Ignore an incomplete browser save. */ }
   if (cached?.source?.reference?.name === reference.name) {
     const existing = await fetch(`/anyangle-studio/assets/${encodeURIComponent(cached.source.name)}`, { method: 'HEAD' });
-    if (existing.ok) return cached.source;
+    if (existing.ok && !!cached.source.keep_background === keepBackground) return cached.source;
     localStorage.removeItem(key); cached = null;
   }
-  const config = await reconstructionConfig(selections);
+  const config = await reconstructionConfig(selections, keepBackground);
   if (!config.available) {
     const hint = Object.keys(config.ambiguous || {}).length ? '发现多个同名文件，请在左侧「重建模型」手动选择。'
       : '请在左侧「重建模型」选择兼容权重，或运行节点目录中的 install_reconstruction.py。';
@@ -61,7 +68,7 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true) {
   let job = typeof cached === 'string' ? cached : cached?.job;
   if (!job) {
     const response = await fetch('/prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: reconstructionGraph(reference, config.models), client_id: crypto.randomUUID() }) });
+      body: JSON.stringify({ prompt: reconstructionGraph(reference, config.models, 46, keepBackground), client_id: crypto.randomUUID() }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error?.message || JSON.stringify(result.node_errors) || '重建任务提交失败');
     job = result.prompt_id; localStorage.setItem(key, JSON.stringify({ job }));
@@ -88,10 +95,10 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true) {
     const pending = queue.queue_pending.some(entry => entry[1] === job);
     if (!running && !pending && !item && Date.now() - started > 5000) {
       localStorage.removeItem(key);
-      if (retryStaleJob) return reconstruct(reference, onProgress, false);
+      if (retryStaleJob) return reconstruct(reference, onProgress, false, keepBackground);
       throw new Error('重建任务已被移除，请重新重建');
     }
-    onProgress(running ? `正在从原图重建主体 · ${Math.round((Date.now() - started) / 1000)} 秒` : '重建任务排队中');
+    onProgress(running ? `正在${keepBackground ? '保留背景重建' : '从原图重建主体'} · ${Math.round((Date.now() - started) / 1000)} 秒` : '重建任务排队中');
     await new Promise(resolve => setTimeout(resolve, 1500));
   }
 }

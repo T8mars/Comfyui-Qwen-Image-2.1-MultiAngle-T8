@@ -5,12 +5,14 @@ export const GUIDE_LABELS = {
 export const PROMPTS = {
   anyangle: 'Change the camera angle from <image2> to <image1>.',
   coarse: 'Use <image1> as the identity, clothing and style reference. Recreate the same subject at the camera angle and composition shown by <image2>.',
+  scene: 'Use <image1> as the scene, appearance and style reference. Recreate the entire scene, including foreground and background, at the camera angle and composition shown by <image2>.',
   pose: 'Use <image1> as the identity, clothing and style reference. Recreate the same subject in the body pose and framing shown by <image2>.',
   depth: 'Use <image1> as the identity, clothing and style reference. Follow the spatial depth, layout and occlusion relationships shown by <image2>.',
   canny: 'Use <image1> as the identity, clothing and style reference. Follow the silhouette, contours and major edge layout shown by <image2>.',
 };
 
-export function guidePrompt(conditioning) {
+export function guidePrompt(conditioning, source) {
+  if (conditioning?.model === 'base' && conditioning.guide === 'coarse' && source?.keep_background) return PROMPTS.scene;
   return conditioning?.model === 'base' ? PROMPTS[conditioning.guide] || PROMPTS.coarse : PROMPTS.anyangle;
 }
 

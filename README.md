@@ -33,6 +33,16 @@
 
 拖动环绕，中键或 Shift+左键平移，滚轮缩放。重建完成后保持三维交互；点击“预览当前机位粗图”查看无网格的输出。截图展示三维场景模式，四种引导方式统一在右侧选择。
 
+**保留背景参与重建（1.2.0，实验）：**在左侧原图下方勾选，再点击「保留背景重建 3D」。整张图像进入 TripoSplat，不执行 BiRefNet 去背景；取消勾选后恢复主体模式。两种结果分别缓存，选项随场景保存，切换后需重新重建。可继续旋转相机、导出粗图或批量机位；Qwen 底模的粗图提示词会改为重建前景与背景，AnyAngle 保留官方提示词。
+
+此模式不需要 BiRefNet，也不需要新增模型。**TripoSplat 主要面向物体生成，保留背景不等于精确恢复整个房间或 360° 环境**：墙面、地板和遮挡区域仍由模型推测，大角度可能变形或缺失。[官方预处理](https://github.com/VAST-AI-Research/TripoSplat/blob/main/triposplat.py) 默认会分割主体；此选项是本节点提供的实验模式。
+
+| 输入原图 | 保留背景后的真实三维结果 |
+|:---:|:---:|
+| <img src="docs/images/demo-reference.png" width="240" alt="原创虚构人物与影棚背景"> | <img src="docs/images/demo-scene-background.png" width="240" alt="TripoSplat 保留背景，人物、墙面和地板参与三维重建"> |
+
+实测使用同一张原创示例图，TripoSplat 重建 262,144 个高斯点，再由 ComfyUI 原生 Render Splat 从新视角渲染；背景是三维结果的一部分。
+
 ### 手动人偶工作台
 
 ![AnyAngle Studio 默认 MakeHuman 人偶、姿势库和关节编辑 UI](docs/images/studio-human.png)

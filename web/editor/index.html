@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css?v=20261002c"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css?v=20261003a"></head>
 <body>
 <header class="topbar">
   <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small>T8</small></div>
@@ -14,6 +14,8 @@
       <button id="reference-drop" class="reference-drop" aria-label="选择参考原图"><img id="reference" alt="完整参考原图" hidden><span id="reference-empty"><img src="../icons/photo.svg" alt=""><strong>导入参考原图</strong><small>姿势提取 / 3D 重建 / image_1</small></span></button>
       <p id="reference-origin" class="hint">支持节点左侧 IMAGE 连线，也可上传原图。</p>
       <button id="read-reference" hidden><img src="../icons/refresh.svg" alt="">读取上游图像</button>
+      <label class="reconstruction-option"><input id="keep-background" type="checkbox" aria-describedby="keep-background-hint"><span>保留背景参与重建 <small class="tag amber">实验</small></span></label>
+      <p id="keep-background-hint" class="hint">勾选后整张图参与三维重建；房间与大场景的效果取决于 TripoSplat。切换后需重新重建。</p>
       <button id="reconstruct" class="primary reconstruct-button" disabled>从原图重建 3D</button>
       <p id="reconstruction-state" class="hint" hidden>从原图重建对应主体，再调整机位。</p>
       <div class="source-buttons"><button id="import-glb"><img src="../icons/cube.svg" alt="">导入 GLB</button><button id="human"><img src="../icons/body-scan.svg" alt="">人偶</button></div>
@@ -66,5 +68,5 @@
 <dialog id="batch-dialog" class="batch-dialog" aria-labelledby="batch-title"><h2 id="batch-title">批量机位 <span class="tag">MULTI-VIEW</span></h2><div id="batch-options"><label>机位来源<select id="batch-mode"><option value="range">角度步进</option><option value="saved">已收藏机位</option></select></label><div id="batch-range" class="batch-range"><label>起始角度<input id="batch-start" type="number" step="any" value="0"></label><label>结束角度<input id="batch-end" type="number" step="any" value="330"></label><label>步长<input id="batch-step" type="number" step="any" value="30"></label></div><p id="batch-count" class="hint"></p><div class="compact-actions"><button id="batch-guides">批量渲染粗图</button><button id="batch-final" class="primary">批量生成最终图</button></div></div><p class="hint">0° → 360°、步长 1° 可生成 360 个机位。最终图沿用当前工作流的种子与采样设置，分别加入 ComfyUI 队列；请连接 Save Image 保存结果。从节点打开工作台才能批量生成最终图。</p><div id="batch-state" class="batch-state" role="status">选择机位范围，再开始批量。</div><p class="hint">停止仅结束后续提交，已入队任务继续运行。</p><div class="compact-actions"><button id="batch-stop" disabled>停止后续机位</button><button id="batch-zip" disabled>下载粗图 ZIP</button><button id="batch-manifest" disabled>下载任务清单</button><button id="batch-close">关闭</button></div></dialog>
 <dialog id="name-dialog"><form method="dialog"><h2 id="name-title">命名</h2><input id="name-input" maxlength="48" required autocomplete="off"><div><button value="cancel" formnovalidate>取消</button><button value="ok" class="primary">保存</button></div></form></dialog>
 <input type="file" id="reference-file" accept="image/*" hidden><input type="file" id="glb-file" accept=".glb" hidden><input type="file" id="pose-file" accept=".json,application/json" hidden><input type="file" id="openpose-file" accept="image/png,image/jpeg,image/webp" hidden><input type="file" id="map-file" accept="image/*" hidden>
-<script type="module" src="./app.mjs?v=20261002c"></script>
+<script type="module" src="./app.mjs?v=20261003a"></script>
 </body></html>

@@ -22,7 +22,7 @@ MODELS = {
 }
 
 
-def reconstruction_config(selections=None):
+def reconstruction_config(selections=None, keep_background=False):
     if selections is None:
         selections = {}
     if not isinstance(selections, dict) or set(selections) - MODELS.keys():
@@ -32,6 +32,9 @@ def reconstruction_config(selections=None):
         category = "vae" if role.startswith("vae_") else role
         files = folder_paths.get_filename_list(category) if category in folder_paths.folder_names_and_paths else []
         choices[role] = files
+        if role == "background_removal" and keep_background:
+            models[role] = default
+            continue
         name = selections.get(role)
         if name is not None:
             if not isinstance(name, str) or name not in files:
@@ -61,14 +64,15 @@ class AnyAngleReconstructionOutput:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {"splat": ("SPLAT",), "samples": ("LATENT",),
-                             "reference": ("IMAGE",), "prepared": ("IMAGE",), "mask": ("MASK",)}}
+                             "reference": ("IMAGE",), "prepared": ("IMAGE",), "mask": ("MASK",)},
+                "optional": {"keep_background": ("BOOLEAN", {"default": False})}}
 
     RETURN_TYPES = ()
     FUNCTION = "save"
     OUTPUT_NODE = True
     CATEGORY = "T8/AnyAngle/internal"
 
-    def save(self, splat, samples, reference, prepared, mask):
+    def save(self, splat, samples, reference, prepared, mask, keep_background=False):
         store = StudioStore(folder_paths.get_input_directory() + "/anyangle_studio")
         end = int(splat.counts[0]) if splat.counts is not None else splat.positions.shape[1]
         if not 0 < end <= splat.positions.shape[1]:
@@ -107,10 +111,11 @@ class AnyAngleReconstructionOutput:
         ply = _gaussian_ply_bytes(splat.positions[0, :end], splat.scales[0, :end],
                                   splat.rotations[0, :end], splat.opacities[0, :end], splat.sh[0, :end])
         asset = store.asset(ply, "ply")
-        source = {**asset, "kind": "splat", "label": "TripoSplat · 原图主体", "bounds": bounds,
+        source = {**asset, "kind": "splat", "label": "TripoSplat · 保留背景（实验）" if keep_background else "TripoSplat · 原图主体", "bounds": bounds,
                   "camera_token": token, "reference": image_asset(store, reference),
                   "prepared": image_asset(store, prepared), "foreground_bbox": bbox, "crop": crop,
-                  "gaussians": end, "engine": "TripoSplat", "coordinates": "native-triposplat"}
+                  "gaussians": end, "engine": "TripoSplat", "coordinates": "native-triposplat",
+                  "keep_background": keep_background}
         encoded = json.dumps(source, sort_keys=True, allow_nan=False).encode()
         digest = hashlib.sha256(encoded).hexdigest()
         store.write(digest + ".json", encoded)

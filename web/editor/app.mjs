@@ -1,8 +1,8 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261002a';
-import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261002c';
+import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261003a';
+import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261003a';
 import { readSkeletonImage } from './openpose.mjs';
-import { GUIDE_LABELS, guidePrompt, guideSource, cannyEdges } from './guides.mjs?v=20260930g';
-import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261002c';
+import { GUIDE_LABELS, guidePrompt, guideSource, cannyEdges } from './guides.mjs?v=20261003a';
+import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261003a';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);
@@ -172,7 +172,7 @@ function refresh() {
       : human ? '人偶可调整资产尺度；姿势、手势和关节可在编辑场景中修改。'
         : 'GLB 默认 Y 轴朝上。旋转资产以校准正面；资产尺度与镜头缩放相互独立。';
   $('#asset-label').textContent = empty ? '等待原图重建' : human ? 'MakeHuman · 手动人偶' : doc.source.label || 'GLB 场景';
-  $('#source-badge').textContent = empty ? 'PHOTO → 3D' : splat ? 'TRIPOSPLAT · 原图重建' : human ? 'HUMAN · 手动人偶' : 'GLB · 场景';
+  $('#source-badge').textContent = empty ? 'PHOTO → 3D' : splat ? doc.source.keep_background ? 'TRIPOSPLAT · 保留背景' : 'TRIPOSPLAT · 原图主体' : human ? 'HUMAN · 手动人偶' : 'GLB · 场景';
   for (const id of ['pose-panel', 'hands-panel', 'body-panel', 'joint-panel']) {
     $(`#${id}`).classList.toggle('disabled-panel', !human);
     $(`#${id}`).inert = !human;
@@ -189,14 +189,19 @@ function refresh() {
   $('#read-reference').disabled = !!linkedReference.pending;
   $('#reference-origin').textContent = linkedReference.connected ? linkedReference.message : '支持节点左侧 IMAGE 连线，也可上传原图。';
   $('#reconstruction-state').hidden = !doc.reference;
+  const keepBackground = doc.reconstruction.keepBackground;
+  $('#keep-background').checked = keepBackground;
+  $('#keep-background').disabled = !doc.reference || !!linkedReference.pending;
+  const reconstructionChanged = splat && !!doc.source.keep_background !== keepBackground;
   $('#reconstruction-state').textContent = splat ? '原图 3D 保持重建姿势，无可编辑骨架；拖动相机改变视角。需要手动摆姿可切换人偶。' : '从原图重建对应主体，再调整机位。';
   $('#reconstruct').disabled = !doc.reference;
-  $('#reconstruct').textContent = splat ? '重新载入原图 3D' : '从原图重建 3D';
+  if (reconstructionChanged) $('#reconstruction-state').textContent = '背景选项已改变 · 点击重建后应用；当前预览仍为上次结果。';
+  $('#reconstruct').textContent = reconstructionChanged ? '按新设置重新重建 3D' : keepBackground ? '保留背景重建 3D' : splat ? '重新载入原图 3D' : '从原图重建 3D';
   $('#empty-scene').hidden = !empty;
   $('#coarse-inputs').hidden = guide !== 'coarse';
   $('#extract-coarse').disabled = !doc.reference || !!linkedReference.pending;
   $('#preview-coarse').disabled = empty;
-  $('#coarse-status').textContent = splat ? '原图三维主体已就绪，可预览或调整新机位。'
+  $('#coarse-status').textContent = splat ? doc.source.keep_background ? '保留背景的三维重建已就绪，可预览或调整机位；大场景效果仍属实验。' : '原图三维主体已就绪，可预览或调整新机位。'
     : human ? '当前场景是手动人偶；重建原图后可生成对应主体的粗图。'
       : empty ? '先从原图重建三维主体，再输出拍摄机位粗图。' : '当前 GLB 场景可直接渲染粗图。';
   $('#model-anyangle').classList.toggle('active', !base); $('#model-base').classList.toggle('active', base);
@@ -233,7 +238,7 @@ function refresh() {
         : guide === 'canny' ? '中央显示实际轮廓图；阈值调整会直接更新边缘。'
           : '底模参考粗图，机位遵循程度需实测。';
   $('#guide-heading').innerHTML = `${GUIDE_LABELS[guide]} <small>· image_2</small>`;
-  $('#prompt-preview').textContent = guidePrompt(doc.conditioning);
+  $('#prompt-preview').textContent = guidePrompt(doc.conditioning, doc.source);
   $('#lora-hint').textContent = base ? 'LoRA 强度输出 0 → 使用底模' : 'LoRA 强度输出 1 → AnyAngle';
   $('#protocol-hint').textContent = base && unwiredAnyAngle ? '当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的强度输出，或移除 LoRA 加载器。'
     : base ? '底模将结构图作为第二张参考图理解；姿势、深度和轮廓的遵循程度需实测。'
@@ -542,20 +547,23 @@ const reconstructionModelLabels = {
   vae_encoder: '图像 VAE · Flux2', vae_decoder: '三维解码 · TripoSplat VAE',
 };
 function showModelStatus(config) {
-  $('#reconstruction-model-state').textContent = config.available ? '5 个模型已就绪 · 下次重建使用当前选择'
+  $('#reconstruction-model-state').textContent = config.available ? `${doc.reconstruction.keepBackground ? '4 个重建模型已就绪 · 保留背景时无需 BiRefNet' : '5 个模型已就绪'} · 下次重建使用当前选择`
     : `尚需选择或准备：${config.missing.join('、')}`;
 }
 async function loadReconstructionModels() {
   $('#reconstruction-model-state').textContent = '正在读取本机模型列表…';
   $('#reconstruction-model-save').disabled = true;
   try {
-    const config = await reconstructionConfig({});
+    const config = await reconstructionConfig({}, doc.reconstruction.keepBackground);
     if (!config.choices) throw new Error('请重启 ComfyUI 以启用新版模型选择功能');
     const selected = selectedReconstructionModels(), fields = $('#reconstruction-model-fields');
     fields.replaceChildren();
     for (const [role, title] of Object.entries(reconstructionModelLabels)) {
       const label = document.createElement('label'), select = document.createElement('select');
       label.textContent = title; select.dataset.role = role; select.setAttribute('aria-label', title);
+      if (role === 'background_removal' && doc.reconstruction.keepBackground) {
+        label.textContent += ' · 当前模式不使用'; select.disabled = true;
+      }
       const automatic = document.createElement('option'); automatic.value = '';
       automatic.textContent = '自动识别 · ' + (config.ambiguous[role] ? '同名文件需选择'
         : config.choices[role].includes(config.models[role]) ? config.models[role] : '未找到');
@@ -570,7 +578,7 @@ async function loadReconstructionModels() {
       select.value = selected[role] || ''; label.append(select); fields.append(label);
     }
     $('#reconstruction-model-save').disabled = false;
-    const chosen = await reconstructionConfig(selected);
+    const chosen = await reconstructionConfig(selected, doc.reconstruction.keepBackground);
     showModelStatus(chosen);
   } catch (e) { $('#reconstruction-model-state').textContent = e.message; throw e; }
 }
@@ -582,23 +590,24 @@ $('#reconstruction-model-save').onclick = () => run(async () => {
   const selections = {};
   for (const select of $('#reconstruction-model-fields').querySelectorAll('select'))
     if (select.value) selections[select.dataset.role] = select.value;
-  const config = await saveReconstructionModels(selections);
+  const config = await saveReconstructionModels(selections, doc.reconstruction.keepBackground);
   showModelStatus(config); toast('模型选择已保存 · 点击从原图重建 3D 使用新选择');
 });
 async function reconstructPhoto() {
   if (!doc.reference) return;
   clearTimeout(previewTimer);
   while (previewRunning) await new Promise(resolve => setTimeout(resolve, 30));
-  const reference = clone(doc.reference);
+  const reference = clone(doc.reference), keepBackground = doc.reconstruction.keepBackground;
   const previous = clone(doc);
   $('#loading').hidden = false;
-  $('#loading-text').textContent = '准备从原图重建主体';
-  $('#loading-detail').textContent = '本地 TripoSplat · 去背景 → 三维重建 → 对齐参考机位';
+  $('#loading-text').textContent = keepBackground ? '准备保留背景重建' : '准备从原图重建主体';
+  $('#loading-detail').textContent = keepBackground ? '本地 TripoSplat · 完整图像 → 三维重建 → 对齐参考机位'
+    : '本地 TripoSplat · 去背景 → 三维重建 → 对齐参考机位';
   try {
-    const source = await reconstruct(reference, text => { $('#loading-text').textContent = text; });
+    const source = await reconstruct(reference, text => { $('#loading-text').textContent = text; }, true, keepBackground);
     if (doc.reference?.name !== reference.name) throw new Error('原图已改变，请重新重建');
     begin();
-    if (doc.source.name !== source.name) doc.shots = [];
+    if (doc.source.name !== source.name || !!doc.source.keep_background !== !!source.keep_background) doc.shots = [];
     doc.source = source; doc.front = 0; doc.scale = 1; doc.camera = referenceCamera();
     const outputScale = Math.min(1, 1536 / Math.max(reference.width, reference.height));
     doc.width = Math.max(64, Math.round(reference.width * outputScale));
@@ -616,6 +625,10 @@ async function reconstructPhoto() {
   } finally { $('#loading').hidden = true; refresh(); schedulePreview(); }
 }
 $('#reconstruct').onclick = () => run(reconstructPhoto);
+$('#keep-background').onchange = () => {
+  begin(); doc.reconstruction.keepBackground = $('#keep-background').checked; changed();
+  if ($('#reconstruction-model-panel').open) run(loadReconstructionModels);
+};
 $('#extract-coarse').onclick = () => run(reconstructPhoto);
 $('#preview-coarse').onclick = () => { previewVisible = true; refresh(); schedulePreview(); };
 $('#import-glb').onclick = () => $('#glb-file').click();
@@ -841,6 +854,7 @@ async function start(token, reference = { connected: false }, structure = { conn
       else throw new Error(saved.error || `读取快照失败（HTTP ${response.status}）`);
     }
     doc.conditioning = { ...defaultScene().conditioning, ...doc.conditioning };
+    doc.reconstruction = { keepBackground: !!doc.source.keep_background, ...doc.reconstruction };
     doc.openpose ??= null;
     linkedReference = reference;
     linkedStructure = structure;

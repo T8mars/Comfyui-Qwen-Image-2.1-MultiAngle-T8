@@ -21,7 +21,7 @@ function fixture(selected = {}, rejectStale = false) {
   const config = { available: true, missing: [], ambiguous: {}, models,
     choices: Object.fromEntries(Object.entries(models).map(([role, name]) => [role, [name, `renamed/${role}.safetensors`]])) };
   const state = {
-    ready: true,
+    ready: true, doc: { reconstruction: { keepBackground: false } },
     $: selector => { if (!elements.has(selector)) elements.set(selector, new Element()); return elements.get(selector); },
     document: { createElement: tag => new Element(tag) },
     selectedReconstructionModels: () => selected,
@@ -61,4 +61,14 @@ test('a moved saved model remains visible and the panel still allows correcting 
   select.value = 'renamed/diffusion_models.safetensors';
   await elements.get('#reconstruction-model-save').onclick();
   assert.deepEqual(saved, [{ diffusion_models: select.value }]);
+});
+
+test('background mode shows four required models and leaves the unused segmentation role disabled', async () => {
+  const { state, elements } = fixture();
+  state.doc.reconstruction.keepBackground = true;
+  await state.loadReconstructionModels();
+  const background = elements.get('#reconstruction-model-fields').querySelectorAll('select')
+    .find(select => select.dataset.role === 'background_removal');
+  assert.equal(background.disabled, true);
+  assert.match(elements.get('#reconstruction-model-state').textContent, /4 个重建模型已就绪/);
 });

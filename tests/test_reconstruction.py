@@ -61,7 +61,7 @@ class ReconstructionOutputTests(unittest.TestCase):
         self.folder_patch.start()
         self.addCleanup(self.folder_patch.stop)
 
-    def save(self, mask, count=None, token=None, position=None):
+    def save(self, mask, count=None, token=None, position=None, keep_background=False):
         splat = types.SimpleNamespace(
             positions=torch.tensor([[position or [1.0, 2.0, 3.0]]]),
             counts=torch.tensor([count]) if count is not None else None,
@@ -72,7 +72,18 @@ class ReconstructionOutputTests(unittest.TestCase):
             torch.zeros(1), torch.tensor([[token]])))}
         reference = torch.zeros(1, 1024, 1024, 3)
         prepared = torch.zeros(1, 4, 4, 3)
-        return self.module.AnyAngleReconstructionOutput().save(splat, samples, reference, prepared, mask)
+        return self.module.AnyAngleReconstructionOutput().save(splat, samples, reference, prepared, mask, keep_background)
+
+    def test_full_frame_mask_keeps_camera_crop_and_background_metadata(self):
+        source = self.save(torch.ones(1, 1, 1), keep_background=True)["ui"]["anyangle_reconstruction"][0]["source"]
+        self.assertTrue(source["keep_background"])
+        self.assertEqual(source["foreground_bbox"], [0, 0, 1024, 1024])
+        self.assertLessEqual(source["crop"][0], 0)
+        self.assertGreaterEqual(source["crop"][2], 1024)
+        self.assertIn("保留背景", source["label"])
+        object_source = self.save(torch.ones(1, 1, 1))["ui"]["anyangle_reconstruction"][0]["source"]
+        self.assertFalse(object_source["keep_background"])
+        self.assertIn("原图主体", object_source["label"])
 
     def test_single_pixel_foreground_survives_crop_metadata(self):
         mask = torch.zeros(1, 1024, 1024)
@@ -161,6 +172,15 @@ class ReconstructionModelTests(unittest.TestCase):
         config = self.module.reconstruction_config()
         self.assertFalse(config["available"])
         self.assertIn("birefnet.safetensors", config["missing"])
+
+    def test_background_mode_does_not_require_or_validate_unused_birefnet(self):
+        self.catalog["background_removal"] = []
+        self.assertFalse(self.module.reconstruction_config()["available"])
+        config = self.module.reconstruction_config({"background_removal": "moved.safetensors"}, keep_background=True)
+        self.assertTrue(config["available"])
+        self.assertEqual(config["missing"], [])
+        self.catalog["diffusion_models"] = []
+        self.assertFalse(self.module.reconstruction_config(keep_background=True)["available"])
 
     def test_unknown_or_unlisted_paths_are_rejected_at_the_resolver(self):
         for selections in [[], {"unknown": "file.safetensors"}, {"vae_encoder": "../private.safetensors"},
