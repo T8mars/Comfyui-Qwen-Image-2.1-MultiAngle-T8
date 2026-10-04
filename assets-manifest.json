@@ -2,12 +2,12 @@
   "editor": [
     {
       "sha256": "7d6d3c10fad61901169308f8dd4637ed2f3e479c55e981b93ebb818a420669c7",
-      "url": "https://raw.githubusercontent.com/Work-Fisher/ComfyUI-Fisher-Pose/d116451f25b1c9da36dd852fdc9df321068f4d98/web/vnccs/textures/skin.png",
+      "url": "https://raw.githubusercontent.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/351506468a0cc53d8c8e80edd5066133c88f99a3/web/vendor/textures/skin.png",
       "path": "web/vendor/textures/skin.png"
     },
     {
       "sha256": "b93d95b0d74f9afcc039540a81b72b5c1ffaf59fd704f556ca2be8e8da415eaa",
-      "url": "https://raw.githubusercontent.com/Work-Fisher/ComfyUI-Fisher-Pose/d116451f25b1c9da36dd852fdc9df321068f4d98/web/vnccs/assets/pose_studio_makehuman.v2.bin",
+      "url": "https://raw.githubusercontent.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/351506468a0cc53d8c8e80edd5066133c88f99a3/web/vendor/assets/pose_studio_makehuman.v2.bin",
       "path": "web/vendor/assets/pose_studio_makehuman.v2.bin"
     }
   ],

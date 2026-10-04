@@ -103,13 +103,14 @@ test('splat offscreen dimensions are independent of display size and high DPI', 
 test('waiting for splat sorting leaves the workbench visible and freezes only the capture camera', async () => {
   const { studio, renderer, helper, background } = fixture();
   studio.doc.source.kind = 'splat';
-  let release, captureCamera, restored = false;
+  let release, started, captureCamera, restored = false;
   const sorted = new Promise(resolve => { release = resolve; });
+  const preparing = new Promise(resolve => { started = resolve; });
   studio.splat = {
     root: studio.viewer.skinnedMesh,
     configureCamera(camera) { camera.position.set(2, 3, 4); },
     beginOffscreenCapture() { return () => { restored = true; }; },
-    async prepareCapture(currentRenderer, camera) { assert.equal(currentRenderer, renderer); captureCamera = camera; await sorted; },
+    async prepareCapture(currentRenderer, camera) { assert.equal(currentRenderer, renderer); captureCamera = camera; started(); await sorted; },
   };
   const oldDocument = globalThis.document;
   globalThis.document = { createElement: () => ({
@@ -117,7 +118,7 @@ test('waiting for splat sorting leaves the workbench visible and freezes only th
     toDataURL: () => 'data:image/png;test',
   }) };
   try {
-    const pending = studio.capture(2, 2); await Promise.resolve();
+    const pending = studio.capture(2, 2); await preparing;
     assert.equal(helper.visible, true); assert.equal(studio.viewer.scene.background, background);
     assert.equal(renderer.target, null);
     studio.viewer.captureCamera.position.set(99, 99, 99);

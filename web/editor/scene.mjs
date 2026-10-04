@@ -1,11 +1,13 @@
 import * as THREE from '../vendor/three.module.mjs';
 import { GLTFLoader } from '../vendor/GLTFLoader.mjs';
 import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs';
-import { loadMorphPack, solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
+import { solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
+import { loadHumanPack, HumanAssetError } from './human.mjs?v=20261004c';
+import { applyLens } from './lens.mjs?v=20261004c';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
-import { SplatScene } from './splat.mjs?v=20261004b';
+import { SplatScene } from './splat.mjs?v=20261004c';
 import { capturePNG } from './capture.mjs?v=20261004a';
-import { liftOpenPose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs';
+import { liftOpenPose, copyVisiblePose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs?v=20261004c';
 
 export const PRESETS = [
   { name: '自然站立', bones: { upperarm_l: [0, 0, -8], upperarm_r: [0, 0, 8] } },
@@ -18,7 +20,7 @@ export const defaultScene = () => ({
   source: { kind: 'empty' }, reference: null,
   reconstruction: { keepBackground: false },
   interaction: { mousePitch: true, quality: 'balanced', livePreview: true },
-  camera: { azimuth: 35, elevation: 8, zoom: 1.3, offsetX: 0, offsetY: 0, offsetZ: 0 },
+  camera: { azimuth: 35, elevation: 8, zoom: 1.3, offsetX: 0, offsetY: 0, offsetZ: 0, focalLength: 0 },
   mesh: { age: 25, gender: 0.5, weight: 0.5, muscle: 0.5, height: 0.5, breast_size: 0, firmness: 0.5, show_genitals: false },
   pose: { bones: PRESETS[0].bones }, shots: [], front: 0, scale: 1,
   background: '#69717b',
@@ -135,6 +137,16 @@ export class StudioScene {
     this.viewer.setActiveCharacterAppearance({ color: '#e3e9ee', transform: { x: 0, y: 0, z: 0, zoom: this.doc.scale } });
   }
 
+  async waitForCaptureReady(timeout = 45000) {
+    if (this.doc.source.kind !== 'human') return this.viewer.waitForCaptureReady();
+    let timer;
+    try {
+      return await Promise.race([this.viewer.waitForCaptureReady(), new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new HumanAssetError('人偶贴图加载超时，请重试或修复人偶资源。')), timeout);
+      })]);
+    } finally { clearTimeout(timer); }
+  }
+
   async restore(doc) {
     this.restoring = true;
     try {
@@ -147,10 +159,7 @@ export class StudioScene {
       if (this.splat && doc.source.kind !== 'splat') { await this.splat.dispose(); this.splat = null; }
       if (this.glb && doc.source.kind !== 'glb') { disposeObject(this.glb); this.glb = null; this.glbName = null; }
       if (doc.source.kind === 'human') {
-        if (!this.pack) {
-          try { this.pack = await loadMorphPack(new URL('../vendor/assets/pose_studio_makehuman.v2.bin', import.meta.url)); }
-          catch (error) { throw new Error(`MakeHuman 编辑资源缺失或损坏。请更新节点，或在节点目录运行 python install_assets.py。${error.message}`); }
-        }
+        if (!this.pack) this.pack = await loadHumanPack();
         this.buildHuman(doc.pose);
         this.baseTarget = this.viewer.meshCenter.clone().multiplyScalar(doc.scale);
       } else if (doc.source.kind === 'splat') {
@@ -209,7 +218,7 @@ export class StudioScene {
       this.ring.visible = doc.source.kind !== 'splat' && doc.source.kind !== 'empty';
       this.setMode(this.mode);
       this.updateShot(true);
-      await this.viewer.waitForCaptureReady();
+      await this.waitForCaptureReady();
       // Normalize sparse or older pose documents without treating restoration
       // as a user edit and replacing an explicitly selected photo skeleton.
       this.syncPose();
@@ -266,18 +275,30 @@ export class StudioScene {
     }
     this.viewer.sceneCameraTarget = this.baseTarget.clone();
     this.viewer.sceneCameraTarget.z -= c.offsetZ || 0;
-    this.viewer.updateCaptureCamera(d.width, d.height, c.zoom, c.offsetX, c.offsetY, c.azimuth, -c.elevation);
+    this.configureCapture(d.width, d.height);
     this.viewer.captureFrame.visible = true;
     if (snap || this.mode === 'camera') {
       // Fit the complete output frame inside a differently-shaped editor viewport.
       const framing = 1.12 * Math.max(1, (d.width / d.height) / this.viewer.camera.aspect);
-      this.viewer.camera.fov = degrees(2 * Math.atan(Math.tan(radians(15)) * framing));
-      this.viewer.snapToCaptureCamera(d.width, d.height, c.zoom, c.offsetX, c.offsetY, c.azimuth, -c.elevation);
+      const v = this.viewer;
+      v.camera.fov = degrees(2 * Math.atan(Math.tan(radians(v.captureCamera.fov / 2)) * framing));
+      v.camera.position.copy(v.captureCamera.position);
+      v.camera.zoom = c.zoom; v.camera.updateProjectionMatrix();
+      v.orbit.target.copy(v.sceneCameraTarget).add(new THREE.Vector3(-c.offsetX, -c.offsetY, 0));
+      const damping = v.orbit.enableDamping; v.orbit.enableDamping = false;
+      v.orbit.update(); v.orbit.enableDamping = damping;
       this.viewer.captureFrame.visible = true;
     }
     this.shotHelper.update();
     this.shotHelper.visible = this.mode === 'edit';
     this.viewer.requestRender();
+  }
+
+  configureCapture(width, height) {
+    const v = this.viewer, c = this.doc.camera;
+    v.updateCaptureCamera(width, height, c.zoom, c.offsetX, c.offsetY, c.azimuth, -c.elevation);
+    const target = (v.sceneCameraTarget || v.meshCenter || new THREE.Vector3(0, 10, 0)).clone().add(new THREE.Vector3(-c.offsetX, -c.offsetY, 0));
+    applyLens(v.captureCamera, target, c.focalLength || 0);
   }
 
   setMode(mode) {
@@ -310,8 +331,8 @@ export class StudioScene {
 
   async capture(width = this.doc.width, height = this.doc.height) {
     if (this.doc.source.kind === 'empty') throw new Error('请先从原图重建主体或导入对应的 3D 场景');
-    await this.viewer.waitForCaptureReady();
-    const v = this.viewer, c = this.doc.camera;
+    await this.waitForCaptureReady();
+    const v = this.viewer;
     const content = this.splat ? this.splat.root : this.doc.source.kind === 'glb' ? this.glb : v.skinnedMesh;
     if (!content) throw new Error('场景中没有可渲染资产');
     const visibility = v.scene.children.map(object => [object, object.visible]);
@@ -326,7 +347,7 @@ export class StudioScene {
     try {
       if (v._renderFrame) { cancelAnimationFrame(v._renderFrame); v._renderFrame = null; }
       if (this.splat) this.splat.configureCamera(v.captureCamera, this.doc, width, height);
-      else v.updateCaptureCamera(width, height, c.zoom, c.offsetX, c.offsetY, c.azimuth, -c.elevation);
+      else this.configureCapture(width, height);
       // Pointer input may update the live cameras while sorting awaits a worker.
       const camera = v.captureCamera.clone();
       if (this.splat) {
@@ -386,10 +407,10 @@ export class StudioScene {
 
   hand(side, preset) { this.viewer.applyHandPreset(side, HAND_PRESETS[preset]); this.syncPose(); }
 
-  applyOpenPose(points, flips = {}) {
+  applyOpenPose(points, flips = {}, mode = 'estimated') {
     if (this.doc.source.kind !== 'human') throw new Error('OpenPose 姿势需要先切换到人偶');
     const viewer = this.viewer;
-    viewer.resetPose();
+    if (mode === 'estimated') viewer.resetPose();
     viewer.skinnedMesh.updateMatrixWorld(true);
     const worldOf = name => viewer.bones[name].getWorldPosition(new THREE.Vector3()).toArray();
     const joints = { ls: 'upperarm_l', le: 'lowerarm_l', lw: 'hand_l', rs: 'upperarm_r', re: 'lowerarm_r', rw: 'hand_r',
@@ -398,6 +419,17 @@ export class StudioScene {
     rest.neck = rest.ls.map((value, i) => (value + rest.rs[i]) / 2);
     rest.hipMid = rest.lh.map((value, i) => (value + rest.rh[i]) / 2);
     const head = worldOf('head'), pelvis = worldOf('pelvis');
+    if (mode === 'conservative') {
+      rest.head = head; rest.pelvis = pelvis;
+      const kps = copyVisiblePose(points, rest);
+      const worldKps = Object.fromEntries(Object.entries(kps).filter(([key]) => WORLD_KEYPOINT_NAMES[key])
+        .map(([key, value]) => [WORLD_KEYPOINT_NAMES[key], new THREE.Vector3(...value)]));
+      const applied = viewer.applyWorldKeypointImport(worldKps, { drawFigure: false, placeHipRoots: false,
+        alignHead: false, alignHands: false, alignFeet: false, dispatchPoseChange: false });
+      if (!applied) throw new Error('复制可见关节失败，请检查人物照片');
+      this.useRigPose(); this.syncPose(); this.updateShot(true);
+      return false;
+    }
     const { kps, facingAway } = liftOpenPose(points, rest, flips);
     const distance = Math.hypot(...head.map((value, i) => value - rest.neck[i]));
     const direction = kps.head.map((value, i) => value - kps.neck[i]);
@@ -447,7 +479,7 @@ export class StudioScene {
       this.baseTarget = this.viewer.meshCenter.clone().multiplyScalar(this.doc.scale);
       this.setMode(this.mode);
       this.syncPose();
-      await this.viewer.waitForCaptureReady();
+      await this.waitForCaptureReady();
     } finally { this.restoring = false; }
   }
 

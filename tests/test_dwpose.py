@@ -27,10 +27,13 @@ class PhotoPoseTests(unittest.TestCase):
         with patch.object(dwpose, "_sessions", return_value=(None, None)), \
              patch.object(dwpose, "_detect_person", return_value=[0, 0, 160, 240]), \
              patch.object(dwpose, "_estimate_body", return_value=(keys, scores)):
-            _, png, missing, full_body = dwpose.extract_pose(image.getvalue())
+            points, png, missing, full_body = dwpose.extract_pose(image.getvalue())
         result = np.asarray(Image.open(io.BytesIO(png)))
         self.assertFalse(full_body)
         self.assertGreater(missing, 0)
+        self.assertNotIn('la', points)
+        self.assertNotIn('lh', points)
+        self.assertIn('lw', points)
         self.assertGreater(result[:130].sum(), 0)
         self.assertEqual(result[160:].sum(), 0)
 

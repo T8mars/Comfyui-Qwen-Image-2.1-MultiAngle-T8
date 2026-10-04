@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="430" viewBox="0 0 1120 430"><defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#142631"/><stop offset="1" stop-color="#0c141d"/></linearGradient></defs><rect width="1120" height="430" rx="18" fill="url(#bg)"/><g font-family="Segoe UI,Arial,sans-serif"><text x="36" y="42" font-size="12" letter-spacing="3" fill="#52d5e8">ANYANGLE STUDIO · LENS PERSPECTIVE</text><text x="36" y="79" font-size="27" fill="#edf7fc" font-weight="600">Change the lens. Keep the target plane framed.</text>
+<rect x="36" y="102" width="336" height="248" rx="12" fill="#14232f" stroke="#344956"/><text x="54" y="132" fill="#43d4e4" font-size="13" letter-spacing="2">WIDE</text><text x="354" y="134" text-anchor="end" fill="#eef6fb" font-size="19">24 mm</text>
+<polygon points="146.33,274.91 261.67,274.91 261.67,221.09 146.33,221.09" fill="#203743" stroke="#3a586a" stroke-width="1.3"/>
+<polygon points="146.33,274.91 261.67,274.91 308.85,339.74 99.15,339.74" fill="#182c38" stroke="#334c5b" stroke-width="1.3"/>
+<polygon points="188.66,294.03 219.34,294.03 219.34,201.97 188.66,201.97" fill="#22576a" stroke="#43d4e4" stroke-width="1.3"/>
+<polygon points="249.81,324.35 280.35,324.35 280.35,248.00 249.81,248.00" fill="#524635" stroke="#e7b86a" stroke-width="1.3"/>
+<text x="54" y="331" font-size="11" fill="#90a9b8">Same target size · different depth proportions</text>
+<rect x="392" y="102" width="336" height="248" rx="12" fill="#14232f" stroke="#344956"/><text x="410" y="132" fill="#73b8ff" font-size="13" letter-spacing="2">STANDARD</text><text x="710" y="134" text-anchor="end" fill="#eef6fb" font-size="19">50 mm</text>
+<polygon points="482.13,284.34 637.87,284.34 637.87,211.66 482.13,211.66" fill="#203743" stroke="#3a586a" stroke-width="1.3"/>
+<polygon points="482.13,284.34 637.87,284.34 636.62,315.04 483.38,315.04" fill="#182c38" stroke="#334c5b" stroke-width="1.3"/>
+<polygon points="544.66,294.03 575.34,294.03 575.34,201.97 544.66,201.97" fill="#22576a" stroke="#73b8ff" stroke-width="1.3"/>
+<polygon points="590.24,298.39 610.39,298.39 610.39,248.00 590.24,248.00" fill="#524635" stroke="#e7b86a" stroke-width="1.3"/>
+<text x="410" y="331" font-size="11" fill="#90a9b8">Same target size · different depth proportions</text>
+<rect x="748" y="102" width="336" height="248" rx="12" fill="#14232f" stroke="#344956"/><text x="766" y="132" fill="#e7b86a" font-size="13" letter-spacing="2">TELEPHOTO</text><text x="1066" y="134" text-anchor="end" fill="#eef6fb" font-size="19">85 mm</text>
+<polygon points="826.17,289.92 1005.83,289.92 1005.83,206.08 826.17,206.08" fill="#203743" stroke="#3a586a" stroke-width="1.3"/>
+<polygon points="826.17,289.92 1005.83,289.92 985.51,308.82 846.49,308.82" fill="#182c38" stroke="#334c5b" stroke-width="1.3"/>
+<polygon points="900.66,294.03 931.34,294.03 931.34,201.97 900.66,201.97" fill="#22576a" stroke="#e7b86a" stroke-width="1.3"/>
+<polygon points="942.78,292.63 960.63,292.63 960.63,248.00 942.78,248.00" fill="#524635" stroke="#e7b86a" stroke-width="1.3"/>
+<text x="766" y="331" font-size="11" fill="#90a9b8">Same target size · different depth proportions</text>
+<circle cx="43" cy="384" r="4" fill="#43d4e4"/><text x="57" y="388" fill="#bcd2dd" font-size="12">Lens and camera distance move together. Preview, export and saved views use the same camera.</text><text x="36" y="414" fill="#6d899b" font-size="10">Projection illustration · 24 mm vertical sensor · not a model-generated result</text></g></svg>

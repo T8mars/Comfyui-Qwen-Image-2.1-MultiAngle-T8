@@ -157,4 +157,7 @@ def extract_pose(photo):
     low_confidence = sum(scores[i] < .3 for i in required)
     full_body = all(scores[i] >= .3 and 0 <= keypoints[i, 0] < image.width
                     and 0 <= keypoints[i, 1] < image.height for i in required)
-    return points, _render(points, confidence, keypoints, scores, image.width, image.height), int(low_confidence), bool(full_body)
+    preview = _render(points, confidence, keypoints, scores, image.width, image.height)
+    visible = {name: point for name, point in points.items()
+               if confidence[name] >= .3 and 0 <= point[0] < image.width and 0 <= point[1] < image.height}
+    return visible, preview, int(low_confidence), bool(full_body)

@@ -9,10 +9,19 @@ from server import PromptServer
 from .reconstruction import reconstruction_config
 from .dwpose import extract_pose
 from .depth import extract_depth
+from .install_assets import repair_editor_assets
 
 
 def register_routes(store_factory):
     routes = PromptServer.instance.routes
+
+    @routes.post("/anyangle-studio/repair-human")
+    async def repair_human(request):
+        try:
+            await asyncio.to_thread(repair_editor_assets)
+            return web.json_response({"repaired": True})
+        except (OSError, ValueError) as error:
+            return web.json_response({"error": f"修复失败：{error}。可在节点目录运行 python install_assets.py。"}, status=400)
 
     @routes.get("/anyangle-studio/reconstruction-config")
     async def reconstruction_models(request):
@@ -40,7 +49,7 @@ def register_routes(store_factory):
             points, preview, low_confidence, full_body = await asyncio.to_thread(extract_pose, photo)
             asset = await asyncio.to_thread(store.asset, preview, "png")
             asset["label"] = "DWPose · 原图姿势"
-            return web.json_response({"asset": asset, "points": points, "lowConfidence": low_confidence, "fullBody": full_body})
+            return web.json_response({"asset": asset, "points": points, "visibleOnly": True, "lowConfidence": low_confidence, "fullBody": full_body})
         except (ValueError, TypeError, OSError, RuntimeError, UnidentifiedImageError) as error:
             return web.json_response({"error": str(error)}, status=400)
 

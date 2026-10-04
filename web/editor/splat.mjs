@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.mjs';
 import { DropInViewer, SceneFormat, SceneRevealMode } from '../vendor/gaussian-splats-3d.mjs';
+import { lensSettings } from './lens.mjs?v=20261004c';
 
 const radians = THREE.MathUtils.degToRad;
 
@@ -36,6 +37,7 @@ function normalization(bounds) {
 export function configureSplatCamera(camera, source, controls, width, height, matrixWorld = new THREE.Matrix4()) {
   if (!camera.isPerspectiveCamera) throw new Error('高斯机位需要透视相机');
   const predicted = decodeCameraToken(source.camera_token);
+  const lens = lensSettings(predicted.fov, controls.focalLength || 0);
   const normalized = normalization(source.bounds);
   const reference = source.reference;
   const crop = source.crop;
@@ -50,7 +52,7 @@ export function configureSplatCamera(camera, source, controls, width, height, ma
   const elevation = THREE.MathUtils.clamp(Math.asin(predicted.direction.y) + radians(controls.elevation || 0), -Math.PI / 2 + 1e-5, Math.PI / 2 - 1e-5);
   const direction = new THREE.Vector3(Math.sin(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.cos(azimuth) * Math.cos(elevation));
   const target = normalized.offset.clone().applyMatrix4(matrixWorld);
-  camera.position.copy(direction).multiplyScalar(predicted.radius * normalized.scale).add(normalized.offset).applyMatrix4(matrixWorld);
+  camera.position.copy(direction).multiplyScalar(predicted.radius * normalized.scale * lens.distanceScale).add(normalized.offset).applyMatrix4(matrixWorld);
   camera.up.set(0, 1, 0).transformDirection(matrixWorld);
   camera.lookAt(target);
 
@@ -66,7 +68,7 @@ export function configureSplatCamera(camera, source, controls, width, height, ma
   const distance = camera.position.distanceTo(target);
   camera.near = Math.max(0.01, distance - extent * 2);
   camera.far = Math.max(camera.near + 1, distance + extent * 2);
-  camera.fov = predicted.fov;
+  camera.fov = lens.fov;
   camera.zoom = controls.zoom;
   camera.filmOffset = 0;
 

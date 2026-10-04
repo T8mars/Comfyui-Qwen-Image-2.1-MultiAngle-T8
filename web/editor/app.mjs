@@ -1,8 +1,9 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261004b';
+import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261004c';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261003a';
-import { readSkeletonImage } from './openpose.mjs';
-import { GUIDE_LABELS, guidePrompt, guideImageIndex, guideSource, cannyEdges } from './guides.mjs?v=20261004b';
+import { readSkeletonImage } from './openpose.mjs?v=20261004c';
+import { GUIDE_LABELS, guidePrompt, guideImageIndex, guideSource, cannyEdges } from './guides.mjs?v=20261004c';
 import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261003a';
+import { randomPose } from './poses.mjs?v=20261004c';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);
@@ -33,7 +34,19 @@ function toast(message) {
   $('#toast').textContent = message; $('#toast').hidden = false;
   clearTimeout(toast.timer); toast.timer = setTimeout(() => { $('#toast').hidden = true; }, 4500);
 }
-function error(error) { console.error(error); toast(error?.message || String(error)); }
+function showLoadError(error) {
+  $('#loading').hidden = true;
+  $('#load-error-message').textContent = error?.message || String(error);
+  $('#repair-human').hidden = error?.name !== 'HumanAssetError';
+  $('#load-error-help').hidden = error?.name !== 'HumanAssetError';
+  $('#repair-state').textContent = error?.name === 'HumanAssetError'
+    ? '也可在节点目录运行 python install_assets.py，再重启 ComfyUI。' : '解决以上错误后重试加载。';
+  const dialog = $('#load-error-dialog'); if (!dialog.open) dialog.showModal();
+}
+function error(error) {
+  console.error(error); toast(error?.message || String(error));
+  if (error?.name === 'HumanAssetError') showLoadError(error);
+}
 function currentGuide() { return doc.conditioning.model === 'anyangle' ? 'coarse' : doc.conditioning.guide; }
 function usesLocalGuide(guide = currentGuide()) {
   return guide === 'pose' && (doc.openpose?.origin === 'dwpose' || doc.openpose?.useRig || doc.conditioning.mapOrigin === 'rig')
@@ -153,6 +166,12 @@ function refresh() {
   }
   $('#view-scene').hidden = staticGuide || guide === 'depth';
   $('#view-scene').disabled = doc.source.kind === 'empty';
+  $('#lens-panel').hidden = staticGuide;
+  $('#lens-mode').value = doc.camera.focalLength ? 'custom' : 'original';
+  $('#lens-controls').hidden = !doc.camera.focalLength;
+  $('#copy-photo-pose').disabled = !doc.reference?.name || !!linkedReference.pending;
+  $('#pose-category').value = doc.poseRandom?.category || 'mixed';
+  if (document.activeElement !== $('#pose-seed')) $('#pose-seed').value = doc.poseRandom?.seed || 0;
   for (const id of ['camera-heading', 'camera-eyebrow', 'camera-sliders', 'view-presets', 'shot-shelf', 'scene-panel']) $(`#${id}`).hidden = staticGuide;
   $('#stage-help').textContent = previewVisible ? staticGuide ? '原图结构与构图 · 应用到节点后输出当前引导图' : '当前三维机位的引导图 · 切换 3D 工作台调整机位'
     : studio?.mode === 'edit' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移'
@@ -267,11 +286,14 @@ function refresh() {
   $('#openpose-status').textContent = doc.openpose ? poseImage ? doc.openpose.fullBody === false
     ? '已提取可见骨架；半身或遮挡照片直接输出原图姿势。' : '已生成原图骨架；可直接输出或选择三维编辑。'
     : '当前输出三维人偶骨架 · 可调整姿势与机位。' : '可提取原图或导入骨架；当前人偶可手动摆姿。';
-  $('#retarget-pose').hidden = !poseImage;
-  $('#retarget-pose').disabled = doc.openpose?.origin === 'dwpose' && doc.openpose?.fullBody === false;
-  $('#retarget-pose').title = $('#retarget-pose').disabled ? '三维人偶编辑需要可见的全身骨架' : '';
+  $('#retarget-pose').hidden = !doc.openpose?.rawAsset && !doc.conditioning.map;
+  $('#retarget-pose').textContent = poseImage ? '用三维人偶调整姿势' : '重新复制照片姿势';
+  $('#retarget-pose').disabled = false;
+  $('#retarget-pose').title = '复制可见关节；旧版半身骨架需要重新提取';
+  $('#pose-copy-mode').value = doc.openpose?.retargetMode || (doc.openpose?.origin === 'import' ? 'estimated' : 'conservative');
+  $('#pose-copy-mode').querySelector('[value="estimated"]').disabled = doc.openpose?.fullBody === false;
   $('#pose-original').hidden = !doc.openpose?.rawAsset || poseImage;
-  $('#pose-flips').hidden = !doc.openpose?.points || doc.openpose.fullBody === false || poseImage;
+  $('#pose-flips').hidden = !doc.openpose?.points || doc.openpose.fullBody === false || poseImage || doc.openpose.retargetMode === 'conservative';
   document.querySelectorAll('[data-flip]').forEach(button => button.classList.toggle('on', !!doc.openpose?.flips?.[button.dataset.flip]));
   $('#read-openpose').hidden = !linkedStructure.connected;
   $('#read-openpose').disabled = !!linkedStructure.pending;
@@ -333,6 +355,14 @@ for (const [key, label, min, max, step, unit] of [
   ['zoom', '构图缩放', 0.1, 8, 0.01, '×'],
 ]) makeControl('#camera-sliders', { id: key, label, min, max, step, unit,
   read: () => doc.camera[key], write: value => { doc.camera[key] = value; studio.updateShot(); } });
+makeControl('#focal-sliders', { id: 'focal-length', label: '焦距', min: 12, max: 200, step: 1, unit: 'mm',
+  read: () => doc.camera.focalLength || 50, write: value => { doc.camera.focalLength = value; studio.updateShot(); } });
+$('#lens-mode').onchange = event => {
+  begin(); doc.camera.focalLength = event.target.value === 'custom' ? 50 : 0; studio.updateShot(true); changed();
+};
+document.querySelectorAll('[data-focal]').forEach(button => { button.onclick = () => {
+  begin(); doc.camera.focalLength = Number(button.dataset.focal); studio.updateShot(true); changed();
+}; });
 for (const [key, label, min, max, step] of [
   ['age', '年龄', 18, 75, 1], ['gender', '体型特征', 0, 1, 0.01], ['weight', '体重', 0, 1, 0.01], ['muscle', '肌肉', 0, 1, 0.01], ['height', '身高', 0, 1, 0.01],
 ]) makeControl('#body-sliders', { id: `body-${key}`, label, min, max, step,
@@ -447,17 +477,20 @@ async function upload(file) {
   const response = await fetch('/anyangle-studio/assets', { method: 'POST', body: form });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || '导入失败'); return result;
 }
-async function applyOpenPoseAsset(asset, detectedPoints = null, fullBody = null) {
+async function applyOpenPoseAsset(asset, detectedPoints = null, fullBody = null, visibleOnly = false) {
   begin();
   doc.openpose = { name: asset.label || 'OpenPose 骨架', sourceName: asset.name, rawAsset: asset,
-    origin: detectedPoints ? 'dwpose' : 'import', points: detectedPoints, fullBody, flips: {} };
+    origin: detectedPoints ? 'dwpose' : 'import', points: detectedPoints, fullBody, visibleOnly,
+    retargetMode: detectedPoints ? 'conservative' : 'estimated', flips: {} };
   doc.conditioning.model = 'base'; doc.conditioning.guide = 'pose';
   doc.conditioning.map = asset; doc.conditioning.mapKind = 'pose'; doc.conditioning.mapOrigin = doc.openpose.origin;
   previewGuide = 'pose'; previewVisible = true; changed();
 }
 async function retargetPose() {
-  if (doc.openpose?.origin === 'dwpose' && doc.openpose.fullBody === false)
-    throw new Error('当前照片未显示完整身体；请直接使用原图骨架，全身照片才可转换为三维姿势');
+  const mode = doc.openpose?.retargetMode || (doc.openpose?.origin === 'dwpose' ? 'conservative' : 'estimated');
+  if (doc.openpose?.origin === 'dwpose' && doc.openpose.fullBody === false
+      && (!doc.openpose.visibleOnly || mode === 'estimated'))
+    throw new Error('半身照片请重新提取，并选择保守平面复制；推测立体需要全身关节');
   const asset = doc.openpose?.rawAsset || doc.conditioning.map;
   if (!asset) throw new Error('请先提取或导入骨架图');
   let people;
@@ -479,16 +512,21 @@ async function retargetPose() {
     doc.openpose = { ...doc.openpose, points, flips: {}, useRig: true };
     doc.conditioning.model = 'base'; doc.conditioning.guide = 'pose';
     doc.conditioning.map = null; doc.conditioning.mapKind = null; doc.conditioning.mapOrigin = null;
-    const facingAway = studio.applyOpenPose(points);
+    const facingAway = studio.applyOpenPose(points, {}, mode);
+    doc.camera.azimuth = 0; doc.camera.elevation = 0; studio.fit(); setMode('camera');
     previewVisible = false;
     changed();
-    const notes = [facingAway ? '识别为背面' : '识别为正面'];
+    const notes = [mode === 'conservative' ? '已复制可见方向；画外肢体保持原姿势' : facingAway ? '识别为背面' : '识别为正面'];
     if (people.length > 1) notes.push(`检测到 ${people.length} 人，已取最大主体`);
     if (people.warnings?.length) notes.push('部分关节已近似补全');
     $('#openpose-status').textContent = `${asset.label || 'OpenPose 骨架'}：${notes.join('，')}`;
   } catch (error) { doc = previous; await studio.restore(doc); throw error; }
 }
 $('#retarget-pose').onclick = () => run(retargetPose);
+$('#pose-copy-mode').onchange = event => {
+  if (!doc.openpose) return;
+  begin(); doc.openpose.retargetMode = event.target.value; changed(false);
+};
 $('#pose-original').onclick = () => {
   if (!doc.openpose?.rawAsset) return;
   begin(); doc.openpose.useRig = false;
@@ -500,7 +538,7 @@ async function applyStructureAsset(asset) {
   begin(); doc.conditioning.map = asset; doc.conditioning.mapKind = currentGuide(); doc.conditioning.mapOrigin = 'import'; changed();
 }
 $('#import-openpose').onclick = () => $('#openpose-file').click();
-$('#extract-pose').onclick = () => run(async () => {
+async function extractPhotoPose(copyToHuman = false) {
   if (!doc.reference?.name) throw new Error('请先连接或导入原图');
   $('#loading-text').textContent = '正在从原图提取姿势';
   $('#loading-detail').textContent = '首次使用可能需要下载 DWPose 模型';
@@ -512,10 +550,13 @@ $('#extract-pose').onclick = () => run(async () => {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'DWPose 提取失败');
-    await applyOpenPoseAsset(result.asset, result.points, result.fullBody);
-    toast(result.fullBody ? '原图姿势已提取，中央预览为实际输出骨架' : '原图可见姿势已提取，未显示的肢体不会补成人偶姿势');
+    await applyOpenPoseAsset(result.asset, result.points, result.fullBody, result.visibleOnly);
+    if (copyToHuman) { await retargetPose(); toast('已复制照片可见姿势到人偶，可继续编辑、撤销或保存'); }
+    else toast(result.fullBody ? '原图姿势已提取，中央预览为实际输出骨架' : '原图可见姿势已提取，未显示的肢体不会补成人偶姿势');
   } finally { $('#loading').hidden = true; }
-});
+}
+$('#extract-pose').onclick = () => run(() => extractPhotoPose());
+$('#copy-photo-pose').onclick = () => run(() => extractPhotoPose(true));
 $('#import-map').onclick = () => $('#map-file').click();
 $('#extract-depth').onclick = () => run(async () => {
   if (!doc.reference?.name) throw new Error('请先连接或导入原图');
@@ -684,6 +725,38 @@ $('#human').onclick = () => run(async () => {
   changed();
 });
 
+function applyRandomPose(seed) {
+  if (doc.source.kind !== 'human') return;
+  const category = $('#pose-category').value;
+  const pose = randomPose(seed, category);
+  begin(); doc.poseRandom = { seed, category }; studio.setPreset(pose); studio.fit();
+  previewVisible = false;
+  document.querySelectorAll('.preset-card').forEach(button => button.classList.remove('active'));
+  changed(); toast(`随机姿势 · 种子 ${seed}`);
+}
+$('#pose-category').onchange = $('#pose-seed').onchange = () => {
+  if (!$('#pose-seed').reportValidity()) return;
+  begin(); doc.poseRandom = { seed: Number($('#pose-seed').value), category: $('#pose-category').value }; changed(false);
+};
+$('#random-pose').onclick = () => applyRandomPose(crypto.getRandomValues(new Uint32Array(1))[0]);
+$('#repeat-pose').onclick = () => { try { applyRandomPose(Number($('#pose-seed').value)); } catch (e) { error(e); } };
+
+$('#load-error-close').onclick = () => closeWorkbench();
+$('#load-error-dialog').oncancel = event => { if (!ready) event.preventDefault(); };
+$('#retry-human').onclick = () => {
+  $('#load-error-dialog').close(); if (ready) $('#human').onclick(); else location.reload();
+};
+$('#repair-human').onclick = async () => {
+  $('#repair-human').disabled = $('#retry-human').disabled = true;
+  $('#repair-state').textContent = '正在校验本机资源，缺失文件将从固定来源下载，请稍候…';
+  try {
+    const response = await fetch('/anyangle-studio/repair-human', { method: 'POST' });
+    const result = await response.json(); if (!response.ok) throw new Error(result.error || '资源修复失败');
+    $('#repair-state').textContent = '资源已通过校验，正在重新加载。'; $('#retry-human').onclick();
+  } catch (e) { $('#repair-state').textContent = e.message || String(e); }
+  finally { $('#repair-human').disabled = $('#retry-human').disabled = false; }
+};
+
 function askName(title, initial) {
   $('#name-title').textContent = title; $('#name-input').value = initial; $('#name-dialog').returnValue = '';
   $('#name-dialog').showModal(); $('#name-input').select();
@@ -838,7 +911,8 @@ async function startCameraBatch(queueFinal) {
 }
 $('#batch-guides').onclick = () => run(() => startCameraBatch(false));
 $('#batch-final').onclick = () => run(() => startCameraBatch(true));
-$('#cancel').onclick = () => { if (embedded) send('anyangle-close'); else location.reload(); };
+function closeWorkbench() { if (embedded) send('anyangle-close'); else location.reload(); }
+$('#cancel').onclick = closeWorkbench;
 $('#apply').onclick = () => run(async () => {
   clearTimeout(previewTimer); studio.syncPose();
   const frozen = clone(doc), appliedRevision = revision;
@@ -919,7 +993,7 @@ async function start(token, reference = { connected: false }, structure = { conn
     if (referenceChanged) { $('#status').textContent = '连线原图已更新 · 应用后保存到场景'; $('#status').dataset.state = 'dirty'; }
     setBusy(false); await renderPreview();
     if (doc.reference && doc.source.kind === 'empty' && currentGuide() === 'coarse') await run(reconstructPhoto);
-  } catch (e) { $('#loading-text').textContent = e.message || String(e); error(e); }
+  } catch (e) { showLoadError(e); error(e); }
 }
 function readPendingReference() {
   if (busy || !pendingReference) return;

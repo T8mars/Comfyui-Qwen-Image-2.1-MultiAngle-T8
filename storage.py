@@ -182,6 +182,9 @@ class StudioStore:
                 raise ValueError(f"Invalid camera {key}")
         if scene["camera"]["zoom"] <= 0:
             raise ValueError("Camera zoom must be positive")
+        focal_length = scene["camera"].get("focalLength", 0)
+        if not isinstance(focal_length, (int, float)) or not math.isfinite(focal_length) or focal_length < 0:
+            raise ValueError("Camera focal length must be finite and non-negative")
         model, guide_mode, conditioning = conditioning_for(scene)
         source_kind = scene.get("source", {}).get("kind")
         if source_kind not in ("human", "glb", "splat", "empty"):

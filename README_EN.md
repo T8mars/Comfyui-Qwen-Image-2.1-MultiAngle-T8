@@ -47,9 +47,20 @@ The same original demo image produced 262,144 Gaussians, rendered from a new vie
 
 ![The built-in MakeHuman mannequin, pose presets, and joint editing controls](docs/images/studio-human.png)
 
-The included mannequin supports pose presets, hands, body proportions, and joint editing. **POSE → Extract pose from photo** directly outputs the photo skeleton. For a visible full-body skeleton, choose **Edit pose with 3D mannequin** to adjust it further. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
+The included mannequin supports pose presets, hands, body proportions, and joint editing. **POSE → Extract pose from photo** directly outputs the photo skeleton. Choose **Edit pose with 3D mannequin**, or click **Copy photo pose to mannequin** on the left for extraction and retargeting in one action. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
 
 For pose edits, select **Qwen base + POSE** and connect the LoRA strength output. Choosing a preset or editing joints outputs the current mannequin skeleton; this selection survives guide changes and reopening a saved scene. **Use photo skeleton** restores the visible photo pose. DWPose on a cropped photo detects visible joints, without reconstructing limbs outside the image. AnyAngle LoRA is primarily for camera changes.
+
+### Lens perspective and photo pose copying · 1.4.0
+
+![Focal length and scene perspective illustration](docs/images/lens-perspective.svg)
+
+- **Lens perspective:** choose Custom focal length on the right, adjust 12–200 mm or select 24 / 50 / 85 mm. Camera distance changes with the lens to keep the target plane size; foreground and background proportions change. Mannequins, GLBs and TripoSplat use the same lens for preview, export, bookmarks and batch views. Original lens remains the default for existing workflows.
+- **Photo → mannequin:** the left-side Copy photo pose to mannequin action runs DWPose and retargets in one step, selecting Qwen base + POSE. Conservative planar mode follows visible segment directions and mannequin bone lengths. Cropped photos retain the current pose of unseen limbs. Estimated depth mode requires full-body joints and allows depth flips. A 2D photo cannot recover accurate depth; complex occlusion still needs adjustment. Use the original photo skeleton when matching its framing is the priority.
+- **Random poses:** choose mixed, standing, action or seated in the mannequin pose library. Generate a new pose or reproduce one by seed, then undo, edit or save it. Random poses are not guaranteed to be collision-free or anatomically natural.
+- **Asset recovery:** mannequin or skin timeouts stop loading and offer Retry or Repair mannequin assets. Repair only runs on an explicit click and verifies/restores the bundled mannequin and skin. It does not download LoRA or inference weights; `python install_assets.py` is the CLI alternative.
+
+Lens values use a 24 mm vertical sensor. Objects outside the target plane can change size with perspective. No additional models are needed; photo copying uses the existing DWPose weights.
 
 ### Base model and structure maps
 
@@ -124,7 +135,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.3.0**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.4.0**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 
@@ -173,7 +184,7 @@ Replace model filenames in the example workflow with compatible weights installe
 
 **Reconstruction model selection (1.1.0):** supports subdirectories and extra model paths registered with ComfyUI. Standard filenames are discovered automatically. For renamed weights or multiple matching copies, expand **重建模型** (Reconstruction models) in the left panel, choose compatible weights for all five roles, save the selection, then reconstruct. Preferences stay in the current browser; changing models does not reuse the old reconstruction cache. Restart ComfyUI and refresh with `Ctrl+F5` after updating.
 
-If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` inside the node directory, confirm that `web/vendor/assets/pose_studio_makehuman.v2.bin` and `web/vendor/textures/skin.png` exist, restart ComfyUI, and hard-refresh the browser. Run `python install_assets.py` if either file is still missing.
+If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` inside the node directory, confirm that `web/vendor/assets/pose_studio_makehuman.v2.bin` and `web/vendor/textures/skin.png` exist, restart ComfyUI, and hard-refresh the browser. If either file is still missing, click Repair mannequin assets in the error dialog or run `python install_assets.py`.
 
 ## Storage, portability, and limits
 
@@ -184,6 +195,8 @@ If an older installation shows `MakeHuman asset: HTTP 404`, run `git pull` insid
 - Verified on an RTX 5090 Laptop with 24 GB VRAM; adjust models and resolution for other hardware.
 
 ### Network access
+
+Repair mannequin assets runs only when clicked. It downloads missing or damaged mannequin / skin files from a pinned commit in this repository and verifies SHA-256. Complete assets do not require network access.
 
 Node endpoints use the ComfyUI server's access boundary and do not provide a separate login system. For local use, keep ComfyUI's default `--listen 127.0.0.1`. LAN and cloud deployments need a trusted network, VPN or authenticated reverse proxy protecting the entire ComfyUI service, including `/anyangle-studio/*`. Do not expose an unauthenticated port directly to the Internet; a loopback client-IP restriction does not replace authentication.
 

@@ -44,11 +44,26 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict(sys.modules, modules):
             spec.loader.exec_module(routes)
         self.store = backend.StudioStore(self.directory.name)
+        self.routes_module = routes
         routes.register_routes(lambda: self.store)
         app = web.Application(); app.add_routes(table)
         self.client = TestClient(TestServer(app))
         await self.client.start_server()
         self.addAsyncCleanup(self.client.close)
+
+    async def test_human_repair_only_runs_on_explicit_post_and_reports_download_errors(self):
+        with patch.object(self.routes_module, "repair_editor_assets") as repair:
+            response = await self.client.get("/anyangle-studio/repair-human")
+            self.assertEqual(response.status, 405)
+            repair.assert_not_called()
+            response = await self.client.post("/anyangle-studio/repair-human")
+            self.assertEqual(response.status, 200)
+            self.assertTrue((await response.json())["repaired"])
+            repair.assert_called_once_with()
+        with patch.object(self.routes_module, "repair_editor_assets", side_effect=OSError("network unavailable")):
+            response = await self.client.post("/anyangle-studio/repair-human")
+            self.assertEqual(response.status, 400)
+            self.assertIn("install_assets.py", (await response.json())["error"])
 
     async def test_default_and_manual_models_are_resolved_through_http(self):
         response = await self.client.get("/anyangle-studio/reconstruction-config")

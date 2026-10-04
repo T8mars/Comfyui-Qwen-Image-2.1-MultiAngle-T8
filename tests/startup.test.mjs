@@ -20,6 +20,7 @@ function fixture(response) {
     },
     fetch: async url => { requests.push(url); return response; },
     toast: message => notices.push(message), error: failure => errors.push(failure.message),
+    showLoadError: () => { state.$('#loading').hidden = true; },
     StudioScene: class { async init(doc) { state.initCount++; state.initializedSource = doc.source.kind; } },
     begin() {}, changed() {}, refresh() {}, schedulePreview() {},
     renderShots() {}, renderLibrary() {}, ensureHumanTools: async () => {},

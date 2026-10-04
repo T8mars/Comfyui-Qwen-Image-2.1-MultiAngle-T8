@@ -3,7 +3,10 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import threading
 import urllib.request
+
+_editor_repair_lock = threading.Lock()
 
 
 def sha256(path):
@@ -34,6 +37,14 @@ def install(entry, target):
         temporary.unlink(missing_ok=True)
 
 
+def repair_editor_assets():
+    root = Path(__file__).resolve().parent
+    manifest = json.loads((root / "assets-manifest.json").read_text(encoding="utf-8"))
+    with _editor_repair_lock:
+        for entry in manifest["editor"]:
+            install(entry, root / entry["path"])
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--download-lora", action="store_true", help="Also download the official AnyAngle LoRA")
@@ -41,8 +52,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     manifest = json.loads((root / "assets-manifest.json").read_text(encoding="utf-8"))
-    for entry in manifest["editor"]:
-        install(entry, root / entry["path"])
+    repair_editor_assets()
     if args.download_lora:
         entry = manifest["lora"]
         install(entry, args.comfy_dir / "models" / "loras" / "QI2.1_AnyAngle.safetensors")

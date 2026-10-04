@@ -1,6 +1,6 @@
 [project]
 name = "qwen-image-21-multiangle-t8"
-version = "1.3.0"
+version = "1.4.0"
 description = "Interactive 3D camera and pose studio for Qwen Image 2.1, with TripoSplat reconstruction, DWPose, Depth Anything 3 and Canny guides."
 readme = "README.md"
 license = { file = "LICENSE" }

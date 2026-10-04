@@ -350,3 +350,32 @@ export const WORLD_KEYPOINT_NAMES = {
     ls: 'left_shoulder', le: 'left_elbow', lw: 'left_wrist', rs: 'right_shoulder', re: 'right_elbow', rw: 'right_wrist',
     lh: 'left_hip', lk: 'left_knee', la: 'left_ankle', rh: 'right_hip', rk: 'right_knee', ra: 'right_ankle',
 };
+
+// Copy only observed segments in the image plane, without inventing their depth.
+export function copyVisiblePose(points, rest) {
+    if (!points.ls || !points.rs || !points.neck) throw Error('复制姿势需要清晰可见的左右肩；请使用人物更完整的照片');
+    const p2 = Object.fromEntries(Object.entries(points).map(([key, [x, y]]) => [key, [x, -y]]));
+    const direction = (a, b) => {
+        const vector = sub(p2[b], p2[a]), distance = length(vector);
+        if (distance < 1e-3) throw Error('照片关节重合，无法复制该肢体方向');
+        return vector.map(value => value / distance);
+    };
+    const step = (base, a, b) => add(base, [...direction(a, b).map(value => value * length(sub(rest[b], rest[a]))), 0]);
+    const hips = !!(p2.lh && p2.rh);
+    const kps = { hipMid: rest.pelvis.slice(), neck: rest.neck.slice() };
+    if (hips) {
+        p2.hipMid = mid(p2.lh, p2.rh);
+        kps.neck = step(rest.hipMid, 'hipMid', 'neck');
+        const axis = direction('rh', 'lh'), half = length(sub(rest.lh, rest.rh)) / 2;
+        kps.lh = add(rest.hipMid, [...axis.map(value => value * half), 0]);
+        kps.rh = add(rest.hipMid, [...axis.map(value => -value * half), 0]);
+    }
+    const shoulderAxis = direction('rs', 'ls'), half = length(sub(rest.ls, rest.rs)) / 2;
+    kps.ls = add(kps.neck, [...shoulderAxis.map(value => value * half), 0]);
+    kps.rs = add(kps.neck, [...shoulderAxis.map(value => -value * half), 0]);
+    if (p2.head) kps.head = step(kps.neck, 'neck', 'head');
+    for (const [, from, to] of LIFT_SEGMENTS.slice(1)) {
+        if (kps[from] && p2[from] && p2[to]) kps[to] = step(kps[from], from, to);
+    }
+    return kps;
+}

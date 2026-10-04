@@ -41,6 +41,20 @@ class SnapshotTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertEqual(self.store.load_scene(first)[0]["scene"]["camera"]["azimuth"], 45)
 
+    def test_lens_and_random_pose_seed_survive_snapshot_reload(self):
+        self.scene["camera"]["focalLength"] = 85
+        self.scene["poseRandom"] = {"seed": 4294967295, "category": "action"}
+        token = self.store.save_scene(self.scene, self.png)
+        restored = StudioStore(self.directory.name).load_scene(token)[0]["scene"]
+        self.assertEqual(restored["camera"]["focalLength"], 85)
+        self.assertEqual(restored["poseRandom"], self.scene["poseRandom"])
+
+    def test_invalid_lens_values_do_not_create_unrenderable_snapshots(self):
+        for focal in (-1, float("nan"), float("inf"), "85"):
+            self.scene["camera"]["focalLength"] = focal
+            with self.subTest(focal=focal), self.assertRaisesRegex(ValueError, "focal length"):
+                self.store.save_scene(self.scene, self.png)
+
     def test_background_reconstruction_setting_survives_and_changes_base_coarse_prompt(self):
         self.scene["reconstruction"] = {"keepBackground": True}
         self.scene["source"]["keep_background"] = True
