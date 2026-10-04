@@ -14,6 +14,7 @@ function fixture(failAt = null) {
   let queueCount = 0;
   const state = {
     doc: original, embedded: true, batchRunning: false, batchController: null, batchViews: [], batchId: null,
+    cannyWarningRevision: -1,
     studio: { doc: original, syncPose() {}, updateShot() {} },
     $: selector => {
       if (!elements.has(selector)) elements.set(selector, { value: '', addEventListener() {}, showModal() {}, close() {} });
@@ -42,8 +43,11 @@ function fixture(failAt = null) {
   return { state, elements, original, angles, archives, errors };
 }
 
-test('batch dialog queues distinct views and restores the original draft and controls', async () => {
+test('batch dialog restores the original draft, controls and Canny warning after distinct views', async () => {
   const { state, elements, original, angles, archives } = fixture();
+  const capture = state.captureGuide;
+  state.captureGuide = async () => { state.cannyWarningRevision = 1; return capture(); };
+  state.refresh = () => { assert.equal(state.cannyWarningRevision, -1); };
   await state.startCameraBatch(true);
   assert.deepEqual(angles, [0, 10, 20]); assert.equal(state.doc, original); assert.equal(state.studio.doc, original);
   assert.equal(state.batchViews.length, 3); assert.equal(archives[0].length, 3);

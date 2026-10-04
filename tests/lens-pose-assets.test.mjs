@@ -11,6 +11,7 @@ import { applyLens, lensSettings } from '../web/editor/lens.mjs';
 import { randomPose } from '../web/editor/poses.mjs';
 import { copyVisiblePose } from '../web/editor/openpose.mjs';
 import { loadHumanPack, HumanAssetError } from '../web/editor/human.mjs';
+import { activeActor } from '../web/editor/actors.mjs';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`);
 const app = readFileSync(new URL('../web/editor/app.mjs', import.meta.url), 'utf8');
@@ -203,7 +204,7 @@ test('failed startup stops the spinner and offers resource repair outside the in
 test('one-click photo copying extracts visible joints and retargets to the editable base-model rig', async () => {
   const elements = new Map(), upper = Object.fromEntries(Object.entries(photo).filter(([key]) => !['rh', 'rk', 'ra', 'lh', 'lk', 'la'].includes(key)));
   let copied = 0, fitted = 0, tools = 0;
-  const state = { doc: defaultScene(), clone: structuredClone, defaultScene,
+  const state = { doc: defaultScene(), clone: structuredClone, defaultScene, activeActor,
     previewVisible: false, begin() {}, changed() {}, toast() {}, run: task => task(),
     $: id => { if (!elements.has(id)) elements.set(id, {}); return elements.get(id); },
     setMode() {}, ensureHumanTools: async () => tools++,
@@ -222,24 +223,35 @@ test('one-click photo copying extracts visible joints and retargets to the edita
   await elements.get('#extract-pose').onclick();
   assert.equal(copied, 0); assert.equal(state.doc.source.kind, 'empty'); assert.equal(state.doc.conditioning.map.name, 'pose.png');
   await elements.get('#copy-photo-pose').onclick();
-  assert.equal(copied, 1); assert.equal(fitted, 1); assert.equal(tools, 1);
+  assert.equal(copied, 1); assert.equal(fitted, 0); assert.equal(tools, 1);
   assert.equal(state.doc.source.kind, 'human'); assert.equal(state.doc.conditioning.model, 'base');
   assert.equal(state.doc.conditioning.guide, 'pose'); assert.equal(state.doc.conditioning.map, null);
   assert.equal(state.doc.openpose.useRig, true); assert.equal(state.previewVisible, false);
   assert.equal(elements.get('#loading').hidden, true);
 });
 
-test('random pose UI preserves camera lens and reproduces the entered seed', () => {
+test('PNG recovery does not overwrite a person with inferred legs or claim them as observed joints', async()=>{
+  const elements=new Map(),people=[structuredClone(photo)];people.inferredByPerson=[['rk','ra','lk','la']];people.warnings=['estimated legs'];
+  let copied=0;const state={doc:defaultScene(),clone:structuredClone,defaultScene,activeActor,previewVisible:false,begin(){},changed(){},setMode(){},assetURL:name=>name,
+    $:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);},readSkeletonImage:()=>people,Image:class{async decode(){}},
+    studio:{restore:async()=>{},applyOpenPose(points,flips,mode){assert.equal(mode,'conservative');assert.equal(points.ra,undefined);assert.equal(points.la,undefined);assert.ok(points.rw);copied++;}},ensureHumanTools:async()=>{}};
+  state.doc.source.kind='human';state.doc.openpose={origin:'import',rawAsset:{name:'skeleton.png'},retargetMode:'estimated'};
+  vm.runInNewContext(app.slice(app.indexOf('async function retargetPose('),app.indexOf("$('#retarget-pose').onclick")),state);
+  await state.retargetPose();assert.equal(copied,1);assert.equal(state.doc.openpose.retargetMode,'conservative');assert.deepEqual(Array.from(state.doc.openpose.inferredJoints),people.inferredByPerson[0]);
+});
+
+test('random pose UI preserves camera lens and reproduces the entered seed', async () => {
   const elements = new Map(), generated = [];
   const state = { doc: defaultScene(), randomPose, previewVisible: true,
-    begin() {}, changed() {}, toast() {}, error: assert.fail,
+    begin() {}, changed() {}, toast() {}, error: assert.fail, run: action => action(),
+    randomRoles: async (seed, category) => { generated.push(randomPose(seed, category)); state.doc.poseRandom = { seed, category }; state.previewVisible = false; },
     document: { querySelectorAll: () => [] }, crypto: { getRandomValues: array => { array[0] = 42; return array; } },
     $: id => { if (!elements.has(id)) elements.set(id, {}); return elements.get(id); },
     studio: { setPreset: pose => generated.push(pose), fit() {} } };
   state.doc.source.kind = 'human'; state.doc.camera.focalLength = 85;
   state.$('#pose-category').value = 'action'; state.$('#pose-seed').value = '42';
-  vm.runInNewContext(app.slice(app.indexOf('function applyRandomPose('), app.indexOf("$('#load-error-close').onclick")), state);
-  elements.get('#random-pose').onclick(); elements.get('#repeat-pose').onclick();
+  vm.runInNewContext(app.slice(app.indexOf('async function applyRandomPose('), app.indexOf("$('#load-error-close').onclick")), state);
+  await elements.get('#random-pose').onclick(); await elements.get('#repeat-pose').onclick();
   assert.deepEqual(generated[0], generated[1]); assert.equal(state.doc.poseRandom.seed, 42);
   assert.equal(state.doc.camera.focalLength, 85); assert.equal(state.previewVisible, false);
 });

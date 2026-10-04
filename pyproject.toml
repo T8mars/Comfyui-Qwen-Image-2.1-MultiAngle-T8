@@ -1,7 +1,7 @@
 [project]
 name = "qwen-image-21-multiangle-t8"
-version = "1.4.0"
-description = "Interactive 3D camera and pose studio for Qwen Image 2.1, with TripoSplat reconstruction, DWPose, Depth Anything 3 and Canny guides."
+version = "1.5.0"
+description = "Interactive multi-person pose, camera and identity studio for Qwen Image 2.1, with shared 3D, POSE, depth and Canny guides."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

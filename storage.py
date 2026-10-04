@@ -12,6 +12,11 @@ import zipfile
 
 from PIL import Image, ImageOps
 
+try:
+    from .multiperson import canonical_scene, actor_mode, actor_prompt, build_manifest, asset_names
+except ImportError:
+    from multiperson import canonical_scene, actor_mode, actor_prompt, build_manifest, asset_names
+
 PROMPT = "Change the camera angle from <image2> to <image1>."
 BASE_PROMPTS = {
     "coarse": "Use <image1> as the identity, clothing and style reference. Recreate the same subject at the camera angle and composition shown by <image2>.",
@@ -51,9 +56,13 @@ def conditioning_for(scene):
 
 def prompt_for(scene):
     model, guide, settings = conditioning_for(scene)
+    if actor_mode(scene):
+        return actor_prompt(scene, build_manifest(scene))
     mode = settings.get("promptMode", "default")
     if mode == "custom":
         return settings.get("customPrompt", "")
+    if model == "base" and settings.get("identityMode") == "actors" and scene.get("source", {}).get("kind") == "human" and not build_manifest(scene)["references"]:
+        mode = "single"
     if mode == "single":
         prompt = SINGLE_PROMPTS[guide]
     else:
@@ -68,6 +77,9 @@ def prompt_for(scene):
 
 TOKEN = re.compile(r"[a-f0-9]{64}\Z")
 ASSET = re.compile(r"[a-f0-9]{64}\.(png|glb|ply)\Z")
+PORTABLE_MAX_TOTAL = 512 * 1024 * 1024
+PORTABLE_MAX_ASSET = 256 * 1024 * 1024
+PORTABLE_MAX_MANIFEST = 8 * 1024 * 1024
 
 
 class StudioStore:
@@ -169,8 +181,7 @@ class StudioStore:
         return data
 
     def save_scene(self, scene, png):
-        if not isinstance(scene, dict) or scene.get("version") != 1:
-            raise ValueError("Unsupported AnyAngle scene version")
+        scene = canonical_scene(scene)
         width, height = scene.get("width"), scene.get("height")
         if not isinstance(scene.get("camera"), dict) or not isinstance(scene.get("source"), dict):
             raise ValueError("Scene camera and source must be objects")
@@ -189,7 +200,7 @@ class StudioStore:
         source_kind = scene.get("source", {}).get("kind")
         if source_kind not in ("human", "glb", "splat", "empty"):
             raise ValueError("Select a reconstructed scene, human or GLB source")
-        if model == "base" and guide_mode == "depth" and not conditioning.get("map"):
+        if model == "base" and guide_mode == "depth" and not conditioning.get("map") and conditioning.get("mapOrigin") != "scene":
             raise ValueError("Import a Depth Anything map before applying")
         if model == "base" and guide_mode == "pose" and source_kind != "human" and not (
                 conditioning.get("map") and conditioning.get("mapKind") == "pose"):
@@ -220,6 +231,19 @@ class StudioStore:
             if not isinstance(name, str) or not name.endswith(".png"):
                 raise ValueError("Reference must be an image")
             self.read_asset(name)
+        if scene.get("version") == 2:
+            scene.pop("manifest", None)
+            scene.pop("resolvedPrompt", None)
+            for actor in scene["actors"]:
+                reference = actor["identity"].get("asset")
+                if reference:
+                    if not reference["name"].endswith(".png"):
+                        raise ValueError(f"Actor {actor['label']} reference must be a PNG image")
+                    self.read_asset(reference["name"])
+            for name in asset_names(scene):
+                self.read_asset(name)
+            scene["manifest"] = build_manifest(scene)
+            scene["resolvedPrompt"] = prompt_for(scene)
         if not isinstance(png, str) or not png.startswith("data:image/png;base64,"):
             raise ValueError("Guide must be a PNG capture")
         try:
@@ -244,6 +268,86 @@ class StudioStore:
             raise ValueError("This reference is not an AnyAngle scene snapshot")
         guide = self.read_asset(document["guide"]["name"])
         return document, guide
+
+    def scene_archive_manifest(self, snapshot):
+        document, _ = self.load_scene(snapshot)
+        names = sorted(asset_names(document))
+        manifest = {"version": 1, "kind": "anyangle-scene", "document": document, "assets": names}
+        encoded = json.dumps(manifest, ensure_ascii=False, allow_nan=False).encode()
+        if len(encoded) > PORTABLE_MAX_MANIFEST:
+            raise ValueError("Scene manifest exceeds 8 MB; reduce saved thumbnails or templates before exporting")
+        sizes = [self.path(name).stat().st_size for name in names]
+        overhead = 22 + 76 + 2 * len("manifest.json") + sum(76 + 2 * len("assets/" + name) for name in names)
+        if any(size > PORTABLE_MAX_ASSET for size in sizes) or sum(sizes) + len(encoded) + overhead > PORTABLE_MAX_TOTAL:
+            raise ValueError("Scene ZIP exceeds 512 MB total or 256 MB per asset; remove unused assets before exporting")
+        return encoded, names
+
+    def scene_archive(self, snapshot):
+        manifest, names = self.scene_archive_manifest(snapshot)
+        archive = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+        try:
+            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as output:
+                output.writestr("manifest.json", manifest)
+                for name in names:
+                    output.writestr("assets/" + name, self.read_asset(name))
+            archive.seek(0)
+            return archive
+        except Exception:
+            archive.close()
+            raise
+
+    def import_scene_archive(self, data):
+        if len(data) > PORTABLE_MAX_TOTAL:
+            raise ValueError("Scene ZIP exceeds its asset size limit")
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(data))
+        except zipfile.BadZipFile as error:
+            raise ValueError("Choose an AnyAngle scene ZIP") from error
+        with archive:
+            def read_entry(name):
+                try:
+                    return archive.read(name)
+                except zipfile.BadZipFile as error:
+                    raise ValueError("Scene ZIP is corrupt") from error
+            entries = archive.infolist()
+            if len({entry.filename for entry in entries}) != len(entries):
+                raise ValueError("Scene ZIP contains duplicate entries")
+            if sum(entry.file_size for entry in entries) > PORTABLE_MAX_TOTAL or any(entry.file_size > PORTABLE_MAX_ASSET for entry in entries):
+                raise ValueError("Scene ZIP exceeds its asset size limit")
+            try:
+                manifest_info = archive.getinfo("manifest.json")
+            except KeyError as error:
+                raise ValueError("Scene ZIP is missing its manifest") from error
+            if manifest_info.file_size > PORTABLE_MAX_MANIFEST:
+                raise ValueError("Scene manifest is too large")
+            manifest = json.loads(read_entry(manifest_info))
+            if not isinstance(manifest, dict) or manifest.get("version") != 1 or manifest.get("kind") != "anyangle-scene":
+                raise ValueError("This ZIP is not an AnyAngle scene")
+            document = manifest.get("document")
+            if not isinstance(document, dict) or not isinstance(document.get("guide"), dict):
+                raise ValueError("Scene ZIP is missing its document")
+            scene = canonical_scene(document.get("scene"))
+            names = manifest.get("assets")
+            if not isinstance(names, list) or not all(isinstance(name, str) and ASSET.fullmatch(name) for name in names):
+                raise ValueError("Invalid scene ZIP asset paths")
+            if set(names) != asset_names(document) or {entry.filename for entry in entries} != {"manifest.json", *("assets/" + name for name in names)}:
+                raise ValueError("Scene ZIP assets do not match its manifest")
+            with tempfile.TemporaryDirectory() as directory:
+                staging = StudioStore(directory)
+                for name in names:
+                    raw = read_entry("assets/" + name)
+                    if hashlib.sha256(raw).hexdigest() != name.split(".")[0]:
+                        raise ValueError("Scene ZIP asset failed its SHA256 integrity check")
+                    staging.asset(raw, name.rsplit(".", 1)[1])
+                    staging.write(name, raw)
+                png = staging.read_asset(document["guide"]["name"])
+                token = staging.save_scene(scene, "data:image/png;base64," + base64.b64encode(png).decode())
+                for name in names:
+                    self.write(name, staging.read_asset(name))
+                saved, normalized_png = staging.load_scene(token)
+                result = self.save_scene(saved["scene"], "data:image/png;base64," + base64.b64encode(normalized_png).decode())
+                document, _ = self.load_scene(result)
+                return {"snapshot": result, **document, "manifest": document["scene"].get("manifest")}
 
     def save_batch(self, views):
         if not isinstance(views, list) or not views:

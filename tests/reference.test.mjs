@@ -47,6 +47,14 @@ test('structure input resolves independently from the original image', () => {
   assert.equal(referencePlan(graph, 1).filename, 'portrait.png');
 });
 
+test('native Autogrow dotted and nested keys resolve the same stable actor input', () => {
+  const source = {class_type:'LoadImage',inputs:{image:'person.png'}};
+  const flat = {'1':{inputs:{'actor_references.actor_reference_10':['2',0]}},'2':source};
+  const nested = {'1':{inputs:{actor_references:{actor_reference_10:['2',0]}}},'2':source};
+  assert.equal(referencePlan(flat,1,'actor_reference_10').filename,'person.png');
+  assert.equal(referencePlan(flat,1,'actor_reference_10').signature,referencePlan(nested,1,'actor_reference_10').signature);
+});
+
 test('reference import rejects foreign origins and non-image routes before any request', async () => {
   const oldFetch = globalThis.fetch, oldLocation = globalThis.location;
   globalThis.location = new URL('http://localhost:8189/');

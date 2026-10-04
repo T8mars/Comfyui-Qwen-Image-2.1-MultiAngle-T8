@@ -14,6 +14,8 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 from PIL import Image
 from test_reconstruction import load_reconstruction
+from test_multiperson import scene_for
+from dwpose import people_from_keypoints, keypoints_signature
 
 
 class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
@@ -35,7 +37,9 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         package.__path__ = [str(Path(__file__).parents[1])]
         server = types.ModuleType("server")
         server.PromptServer = types.SimpleNamespace(instance=types.SimpleNamespace(routes=table))
-        dwpose = types.ModuleType("anyangle_reconstruction_test.dwpose"); dwpose.extract_pose = None
+        dwpose = types.ModuleType("anyangle_reconstruction_test.dwpose")
+        dwpose.extract_pose = None; dwpose.extract_people = None; dwpose.people_from_keypoints = None
+        dwpose.keypoints_signature = keypoints_signature
         depth = types.ModuleType("anyangle_reconstruction_test.depth"); depth.extract_depth = None
         modules = {"anyangle_reconstruction_test": package, "anyangle_reconstruction_test.reconstruction": backend,
                    "anyangle_reconstruction_test.dwpose": dwpose, "anyangle_reconstruction_test.depth": depth, "server": server}
@@ -118,3 +122,49 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 400)
         response = await self.client.get("/anyangle-studio/batch-guides/invalid")
         self.assertEqual(response.status, 404)
+
+    async def test_portable_scene_routes_restore_references_and_report_invalid_zips(self):
+        buffer = io.BytesIO(); Image.new("RGB", (96, 64), "gray").save(buffer, "PNG")
+        scene = scene_for()
+        for actor in scene["actors"]:
+            actor["identity"]["asset"] = self.store.asset(buffer.getvalue(), "png")
+        response = await self.client.post("/anyangle-studio/portable-scenes", json={"scene": scene,
+            "png": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()})
+        self.assertEqual(response.status, 200)
+        portable = await response.json()
+        response = await self.client.get(portable["url"])
+        self.assertEqual(response.status, 200)
+        zipped = await response.read()
+        from aiohttp import FormData
+        form = FormData(); form.add_field("file", zipped, filename="scene.zip", content_type="application/zip")
+        response = await self.client.post("/anyangle-studio/import-scene", data=form)
+        self.assertEqual(response.status, 200)
+        restored = await response.json()
+        self.assertEqual(len(restored["scene"]["actors"]), 3)
+        self.assertEqual(restored["manifest"]["imageCount"], 2)
+        form = FormData(); form.add_field("file", b"bad zip", filename="scene.zip", content_type="application/zip")
+        response = await self.client.post("/anyangle-studio/import-scene", data=form)
+        self.assertEqual(response.status, 400)
+
+    async def test_pose_people_route_preserves_every_json_person(self):
+        values = [value for index in range(18) for value in (20 + index, 20 + index, .9)]
+        frames = [{"canvas_width": 96, "canvas_height": 64, "people": [{"pose_keypoints_2d": values}] * 2}]
+        with patch.object(self.routes_module, "people_from_keypoints", side_effect=people_from_keypoints):
+            response = await self.client.post("/anyangle-studio/pose-people", json={"keypoints": frames})
+        self.assertEqual(response.status, 200)
+        result = await response.json()
+        self.assertEqual(len(result["people"]), 2)
+        self.assertEqual((result["width"], result["height"]), (96, 64))
+        self.assertEqual(result["people"][0]["canvasWidth"], 96)
+        response = await self.client.post("/anyangle-studio/pose-people", json={"reference": "../image.png"})
+        self.assertEqual(response.status, 400)
+
+    async def test_portable_scene_over_budget_fails_before_returning_a_download_url(self):
+        buffer = io.BytesIO(); Image.new("RGB", (96, 64), "gray").save(buffer, "PNG")
+        with patch.dict(self.store.scene_archive_manifest.__globals__, {"PORTABLE_MAX_TOTAL": 1}):
+            response = await self.client.post("/anyangle-studio/portable-scenes", json={"scene": scene_for(),
+                "png": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()})
+        self.assertEqual(response.status, 400)
+        result = await response.json()
+        self.assertNotIn("url", result)
+        self.assertIn("error", result)

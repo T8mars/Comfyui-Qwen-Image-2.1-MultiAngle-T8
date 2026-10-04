@@ -80,6 +80,33 @@ test('failed capture restores the visible renderer and helpers before resuming i
   assert.equal(studio.capturing, false); assert.equal(studio.updated, true);
 });
 
+for (const kind of ['human', 'glb']) test(`Canny clay capture preserves ${kind} colors, helpers and background even on failure`, async () => {
+  const { studio, renderer, helper, marker, background } = fixture();
+  studio.doc.source.kind = kind; studio.doc.conditioning.colorActors = true;
+  if (kind === 'glb') studio.glb = studio.viewer.skinnedMesh;
+  const originalOverride = new THREE.MeshBasicMaterial({ color: '#123456' });
+  studio.viewer.scene.overrideMaterial = originalOverride;
+  let clay, disposed = 0;
+  const render = renderer.render;
+  renderer.render = function(scene, camera) {
+    clay = scene.overrideMaterial;
+    assert.equal(clay.isMeshStandardMaterial, true);
+    assert.equal(clay.color.getHexString(), 'eeeeee');
+    assert.equal(clay.side, THREE.DoubleSide);
+    assert.equal(scene.background.getHexString(), '000000');
+    clay.addEventListener('dispose', () => disposed++);
+    render.call(this, scene, camera);
+    throw new Error('clay render failed');
+  };
+  await assert.rejects(studio.capture(2, 2, { canny: true }), /clay render failed/);
+  assert.equal(studio.viewer.scene.overrideMaterial, originalOverride);
+  assert.equal(studio.viewer.scene.background, background);
+  assert.equal(studio.doc.conditioning.colorActors, true);
+  assert.equal(helper.visible, true); assert.equal(marker.visible, true);
+  assert.equal(renderer.target, null); assert.equal(studio.capturing, false);
+  assert.equal(disposed, 1);
+});
+
 test('splat offscreen dimensions are independent of display size and high DPI', () => {
   const core = { renderer: {}, camera: new THREE.PerspectiveCamera() };
   const splat = new SplatScene(core);

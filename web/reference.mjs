@@ -1,6 +1,7 @@
 // Work from ComfyUI's executable graph so reroutes and bypassed nodes resolve normally.
 export function referencePlan(output, nodeId, inputName = 'reference_image') {
-  const link = output[String(nodeId)]?.inputs?.[inputName];
+  const inputs = output[String(nodeId)]?.inputs;
+  const link = inputs?.[inputName] || inputs?.[`actor_references.${inputName}`] || inputs?.actor_references?.[inputName];
   if (!link) return null;
   const upstream = {};
   function visit(id) {
@@ -39,9 +40,11 @@ export async function importReference(url) {
   return asset;
 }
 
-export async function executeReference(plan, isActive) {
+export async function executeReference(plan, isActive, kind = 'image') {
   const previewId = 'anyangle_reference_' + crypto.randomUUID();
-  const prompt = { ...plan.upstream, [previewId]: { class_type: 'PreviewImage', inputs: { images: plan.link } } };
+  const prompt = { ...plan.upstream, [previewId]: kind === 'keypoints'
+    ? { class_type: 'AnyAnglePoseReadT8', inputs: { keypoints: plan.link } }
+    : { class_type: 'PreviewImage', inputs: { images: plan.link } } };
   const response = await fetch('/prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
   const queued = await response.json();
   if (!response.ok) throw new Error(queued.error?.message || '上游图像执行失败，请检查上游节点');
@@ -67,6 +70,11 @@ export async function executeReference(plan, isActive) {
     if (item.status?.status_str === 'error') {
       const detail = item.status.messages?.find(([type]) => type === 'execution_error')?.[1];
       throw new Error(detail?.exception_message || '上游执行失败或已取消');
+    }
+    if (kind === 'keypoints') {
+      const people = item.outputs?.[previewId]?.anyangle_pose_people?.[0];
+      if (people) return people;
+      throw new Error('上游没有输出可用的 POSE_KEYPOINT 数据');
     }
     const image = item.outputs?.[previewId]?.images?.[0];
     if (image) return importReference(imageViewURL(image.filename, image.type, image.subfolder));

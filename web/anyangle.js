@@ -1,12 +1,12 @@
 import { app } from '../../scripts/app.js';
 import { api } from '../../scripts/api.js';
-import { referencePlan, executeReference } from './reference.mjs?v=20261002c';
-import { promptForSnapshot } from './batch-queue.mjs?v=20261002c';
+import { referencePlan, executeReference } from './reference.mjs?v=20261004mp1';
+import { promptForSnapshot } from './batch-queue.mjs?v=20261004mp1';
 
 let graphRevision = 0;
 let closeActive = null;
 const extensionURL = new URL('./editor/index.html', import.meta.url);
-extensionURL.searchParams.set('v', '20261004c');
+extensionURL.searchParams.set('v', '20261004mp1');
 
 function openEditor(node, widget) {
   closeActive?.();
@@ -22,6 +22,7 @@ function openEditor(node, widget) {
   let reference = { connected: false }, referenceSignature = null, readingReference = false;
   let structure = { connected: false }, structureSignature = null, readingStructure = false;
   let batchGraph = null;
+  let actorReferences = [], actorSignatures = new Map(), posePeople = null, poseSignature = null;
   const batchRequests = new Map();
   const unwiredAnyAngleLoader = () => {
     const strength = node.outputs?.find(output => output.name === 'anyangle_lora_strength');
@@ -100,6 +101,38 @@ function openEditor(node, widget) {
         pending: false, error: error.message, message: error.message };
     } finally { readingStructure = false; }
   };
+  const actorPlans = async () => {
+    const { output } = await app.graphToPrompt(), inputs = output[String(node.id)]?.inputs || {};
+    const keys = new Set([...Object.keys(inputs), ...Object.keys(inputs.actor_references || {}), ...(node.inputs || []).map(input => input.name)].map(key => key.replace(/^actor_references\./, '')).filter(key => /^actor_reference_[1-9][0-9]*$/.test(key)));
+    return [...keys].sort((a,b) => Number(a.split('_').at(-1))-Number(b.split('_').at(-1))).map(inputKey => ({ inputKey, plan: referencePlan(output, node.id, inputKey) })).filter(item => item.plan);
+  };
+  const readActors = async (execute = false) => {
+    const plans = await actorPlans(), previous = new Map(actorReferences.map(item => [item.inputKey, item]));
+    const result = [];
+    for (const { inputKey, plan } of plans) {
+      let asset = actorSignatures.get(inputKey) === plan.signature ? previous.get(inputKey)?.asset : null;
+      let readError = null;
+      try { if (!asset && (plan.filename || execute)) asset = await executeReference(plan, valid); }
+      catch (error) { readError = error.message; }
+      if (!valid()) return;
+      result.push({ inputKey, asset, error: readError, message: readError || (asset ? '来自 IMAGE 连线 · 首张图像' : '点击读取人物照片，执行上游节点') });
+    }
+    const current = await actorPlans();
+    if (JSON.stringify(current.map(item => [item.inputKey,item.plan.signature])) !== JSON.stringify(plans.map(item => [item.inputKey,item.plan.signature]))) throw new Error('人物照片上游已变化，请重新读取');
+    actorReferences = result; actorSignatures = new Map(plans.map(item => [item.inputKey,item.plan.signature]));
+    const failed = result.filter(item => item.error); if (failed.length) throw new Error(failed.map(item => `${item.inputKey}: ${item.error}`).join('\n'));
+  };
+  const readKeypoints = async (execute = false) => {
+    const { output } = await app.graphToPrompt(), plan = referencePlan(output, node.id, 'pose_keypoints');
+    if (!plan) { posePeople = null; poseSignature = null; return; }
+    if (execute) {
+      const result = await executeReference(plan, valid, 'keypoints');
+      const latest = referencePlan((await app.graphToPrompt()).output, node.id, 'pose_keypoints');
+      if (latest?.signature !== plan.signature) throw new Error('姿势关键点上游已变化，请重新读取');
+      posePeople = { ...result, planSignature: plan.signature };
+    }
+    poseSignature = plan.signature;
+  };
   const close = () => { if (!active) return; active = false; window.removeEventListener('message', receive); dialog.remove(); if (closeActive === close) closeActive = null; };
   const valid = () => active && app.graph === graph && graphRevision === revision && graph.getNodeById(node.id) === node && widget.value === initial;
   const validateSnapshot = async token => {
@@ -109,11 +142,23 @@ function openEditor(node, widget) {
     const response = await fetch(`/anyangle-studio/snapshots/${token.id}`);
     if (!response.ok) throw new Error('无法验证已保存的场景，请重新应用');
     const saved = await response.json(), scene = saved.scene, settings = scene.conditioning || {};
+    const plans = await actorPlans();
+    if (JSON.stringify(plans.map(item => [item.inputKey,item.plan.signature])) !== JSON.stringify([...actorSignatures])) throw new Error('人物照片连线已变化，请重新读取');
+    for (const actor of scene.actors || []) if (actor.identity?.inputKey) {
+      const reference = actorReferences.find(item => item.inputKey === actor.identity.inputKey);
+      if (reference && (!reference.asset || actor.identity.asset?.name !== reference.asset.name)) throw new Error(`请重新读取 ${actor.identity.inputKey} 并应用身份绑定`);
+    }
     if (settings.model === 'base' && unwiredAnyAngleLoader())
       throw new Error('当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的 anyangle_lora_strength，或移除该加载器。');
     if (reference.connected && scene.reference?.name !== reference.asset?.name) throw new Error('参考图已变化，请重新读取并重建主体');
-    const photoGuide = settings.guide === 'pose' && scene.openpose?.origin === 'dwpose'
-      || settings.guide === 'depth' && settings.mapOrigin === 'da3'
+    if (settings.model === 'base' && settings.guide === 'pose' && scene.openpose?.origin === 'keypoints' && !scene.openpose.useRig) {
+      const current = referencePlan((await app.graphToPrompt()).output, node.id, 'pose_keypoints');
+      if (current?.signature !== poseSignature || scene.openpose.inputPlanSignature && current?.signature !== scene.openpose.inputPlanSignature
+          || posePeople && scene.openpose.inputSignature !== posePeople.signature) throw new Error('姿势关键点上游已变化，请重新读取并应用');
+    }
+    const photoGuide = settings.guide === 'pose' && ['dwpose', 'json', 'keypoints'].includes(scene.openpose?.origin)
+      || settings.guide === 'pose' && (scene.openpose?.useRig || settings.mapOrigin === 'rig')
+      || settings.guide === 'depth' && ['da3', 'scene'].includes(settings.mapOrigin)
       || settings.guide === 'canny' && ['auto', 'reference'].includes(settings.mapOrigin);
     if (structure.connected && settings.model === 'base' && !photoGuide) {
       const name = settings.guide === 'pose' ? scene.openpose?.sourceName : settings.map?.name;
@@ -121,6 +166,7 @@ function openEditor(node, widget) {
         throw new Error('结构图已变化，请先在工作台重新读取并应用');
     }
     if (!valid()) throw new Error('工作流已改变，请重新打开工作台');
+    return scene;
   };
   const receive = async event => {
     if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.session !== session) return;
@@ -129,11 +175,20 @@ function openEditor(node, widget) {
       let snapshot = null; try { snapshot = initial ? JSON.parse(initial) : null; } catch { /* New editor can replace a damaged widget. */ }
       await readReference();
       await readStructure();
-      send('anyangle-load', { snapshot, reference, structure, unwiredAnyAngle: unwiredAnyAngleLoader() });
+      const inputErrors = [];
+      try { await readActors(); } catch (error) { inputErrors.push(error.message); }
+      try { await readKeypoints(); } catch (error) { inputErrors.push(error.message); }
+      send('anyangle-load', { snapshot, reference, structure, actorReferences, inputError: inputErrors.join('\n'), keypointsConnected: !!poseSignature, unwiredAnyAngle: unwiredAnyAngleLoader() });
     } else if (event.data.type === 'anyangle-read-reference') {
       await readReference(true); send('anyangle-reference', { reference });
     } else if (event.data.type === 'anyangle-read-structure') {
       await readStructure(true); send('anyangle-structure', { structure });
+    } else if (event.data.type === 'anyangle-read-actors') {
+      try { await readActors(true); send('anyangle-actors', { actorReferences }); }
+      catch (error) { send('anyangle-actors', { actorReferences, error: error.message }); }
+    } else if (event.data.type === 'anyangle-read-keypoints') {
+      try { await readKeypoints(true); send('anyangle-keypoints', { posePeople }); }
+      catch (error) { send('anyangle-keypoints', { error: error.message }); }
     } else if (event.data.type === 'anyangle-close') close();
     else if (event.data.type === 'anyangle-batch-request') {
       const requestId = event.data.requestId;
@@ -146,8 +201,8 @@ function openEditor(node, widget) {
           return {};
         }
         if (event.data.action !== 'queue' || !batchGraph) throw new Error('请先准备批量工作流');
-        await validateSnapshot(event.data.snapshot);
-        const result = await api.queuePrompt(0, promptForSnapshot(batchGraph, node.id, event.data.snapshot));
+        const frozenScene = await validateSnapshot(event.data.snapshot);
+        const result = await api.queuePrompt(0, promptForSnapshot(batchGraph, node.id, event.data.snapshot, frozenScene));
         if (!result.prompt_id) throw new Error('提交未返回任务编号，请检查 ComfyUI 队列');
         return { prompt_id: result.prompt_id };
       })());
@@ -184,6 +239,18 @@ app.registerExtension({
     }
   },
   async beforeRegisterNodeDef(nodeType, data) {
+    if (data.name === 'AnyAngleMultiPersonEncodeT8') {
+      const executed = nodeType.prototype.onExecuted;
+      nodeType.prototype.onExecuted = function (message) {
+        executed?.apply(this, arguments);
+        const encoding = message?.anyangle_encoding?.[0];
+        if (encoding && this.outputs?.[2]) {
+          this.outputs[2].label = `latent · ${encoding.width} × ${encoding.height}`;
+          app.graph.setDirtyCanvas(true, true);
+        }
+      };
+      return;
+    }
     if (data.name !== 'AnyAngleStudioT8') return;
     const created = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {

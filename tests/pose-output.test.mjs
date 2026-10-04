@@ -6,6 +6,7 @@ import * as THREE from '../web/vendor/three.module.mjs';
 import { PoseViewerCore } from '../web/vendor/vnccs_pose_studio_core.mjs';
 import { StudioScene, defaultScene, PRESETS } from '../web/editor/scene.mjs';
 import { guideSource } from '../web/editor/guides.mjs';
+import { saveActor, activeActor } from '../web/editor/actors.mjs';
 
 const app = readFileSync(new URL('../web/editor/app.mjs', import.meta.url), 'utf8');
 
@@ -56,6 +57,8 @@ test('reopening sparse saved poses preserves original-image and edited-rig outpu
     const cameras = [new THREE.PerspectiveCamera(), new THREE.PerspectiveCamera()];
     Object.assign(studio.viewer, { camera: cameras[0], captureCamera: cameras[1], skinnedMesh: mesh,
       meshCenter: new THREE.Vector3(0, 1, 0), setMannequinVisible() {}, waitForCaptureReady: async () => {} });
+    studio.actorRoots = new Map(); studio.viewer.clearPassiveCharacters = () => {};
+    studio.humanBounds = () => new THREE.Box3().setFromObject(mesh);
     studio.cameraClips = cameras.map(camera => ({ near: camera.near, far: camera.far }));
     studio.pack = {}; studio.grid = new THREE.Object3D(); studio.ring = new THREE.Object3D();
     studio.buildHuman = () => studio.viewer.setPose(normalized); studio.updateShot = () => {};
@@ -82,7 +85,7 @@ test('editing a pose preserves independently selected depth and canny images', (
 test('pose depth flips cannot retarget an unparsed or cropped photo after manual editing', () => {
   for (const openpose of [{ points: null, flips: {} }, { points: { head: [0.5, 0.2] }, fullBody: false, flips: {} }]) {
     const button = { dataset: { flip: 'leftArm' } };
-    const state = { doc: { source: { kind: 'human' }, openpose }, document: { querySelectorAll: () => [button] },
+    const state = { doc: { source: { kind: 'human' }, openpose }, activeActor, document: { querySelectorAll: () => [button] },
       begin: () => assert.fail('Unavailable retarget controls must not change state') };
     const start = app.indexOf("document.querySelectorAll('[data-flip]').forEach(button => {");
     vm.runInNewContext(app.slice(start, app.indexOf("$('#reference-button').onclick", start)), state);
@@ -141,7 +144,7 @@ test('preset thumbnails fit full bounds in their own aspect and restore the work
   };
   const shelf = { replaceChildren() {}, append() {} };
   const state = {
-    studio, PRESETS, clone: structuredClone,
+    studio, PRESETS, clone: structuredClone, saveActor,
     $: () => shelf, document: { createElement: () => ({ append() {} }) },
   };
   vm.runInNewContext(app.slice(app.indexOf('async function buildPresetCards()'), app.indexOf('async function ensureHumanTools()')), state);

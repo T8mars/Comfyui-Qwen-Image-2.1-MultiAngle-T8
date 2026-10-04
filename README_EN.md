@@ -1,14 +1,58 @@
 <p align="center"><img src="web/icons/aperture.svg" width="48" alt="AnyAngle Studio"></p>
 <h1 align="center">AnyAngle Studio · T8</h1>
-<p align="center"><strong>Adjust a 3D camera or extract pose, depth and contours from a reference photo in ComfyUI.</strong></p>
+<p align="center"><strong>Compose multiple actors with independent references, a 3D camera and structure guides.</strong></p>
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 <p align="center">ComfyUI custom node · Qwen Image 2.1 · optional AnyAngle LoRA · TripoSplat · MIT</p>
 
-![Actual DWPose, Depth Anything 3 and Canny guides extracted from the same reference](docs/images/structure-guides.png)
+![v1.5.0 editing three independent actors and one shared camera in actual ComfyUI](docs/images/studio-multi-person.jpg)
 
-<p align="center"><sub>Actual extraction from one original demo image · DWPose / Depth Anything 3 Small / Canny · structure maps, not final generated images</sub></p>
+<p align="center"><sub>v1.5.0 · Actual ComfyUI workbench screenshot · Bundled mannequin; Fisher is not required</sub></p>
 
 **Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Basic workflow](workflows/AnyAngle-Studio-Qwen21.json) · [Advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [中文说明](README.md)
+
+## Multi-person workbench · 1.5.0
+
+**[Multi-person workflow](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[Three-person scene ZIP with reference images](examples/multi-person-photo-pose.zip)** · [Measured results and limitations](docs/multi-person-validation.md#english)
+
+The middle images below are actual node exports; the right images are actual native Qwen Image 2.1 workflow results. All references depict original AI-generated fictional people. Settings: seed 42, 20 steps, CFG 3, euler/simple, AnyAngle strength 0.
+
+| Identity references | POSE from the 3D camera · `image_1` | Final Qwen image |
+|:---:|:---:|:---:|
+| <img src="docs/images/multi-identity-reference.png" width="220" alt="Shared two-person identity reference"> | <img src="docs/images/multi-two-pose-guide.png" width="220" alt="Actual two-person camera pose guide"> | <img src="docs/images/multi-two-pose-final.png" width="220" alt="Actual two-person generated pose result"> |
+| <img src="docs/images/multi-identity-reference.png" width="110" alt="Shared two-person reference"><img src="docs/images/demo-reference.png" width="110" alt="Third person's identity reference"> | <img src="docs/images/multi-three-pose-guide.png" width="220" alt="Actual three-person camera pose guide"> | <img src="docs/images/multi-three-pose-final.png" width="220" alt="Actual three-person generated pose result"> |
+
+| Identity references | 3D-camera Canny · `image_1` | Native Qwen result · layout differs |
+|:---:|:---:|:---:|
+| <img src="docs/images/multi-identity-reference.png" width="110" alt="Shared two-person reference"><img src="docs/images/demo-reference.png" width="110" alt="Third actor reference"> | <img src="docs/images/multi-three-canny-fixed-guide.png" width="220" alt="Actual three-person Canny edges"> | <img src="docs/images/multi-three-canny-fixed-final.png" width="220" alt="Actual Canny result; rear actor placement and action differ"> |
+
+The Canny example keeps three people, clothing order and the blue actor's raised arm, but misses the rear actor's pose and occlusion. The displayed output preserves these observed differences.
+
+Two actors share one group image; the three-person case adds one individual reference. Clothing, left-to-right mapping and the raised arm follow the two POSE examples, while faces, hairstyles and body proportions can drift. **This is not exact identity locking or pixel-perfect pose control.** Import the ZIP through **全场模板与便携场景 → 导入场景 ZIP**, Apply, and run the multi-person workflow.
+
+The same scene can also produce these structure maps; the maps themselves are not final generated results.
+
+| Scene render · Optional actor colors | Standard POSE | 3D scene depth from the same camera |
+|:---:|:---:|:---:|
+| <img src="docs/images/multi-coarse.png" width="250" alt="Two-actor scene render"> | <img src="docs/images/multi-pose.png" width="250" alt="Two-actor standard skeleton"> | <img src="docs/images/multi-depth.png" width="250" alt="Shared depth range for both actors"> |
+
+- **Independent actors in one scene:** add, copy, delete any actor, reorder, hide and lock. Click actors to edit; Ctrl-click to select several. Shape, pose, position, scale, heading and identity are independent. Switching actors keeps the camera; copying clears identity photos by default.
+- **Group photo to multiple poses:** DWPose detects and deduplicates candidates. Confirm people before copying to the current actor or adding actors. Multi-person Fisher skeleton PNGs, standard OpenPose JSON and native `POSE_KEYPOINT` connections are supported. Pose copying and matching source placement are separate; partial detections are flagged, and inferred PNG points are excluded from pose copying. Saving, importing and depth flipping affect only the current actor.
+- **Shared camera and guides:** scene render, standard POSE, scene Canny and 3D scene depth use the same capture camera. Depth supports near-white or far-white. POSE can include real finger joints, known eye/nose landmarks and filtering behind actors and visible props. Photo DA3 depth remains static.
+- **Identity and prompt mapping:** select Qwen base and separate actor identities. Upload photos, bind `actor_reference_1…` inputs, or describe each actor in text. Actors can share a group photo: prompts include both the selected region and its description, and editing the description preserves that region. The multi-person encoder reads the saved manifest and delegates to native Qwen, keeping image indices and prompts synchronized.
+- **Composition and reuse:** randomize current, selected or all unlocked actors with a repeatable seed. Full-scene templates save poses, placement, props and camera, retaining identities after actor reordering. Ground feet, arrange groups/dialogue/handshakes and export portable scene ZIPs. Hand contact performs one approximate IK alignment and can be realigned or refined manually; it is not continuous constraint solving or collision simulation. Batch views freeze the actors and reference photos.
+- **Independent camera bookmarks:** bookmarks and batch views include the camera target. Restore the original framing after applying another scene template while keeping the actors’ current poses.
+
+**Use:** load the multi-person workflow → add actors in Studio → bind photos or describe appearance → choose scene render/POSE/3D Depth/Canny → adjust actors and camera → Apply → run. Connect `guide_image_2` and `scene_json` to **AnyAngle Multi-person Encode**; separate encoder photo wires are unnecessary. Single-guide mode ignores identity photos; custom mode preserves the prompt verbatim. Alt+Left/Right switches actors and Delete removes the current actor; these shortcuts do not trigger while typing.
+
+POSE, Depth or Canny extracted from a photo or imported as an image use that image's composition, without imposing the retained 3D cast count. Default mode uses the shared original; without one, it uses a single structure image plus the accompanying text. Returning to a 3D guide restores actor bindings. Custom mode can use actor reference photos; bind the left-side original to an actor to include it, and maintain image indices in your custom text.
+
+Qwen base with AnyAngle disabled is recommended for changing poses. Existing two-image camera-edit workflows remain available. **[Qwen officially supports up to 10 reference images](https://huggingface.co/Qwen/Qwen-Image-2.1)** including the guide; this does not guarantee nine correct identities or an exact person count. Native encoder slots are not a quality guarantee. Each IMAGE input uses its first batch item. Guide-first is recommended: the first reference determines the latent frame. Actual encoded dimensions appear beside the multi-person encoder’s latent output. Actor photos use a 512-pixel area budget by default; set it to 0 to keep their original sizes.
+
+No additional weights are required beyond the bundled mannequin and existing DWPose. Rendered scene depth does not use DA3. Existing GLB/TripoSplat sources remain single-asset routes; GLB props can share the mannequin scene, but reconstructions are not editable rigs. The multi-person organization was researched against [Gaoshang Pose](https://github.com/GStaaaaa/ComfyUI-Gaoshang-Pose); its gallery is not redistributed.
+
+**Measured limits:** all 32 main-matrix jobs executed successfully, but only 7 broadly matched person count, key poses and occlusion, with 2 partially matching. Nine-person cases added people or lost poses. The base model interprets structure maps as image references. Start with fewer people, clear spacing and POSE, then inspect each result. [Full matrix, photo cases and performance measurements](docs/multi-person-validation.md#english).
+
+**Scene Canny:** mannequins and GLBs use a high-contrast clay pass with the same camera to extract geometry contours, avoiding empty maps caused by low contrast between actor colors and grey backgrounds. Texture details are excluded. TripoSplat uses its color render; photo Canny keeps the source pixels. Empty detection displays a threshold/framing warning and still allows an intentional blank guide to be exported.
 
 ## What it produces
 
@@ -63,6 +107,8 @@ For pose edits, select **Qwen base + POSE** and connect the LoRA strength output
 Lens values use a 24 mm vertical sensor. Objects outside the target plane can change size with perspective. No additional models are needed; photo copying uses the existing DWPose weights.
 
 ### Base model and structure maps
+
+![Actual POSE, Depth and Canny guides](docs/images/structure-guides.png)
 
 Select **Qwen base** under Guide Strategy to output `anyangle_lora_strength = 0`; switch back to **AnyAngle LoRA** for `1`. The updated basic and advanced workflows use the bundled **AnyAngle Optional LoRA** loader and connect this output to `strength_model`. At strength 0 it passes the base model through without requiring the AnyAngle file. For an older workflow, replace its loader and connect the strength output, or remove its LoRA loader. Switching the editor alone cannot override a fixed strength in an old workflow.
 
@@ -135,7 +181,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.4.0**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.5.0**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

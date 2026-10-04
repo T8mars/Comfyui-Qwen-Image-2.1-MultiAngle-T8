@@ -1,0 +1,606 @@
+{
+  "id": "1b861cb2-0a3d-47f5-b52a-d2af4412adaa",
+  "revision": 0,
+  "last_node_id": 12,
+  "last_link_id": 16,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AnyAngleStudioT8",
+      "pos": [
+        30,
+        440
+      ],
+      "size": [
+        370,
+        255
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "reference_image",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "structure_image",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "actor_references.actor_reference_1",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "actor_references.actor_reference_2",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "pose_keypoints",
+          "type": "POSE_KEYPOINT",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "guide_image_2",
+          "type": "IMAGE",
+          "links": [
+            5,
+            14
+          ]
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "scene_json",
+          "type": "STRING",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "anyangle_lora_strength",
+          "type": "FLOAT",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AnyAngleStudioT8"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "Comfyui-Qwen-Image-2.1-MultiAngle-T8"
+    },
+    {
+      "id": 3,
+      "type": "UNETLoader",
+      "pos": [
+        380,
+        30
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "qwen_image_2.1_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "AnyAngleOptionalLoRAT8",
+      "pos": [
+        730,
+        30
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "strength_model",
+          "type": "FLOAT",
+          "link": 16,
+          "widget": {
+            "name": "strength_model"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AnyAngleOptionalLoRAT8"
+      },
+      "widgets_values": [
+        "QI2.1_AnyAngle.safetensors",
+        1
+      ]
+    },
+    {
+      "id": 5,
+      "type": "CLIPLoader",
+      "pos": [
+        380,
+        215
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen3vl_8b_int8_convrot.safetensors",
+        "qwen_image",
+        "default"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "VAELoader",
+      "pos": [
+        380,
+        410
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            6,
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "qwen_image_2.1_vae_bf16.safetensors"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "AnyAngleMultiPersonEncodeT8",
+      "pos": [
+        730,
+        240
+      ],
+      "size": [
+        360,
+        190
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 6
+        },
+        {
+          "name": "scene_json",
+          "type": "STRING",
+          "link": 7
+        },
+        {
+          "name": "guide_image",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            8
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AnyAngleMultiPersonEncodeT8"
+      },
+      "widgets_values": [
+        512
+      ],
+      "title": "AnyAngle 多人编码 · Native Qwen 2.1"
+    },
+    {
+      "id": 8,
+      "type": "KSampler",
+      "pos": [
+        1120,
+        40
+      ],
+      "size": [
+        285,
+        470
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 8
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 9
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        42,
+        "fixed",
+        20,
+        3,
+        "euler",
+        "simple",
+        1
+      ]
+    },
+    {
+      "id": 9,
+      "type": "VAEDecode",
+      "pos": [
+        1460,
+        40
+      ],
+      "size": [
+        280,
+        140
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 11
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "SaveImage",
+      "pos": [
+        1790,
+        40
+      ],
+      "size": [
+        350,
+        430
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "AnyAngle-MultiPerson"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "PreviewImage",
+      "pos": [
+        30,
+        625
+      ],
+      "size": [
+        300,
+        290
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 14
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Single guide / image_1"
+    },
+    {
+      "id": 12,
+      "type": "Note",
+      "pos": [
+        380,
+        625
+      ],
+      "size": [
+        750,
+        330
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "Note"
+      },
+      "widgets_values": [
+        "1. 打开 Studio → 添加人物。新空场自动使用 Qwen 底模 + 独立身份。\n2. 添加、点选人物，分别输入外观描述，或把 Load Image 连到 actor_reference_1/2…，在工作台读取并为对应角色选择该入口。也可上传人物照片。\n3. 选择粗图 / POSE / 三维 Depth / 三维 Canny，调整全场，应用到节点，再运行。默认 guide-first；照片和提示词编号由 scene_json 同步。\n4. 多人编码节点调用原生 Qwen 编码器，无需手工把人物照片再连进编码器。官方参考预算为 10 张（含引导图）；照片输入不是 IMAGE batch，每入口用第一张。\n5. 可纯文字身份，不接原图；仅引导图模式忽略人物照片。AnyAngle 官方双图换机位仍使用原工作流。\n\nAdd actors in Studio, bind per-actor photos or text, Apply and run. The multi-person encoder reads the saved manifest and delegates to native Qwen. Guide-first is recommended. Each input uses its first image; multi-image batches are not separate identities."
+      ],
+      "title": "多人工作流 / Multi-person workflow"
+    }
+  ],
+  "links": [
+    [
+      1,
+      3,
+      0,
+      4,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      4,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      5,
+      0,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      5,
+      1,
+      0,
+      7,
+      3,
+      "IMAGE"
+    ],
+    [
+      6,
+      6,
+      0,
+      7,
+      1,
+      "VAE"
+    ],
+    [
+      7,
+      1,
+      2,
+      7,
+      2,
+      "STRING"
+    ],
+    [
+      8,
+      7,
+      0,
+      8,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      9,
+      7,
+      1,
+      8,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      7,
+      2,
+      8,
+      3,
+      "LATENT"
+    ],
+    [
+      11,
+      8,
+      0,
+      9,
+      0,
+      "LATENT"
+    ],
+    [
+      12,
+      6,
+      0,
+      9,
+      1,
+      "VAE"
+    ],
+    [
+      13,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      1,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      16,
+      1,
+      3,
+      4,
+      1,
+      "FLOAT"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        20,
+        10
+      ]
+    }
+  },
+  "version": 0.4
+}

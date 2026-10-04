@@ -38,10 +38,15 @@ export function guideSource(scene) {
   if (guide === 'coarse') return { kind: 'scene' };
   if (settings.map && (settings.mapKind || guide) === guide) return { kind: 'image', asset: settings.map };
   if (guide === 'pose') return { kind: 'pose' };
-  if (guide === 'depth') return { kind: 'missing' };
+  if (guide === 'depth') return settings.mapOrigin === 'scene' && ['human', 'glb'].includes(scene.source.kind) ? { kind: 'depth-scene' } : { kind: 'missing' };
   if (scene.reference && (settings.mapOrigin !== 'auto' || scene.source.kind === 'empty'))
     return { kind: 'canny-image', asset: scene.reference };
   return scene.source.kind === 'empty' ? { kind: 'missing' } : { kind: 'canny-scene' };
+}
+
+export function hasCannyEdges(rgba) {
+  for (let i = 0; i < rgba.length; i += 4) if (rgba[i] > 0) return true;
+  return false;
 }
 
 export function cannyEdges(rgba, width, height, low = 50, high = 150) {

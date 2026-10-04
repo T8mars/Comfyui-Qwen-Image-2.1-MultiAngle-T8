@@ -1,8 +1,8 @@
-import { guideSource } from './guides.mjs';
+import { guideSource } from './guides.mjs?v=20261004mp1';
 
 export function supportsCameraBatch(scene) {
   const kind = guideSource(scene).kind;
-  return scene.source.kind !== 'empty' && (['scene', 'canny-scene'].includes(kind) || kind === 'pose' && scene.source.kind === 'human');
+  return scene.source.kind !== 'empty' && (['scene', 'canny-scene', 'depth-scene'].includes(kind) || kind === 'pose' && scene.source.kind === 'human');
 }
 
 const wrapAngle = value => ((value + 180) % 360 + 360) % 360 - 180;
@@ -14,7 +14,9 @@ export function cameraBatchPlan(scene, settings) {
     if (!base.shots.length) throw new Error('请先收藏至少一个机位');
     return { count: base.shots.length, *views() {
       for (const shot of base.shots) yield { label: shot.name || '收藏机位', scene: { ...structuredClone(base),
-        camera: { ...base.camera, ...shot.camera }, width: shot.width, height: shot.height } };
+        camera: { ...base.camera, ...shot.camera }, width: shot.width, height: shot.height,
+        ...(Array.isArray(shot.cameraTarget) && shot.cameraTarget.length === 3 && shot.cameraTarget.every(Number.isFinite)
+          ? { cameraTarget: structuredClone(shot.cameraTarget) } : {}) } };
     } };
   }
   const { start, end, step } = settings;
@@ -43,6 +45,7 @@ export async function runCameraBatch(plan, { capture, save, queue, signal, onPro
       if (signal?.aborted) { result.stopped = true; break; }
       const snapshot = await save(view.scene, png);
       const entry = { label: view.label, snapshot, camera: view.scene.camera, width: view.scene.width, height: view.scene.height };
+      if (Array.isArray(view.scene.cameraTarget)) entry.cameraTarget = structuredClone(view.scene.cameraTarget);
       result.views.push(entry);
       if (signal?.aborted) { result.stopped = true; break; }
       if (queue) entry.prompt_id = await queue(snapshot);

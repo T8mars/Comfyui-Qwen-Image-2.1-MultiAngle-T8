@@ -1,13 +1,15 @@
 import * as THREE from '../vendor/three.module.mjs';
 import { GLTFLoader } from '../vendor/GLTFLoader.mjs';
-import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs';
+import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs?v=20261004mp1';
 import { solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
-import { loadHumanPack, HumanAssetError } from './human.mjs?v=20261004c';
-import { applyLens } from './lens.mjs?v=20261004c';
+import { loadHumanPack, HumanAssetError } from './human.mjs?v=20261004mp1';
+import { applyLens } from './lens.mjs?v=20261004mp1';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
-import { SplatScene } from './splat.mjs?v=20261004c';
-import { capturePNG } from './capture.mjs?v=20261004a';
-import { liftOpenPose, copyVisiblePose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs?v=20261004c';
+import { SplatScene } from './splat.mjs?v=20261004mp1';
+import { capturePNG } from './capture.mjs?v=20261004mp1';
+import { liftOpenPose, copyVisiblePose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs?v=20261004mp1';
+import { ensureActors, activeActor, bindActor, saveActor, visibleActors } from './actors.mjs?v=20261004mp1';
+import { loadProp, disposeProp, placeProp } from './props.mjs?v=20261004mp1';
 
 export const PRESETS = [
   { name: '自然站立', bones: { upperarm_l: [0, 0, -8], upperarm_r: [0, 0, 8] } },
@@ -16,7 +18,7 @@ export const PRESETS = [
   { name: '举手', bones: { upperarm_l: [0, 0, 100], lowerarm_l: [0, 0, 20], upperarm_r: [0, 0, 10] } },
 ];
 export const defaultScene = () => ({
-  version: 1, width: 1024, height: 1024,
+  version: 2, width: 1024, height: 1024, actors: [], activeActorId: null, selectedActorIds: [],
   source: { kind: 'empty' }, reference: null,
   reconstruction: { keepBackground: false },
   interaction: { mousePitch: true, quality: 'balanced', livePreview: true },
@@ -70,6 +72,8 @@ export class StudioScene {
     this.callbacks = callbacks;
     this.mode = 'camera';
     this.restoring = true;
+    this.actorRoots = new Map();
+    this.propRoots = new Map();
     this.viewer = new PoseViewerCore(canvas, {
       skinMode: 'naked', enableTextureSkinning: true,
       showSkeletonHelper: false, showCaptureFrame: false, useHandControlPopover: false,
@@ -129,12 +133,93 @@ export class StudioScene {
     if (this.mode === 'camera' && this.baseTarget) this.updateShot();
   }
 
-  buildHuman(pose) {
-    const morph = solveMorph(this.pack, this.doc.mesh);
+  buildHuman(pose, actor = activeActor(this.doc)) {
+    if (this.cachedPack !== this.pack) {
+      this.cachedPack = this.pack; this.morphCache = new Map(); this.morphCacheBytes = 0;
+      this.humanStatic = buildStaticModelData(this.pack, false);
+    }
+    const key = JSON.stringify(this.doc.mesh);
+    let cached = this.morphCache.get(key);
+    if (!cached) {
+      const morph = solveMorph(this.pack, this.doc.mesh);
+      cached = { morph, bytes: morph.vertices.byteLength + morph.bonePositions.byteLength + 65536 };
+      this.morphCacheBytes += cached.bytes;
+    } else this.morphCache.delete(key);
+    this.morphCache.set(key, cached);
+    while (this.morphCache.size > 16 || this.morphCacheBytes > 16 * 1024 * 1024) {
+      const first = this.morphCache.keys().next().value;
+      this.morphCacheBytes -= this.morphCache.get(first).bytes; this.morphCache.delete(first);
+    }
+    const morph = cached.morph;
+    // Native cached proportion controls belong to a rig, never to its previous occupant.
+    this.viewer.headScale = this.viewer.armScale = this.viewer.handScale = this.viewer.footScale = 1;
     this.viewer.setSkinTexture('naked');
-    this.viewer.loadData(modelData(morph, buildStaticModelData(this.pack, false)), true);
+    this.viewer.loadData(modelData(morph, this.humanStatic), true);
     this.viewer.setPose(pose || { bones: {} }, true);
-    this.viewer.setActiveCharacterAppearance({ color: '#e3e9ee', transform: { x: 0, y: 0, z: 0, zoom: this.doc.scale } });
+    this.viewer.setActiveCharacterAppearance({ color: actor?.editorColor || '#e3e9ee', transform: { x: 0, y: 0, z: 0, zoom: actor ? 1 : this.doc.scale } });
+    if (actor) this.attachActor(actor, this.viewer.skinnedMesh);
+  }
+
+  attachActor(actor, mesh) {
+    let root = this.actorRoots.get(actor.id);
+    if (!root) { root = new THREE.Group(); root.userData.actorId = actor.id; this.actorRoots.set(actor.id, root); this.viewer.scene.add(root); }
+    root.add(mesh); mesh.userData.actorId = actor.id;
+    this.updateActorTransform(actor);
+    return root;
+  }
+
+  updateActorTransform(actor = activeActor(this.doc)) {
+    const root = this.actorRoots.get(actor?.id); if (!root) return;
+    const t = actor.transform;
+    root.position.set(t.x, t.y, t.z); root.rotation.y = radians(t.yaw); root.scale.setScalar(t.scale);
+    root.visible = this.doc.source.kind === 'human' && actor.visible !== false;
+    root.updateMatrixWorld(true);
+    root.traverse(object => { if (object.isSkinnedMesh) { object.skeleton.update(); object.computeBoundingBox(); object.computeBoundingSphere(); } });
+    if (actor.id === this.doc.activeActorId) { this.viewer.updateMarkers(); this.viewer.updateIKEffectorPositions?.(); }
+    this.viewer.requestRender();
+  }
+
+  actorMesh(id) { return id === this.doc.activeActorId ? this.viewer.skinnedMesh : this.viewer.passiveCharacters.get(id)?.mesh; }
+  actorBones(id) { return id === this.doc.activeActorId ? this.viewer.bones : this.viewer.passiveCharacters.get(id)?.bones; }
+  humanBounds(selected = false) {
+    const box = new THREE.Box3();
+    for (const actor of selected ? this.doc.actors || [] : visibleActors(this.doc)) {
+      if (selected && !(this.doc.selectedActorIds || [this.doc.activeActorId]).includes(actor.id)) continue;
+      const mesh = this.actorMesh(actor.id);
+      if (mesh) { mesh.updateMatrixWorld(true); mesh.skeleton.update(); mesh.computeBoundingBox(); box.union(mesh.boundingBox.clone().applyMatrix4(mesh.matrixWorld)); }
+    }
+    if (!selected) for (const prop of this.doc.props || []) if (prop.visible !== false) {
+      const root = this.propRoots?.get(prop.id); if (root) box.union(worldBounds(root));
+    }
+    return box;
+  }
+
+  async restoreProps() {
+    this.propRoots ||= new Map(); const props = this.doc.props || [], ids = new Set(props.map(prop=>prop.id));
+    for (const [id, root] of this.propRoots) if (!ids.has(id) || props.find(prop=>prop.id===id)?.asset.name !== root.userData.assetName) { disposeProp(root); this.propRoots.delete(id); }
+    for (const prop of props) {
+      let root = this.propRoots.get(prop.id);
+      if (this.doc.source.kind !== 'human') { if (root) root.visible = false; continue; }
+      if (!root) { root = await loadProp(prop.asset); root.userData.assetName = prop.asset.name; this.propRoots.set(prop.id,root); this.viewer.scene.add(root); }
+      placeProp(root,prop,this.doc.source.kind==='human');
+    }
+  }
+
+  updateProp(prop) { const root = this.propRoots.get(prop.id); if (root) { placeProp(root,prop,this.doc.source.kind==='human'); this.viewer.requestRender(); } }
+
+  async selectActor(id) {
+    if (id === this.doc.activeActorId || this.doc.source.kind !== 'human') return;
+    const actor = this.doc.actors.find(item => item.id === id); if (!actor) return;
+    this.syncPose(); this.restoring = true;
+    try {
+      const previous = activeActor(this.doc);
+      if (previous && this.viewer.upsertPassiveCharacterFromActive(previous.id, { pose: previous.pose, color: previous.editorColor }))
+        this.attachActor(previous, this.viewer.passiveCharacters.get(previous.id).mesh);
+      this.viewer.removePassiveCharacter(id);
+      bindActor(this.doc, id); this.buildHuman(actor.pose, actor);
+      this.setMode(this.mode); await this.waitForCaptureReady(); this.syncPose();
+    } finally { this.restoring = false; }
+    this.callbacks.actor?.(id);
   }
 
   async waitForCaptureReady(timeout = 45000) {
@@ -151,6 +236,8 @@ export class StudioScene {
     this.restoring = true;
     try {
       this.doc = doc;
+      ensureActors(doc, doc.source.kind === 'human');
+      await this.restoreProps();
       this.updatePerformance();
       if (doc.source.kind !== 'splat') [this.viewer.camera, this.viewer.captureCamera].forEach((camera, i) => {
         camera.clearViewOffset(); camera.near = this.cameraClips[i].near; camera.far = this.cameraClips[i].far;
@@ -160,8 +247,20 @@ export class StudioScene {
       if (this.glb && doc.source.kind !== 'glb') { disposeObject(this.glb); this.glb = null; this.glbName = null; }
       if (doc.source.kind === 'human') {
         if (!this.pack) this.pack = await loadHumanPack();
-        this.buildHuman(doc.pose);
-        this.baseTarget = this.viewer.meshCenter.clone().multiplyScalar(doc.scale);
+        this.viewer.clearPassiveCharacters();
+        for (const root of this.actorRoots.values()) root.removeFromParent();
+        this.actorRoots.clear();
+        const selectedId = doc.activeActorId;
+        for (const actor of doc.actors.filter(item => item.id !== selectedId)) {
+          bindActor(doc, actor.id); this.buildHuman(actor.pose, actor);
+          this.viewer.upsertPassiveCharacterFromActive(actor.id, { pose: actor.pose, color: actor.editorColor });
+          this.attachActor(actor, this.viewer.passiveCharacters.get(actor.id).mesh);
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        const actor = bindActor(doc, selectedId); this.buildHuman(actor.pose, actor);
+        this.baseTarget = Array.isArray(doc.cameraTarget) ? new THREE.Vector3(...doc.cameraTarget) : this.humanBounds().getCenter(new THREE.Vector3());
+        if (!Number.isFinite(this.baseTarget.x)) this.baseTarget.set(0, 10, 0);
+        doc.cameraTarget = this.baseTarget.toArray();
       } else if (doc.source.kind === 'splat') {
         if (this.splat?.disposed || this.splat?.source?.name !== doc.source.name) {
           const loaded = new SplatScene(this.viewer);
@@ -210,9 +309,11 @@ export class StudioScene {
         this.baseTarget = new THREE.Vector3(0, 10, 0);
       }
       this.viewer.setMannequinVisible(doc.source.kind === 'human');
+      for (const actor of doc.actors) this.updateActorTransform(actor);
       const bounds = doc.source.kind === 'splat' ? this.splat.bounds
         : doc.source.kind === 'empty' ? new THREE.Box3(new THREE.Vector3(-10, 0, -10), new THREE.Vector3(10, 20, 10))
-        : worldBounds(doc.source.kind === 'human' ? this.viewer.skinnedMesh : this.glb);
+        : doc.source.kind === 'human' ? this.humanBounds() : worldBounds(this.glb);
+      if (bounds.isEmpty()) bounds.set(new THREE.Vector3(-10, 0, -10), new THREE.Vector3(10, 20, 10));
       this.grid.position.y = bounds.min.y - 0.03;
       this.ring.position.copy(this.baseTarget);
       this.ring.visible = doc.source.kind !== 'splat' && doc.source.kind !== 'empty';
@@ -235,6 +336,7 @@ export class StudioScene {
     const pose = this.pose();
     if (!this.restoring && JSON.stringify(pose) !== JSON.stringify(this.doc.pose)) this.useRigPose();
     this.doc.pose = pose;
+    saveActor(this.doc, pose);
   }
 
   useRigPose() {
@@ -247,6 +349,8 @@ export class StudioScene {
 
   updateShot(snap = false) {
     const d = this.doc, c = d.camera;
+    if (d.source.kind === 'human' && Array.isArray(d.cameraTarget) && d.cameraTarget.length === 3 && d.cameraTarget.every(Number.isFinite))
+      this.baseTarget.set(...d.cameraTarget);
     this.photoFrame.visible = d.source.kind === 'splat';
     if (d.source.kind === 'splat') {
       const v = this.viewer;
@@ -305,11 +409,12 @@ export class StudioScene {
     if (this.doc.source.kind === 'splat' || this.doc.source.kind === 'empty') mode = 'camera';
     this.mode = mode;
     const human = this.doc.source.kind === 'human';
-    this.viewer.setIKMode(mode === 'edit' && human);
+    const editable = human && !activeActor(this.doc)?.locked && activeActor(this.doc)?.visible !== false;
+    this.viewer.setIKMode(mode === 'edit' && editable);
     this.viewer.transform.detach();
-    this.viewer.transform.visible = mode === 'edit' && human;
+    this.viewer.transform.visible = mode === 'edit' && editable;
     this.viewer.skeletonHelper && (this.viewer.skeletonHelper.visible = false);
-    this.viewer.jointMarkers.forEach(marker => { marker.visible = mode === 'edit' && human && this.viewer._shouldMarkerBeVisible(marker); });
+    this.viewer.jointMarkers.forEach(marker => { marker.visible = mode === 'edit' && editable && this.viewer._shouldMarkerBeVisible(marker); });
     this.viewer.orbit.enabled = mode === 'edit';
     this.shotHelper.visible = mode === 'edit';
     this.updateShot(mode === 'camera');
@@ -329,12 +434,17 @@ export class StudioScene {
     this.updateShot(true);
   }
 
-  async capture(width = this.doc.width, height = this.doc.height) {
+  async capture(width = this.doc.width, height = this.doc.height, options = {}) {
     if (this.doc.source.kind === 'empty') throw new Error('请先从原图重建主体或导入对应的 3D 场景');
     await this.waitForCaptureReady();
     const v = this.viewer;
     const content = this.splat ? this.splat.root : this.doc.source.kind === 'glb' ? this.glb : v.skinnedMesh;
     if (!content) throw new Error('场景中没有可渲染资产');
+    const contents = this.doc.source.kind === 'human' && this.actorRoots?.size
+      ? [...(options.actorIds ? this.doc.actors.filter(actor => options.actorIds.includes(actor.id)) : visibleActors(this.doc)).map(actor => this.actorRoots.get(actor.id)),
+        ...(!options.actorIds ? (this.doc.props || []).filter(prop=>prop.visible!==false).map(prop=>this.propRoots.get(prop.id)) : [])].filter(Boolean) : [content];
+    if (!contents.length) throw new Error('请至少显示一个人物');
+    if (options.depth && this.splat) throw new Error('TripoSplat 暂不支持真实场景深度，请使用原图 DA3 深度');
     const visibility = v.scene.children.map(object => [object, object.visible]);
     // VNCCS attaches joint markers below the skinned mesh, not just to the scene.
     const nestedHelpers = this.doc.source.kind === 'human'
@@ -342,6 +452,9 @@ export class StudioScene {
         ...Object.values(v.ikController?.poleTargets || {}), ...(v._handRings || [])]
         .filter(Boolean).map(object => [object, object.visible]) : [];
     const background = v.scene.background;
+    const overrideMaterial = v.scene.overrideMaterial;
+    const actorColors = [];
+    let depthMaterial = null, cannyMaterial = null;
     this.capturing = true;
     let restoreSplat = null;
     try {
@@ -355,33 +468,66 @@ export class StudioScene {
         await this.splat.prepareCapture(v.renderer, camera);
       }
       // Positive content selection excludes every editor overlay, even newly added helpers.
-      for (const [object] of visibility) object.visible = object === content || !!object.isLight;
+      for (const [object] of visibility) object.visible = contents.includes(object) || !!object.isLight;
       for (const [object] of nestedHelpers) object.visible = false;
       v.scene.background = new THREE.Color(this.doc.background);
+      if (this.doc.source.kind === 'human' && this.doc.conditioning?.colorActors !== true) {
+        for (const actor of visibleActors(this.doc)) for (const material of [].concat(this.actorMesh(actor.id)?.material || [])) {
+          if (material.color) { actorColors.push([material, material.color.clone()]); material.color.set('#e3e9ee'); }
+        }
+      }
+      if (options.depth) {
+        camera.updateMatrixWorld(true);
+        const bounds = this.doc.source.kind === 'human' ? this.humanBounds() : worldBounds(content);
+        const depths = [];
+        for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z])
+          depths.push(-new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse).z);
+        const near = Math.max(camera.near, Math.min(...depths)), far = Math.max(near + 0.001, Math.max(...depths));
+        depthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.BasicDepthPacking });
+        depthMaterial.onBeforeCompile = shader => {
+          shader.uniforms.sceneNear = { value: near }; shader.uniforms.sceneFar = { value: far };
+          shader.uniforms.cameraNear = { value: camera.near }; shader.uniforms.cameraFar = { value: camera.far };
+          shader.uniforms.nearWhite = { value: this.doc.conditioning.depthInvert ? 0 : 1 };
+          shader.fragmentShader = 'uniform float sceneNear; uniform float sceneFar; uniform float cameraNear; uniform float cameraFar; uniform float nearWhite;\n' + shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace('gl_FragColor = vec4( vec3( 1.0 - fragCoordZ ), opacity );',
+            'float linearDepth = -perspectiveDepthToViewZ(fragCoordZ, cameraNear, cameraFar); float t = clamp((linearDepth-sceneNear)/(sceneFar-sceneNear),0.0,1.0); gl_FragColor = vec4(vec3(mix(t,1.0-t,nearWhite)),1.0);');
+        };
+        v.scene.overrideMaterial = depthMaterial; v.scene.background = new THREE.Color('#000000');
+      } else if (options.canny && !this.splat) {
+        // Structure edges must not disappear when an actor color and the user
+        // background have similar luminance. Render mesh geometry as lit clay
+        // for this offscreen pass only; keep the real camera and depth test.
+        cannyMaterial = new THREE.MeshStandardMaterial({ color: '#eeeeee', roughness: 1, metalness: 0, side: THREE.DoubleSide });
+        v.scene.overrideMaterial = cannyMaterial;
+        v.scene.background = new THREE.Color('#000000');
+      }
       // The bundled splat shader writes already encoded RGB, unlike Three's
       // standard mesh materials. Preserve those colors and its background.
       if (this.splat) v.scene.background.convertLinearToSRGB();
       v.scene.updateMatrixWorld(true);
       v.skeleton?.update();
       return capturePNG(v.renderer, v.scene, camera, width, height,
-        this.splat ? THREE.NoColorSpace : THREE.SRGBColorSpace);
+        this.splat || options.depth ? THREE.NoColorSpace : THREE.SRGBColorSpace);
     } finally {
       for (const [object, visible] of visibility) object.visible = visible;
       for (const [object, visible] of nestedHelpers) object.visible = visible;
       v.scene.background = background;
+      v.scene.overrideMaterial = overrideMaterial; depthMaterial?.dispose(); cannyMaterial?.dispose();
+      for (const [material, color] of actorColors) material.color.copy(color);
       try { restoreSplat?.(); }
       finally { this.capturing = false; this.updateShot(); }
     }
   }
 
-  fit() {
+  fit(selected = false) {
     if (this.doc.source.kind === 'splat') {
       this.doc.camera = { azimuth: 0, elevation: 0, zoom: 1, offsetX: 0, offsetY: 0, offsetZ: 0 };
       this.updateShot(true); return;
     }
     if (this.doc.source.kind === 'empty') return;
     const content = this.doc.source.kind === 'glb' ? this.glb : this.viewer.skinnedMesh;
-    const bounds = worldBounds(content);
+    const bounds = this.doc.source.kind === 'human' && this.actorRoots?.size ? this.humanBounds(selected) : worldBounds(content);
+    if (bounds.isEmpty()) return;
     this.doc.camera.zoom = 1;
     const center = bounds.getCenter(new THREE.Vector3());
     this.doc.camera.offsetX = this.baseTarget.x - center.x;
@@ -399,6 +545,7 @@ export class StudioScene {
   }
 
   setPreset(preset) {
+    if (!this.restoring && activeActor(this.doc)?.locked) throw new Error('人物已锁定，请先解锁');
     this.viewer.setPose({ bones: preset.bones }, true);
     if (!this.restoring) this.useRigPose();
     this.syncPose();
@@ -408,6 +555,16 @@ export class StudioScene {
   hand(side, preset) { this.viewer.applyHandPreset(side, HAND_PRESETS[preset]); this.syncPose(); }
 
   applyOpenPose(points, flips = {}, mode = 'estimated') {
+    if (activeActor(this.doc)?.locked) throw new Error('人物已锁定，请先解锁');
+    const actor = activeActor(this.doc), root = this.actorRoots?.get(actor?.id);
+    if (!root) return this._applyOpenPose(points, flips, mode);
+    // Lift in an untransformed reference plane, then place that pose in its role's world frame.
+    root.position.set(0, 0, 0); root.rotation.set(0, 0, 0); root.scale.setScalar(1); root.updateMatrixWorld(true);
+    try { return this._applyOpenPose(points, flips, mode); }
+    finally { this.updateActorTransform(actor); this.viewer.updateIKEffectorPositions(); this.viewer.updateMarkers(); }
+  }
+
+  _applyOpenPose(points, flips = {}, mode = 'estimated') {
     if (this.doc.source.kind !== 'human') throw new Error('OpenPose 姿势需要先切换到人偶');
     const viewer = this.viewer;
     if (mode === 'estimated') viewer.resetPose();
@@ -451,24 +608,136 @@ export class StudioScene {
     const context = canvas.getContext('2d');
     context.fillStyle = '#000'; context.fillRect(0, 0, width, height);
     this.viewer.captureCamera.updateMatrixWorld(true);
-    const project = bone => {
-      const point = this.viewer.bones[bone].getWorldPosition(new THREE.Vector3()).project(this.viewer.captureCamera);
-      return [(point.x + 1) * width / 2, (1 - point.y) * height / 2];
-    };
-    const bones = { head: 'head', rs: 'upperarm_r', re: 'lowerarm_r', rw: 'hand_r', ls: 'upperarm_l', le: 'lowerarm_l', lw: 'hand_l',
-      rh: 'thigh_r', rk: 'calf_r', ra: 'foot_r', lh: 'thigh_l', lk: 'calf_l', la: 'foot_l' };
-    const positions = Object.fromEntries(Object.entries(bones).map(([name, bone]) => [name, project(bone)]));
-    positions.neck = positions.ls.map((value, i) => (value + positions.rs[i]) / 2);
     context.lineCap = 'round'; context.lineJoin = 'round'; context.lineWidth = Math.max(3, Math.min(width, height) / 120);
+    for (const { positions, hands, features } of this.projectPeople(width, height)) {
+    context.lineWidth = Math.max(3, Math.min(width, height) / 120);
     LIMBS.forEach(([from, to], index) => {
+      if (!positions[ORDER[from]] || !positions[ORDER[to]]) return;
       context.strokeStyle = COLORS[index]; context.beginPath(); context.moveTo(...positions[ORDER[from]]);
       context.lineTo(...positions[ORDER[to]]); context.stroke();
     });
     ORDER.forEach((name, index) => {
+      if (!positions[name]) return;
       context.fillStyle = COLORS[index]; context.beginPath();
       context.arc(...positions[name], Math.max(3, Math.min(width, height) / 85), 0, Math.PI * 2); context.fill();
     });
+    for (const [name, color] of [['reye', '#ff00ff'], ['leye', '#aa00ff']]) if (features.nose && features[name]) {
+      context.strokeStyle = color; context.beginPath(); context.moveTo(...features.nose); context.lineTo(...features[name]); context.stroke();
+      context.fillStyle = color; context.beginPath(); context.arc(...features[name], Math.max(2, Math.min(width,height)/180), 0, Math.PI*2); context.fill();
+    }
+    for (const side of ['l', 'r']) if (hands?.[side]) {
+      const points = hands[side];
+      for (let finger = 0; finger < 5; finger++) for (let joint = 0; joint < 4; joint++) {
+        const from = joint ? points[1+finger*4+joint-1] : points[0], to = points[1+finger*4+joint];
+        if (!from || !to) continue;
+        context.strokeStyle = `hsl(${finger*72+joint*12},100%,50%)`; context.lineWidth = Math.max(1, Math.min(width,height)/350);
+        context.beginPath(); context.moveTo(...from); context.lineTo(...to); context.stroke();
+      }
+    }
+    }
     return canvas.toDataURL('image/png');
+  }
+
+  projectPeople(width = this.doc.width, height = this.doc.height) {
+    this.configureCapture(width, height); this.viewer.captureCamera.updateMatrixWorld(true);
+    const camera = this.viewer.captureCamera;
+    const actors = this.doc.actors?.length ? visibleActors(this.doc) : [{ id: null }];
+    const names = { head: 'head', rs: 'upperarm_r', re: 'lowerarm_r', rw: 'hand_r', ls: 'upperarm_l', le: 'lowerarm_l', lw: 'hand_l',
+      rh: 'thigh_r', rk: 'calf_r', ra: 'foot_r', lh: 'thigh_l', lk: 'calf_l', la: 'foot_l' };
+    const meshes = actors.map(actor => actor.id ? this.actorMesh(actor.id) : this.viewer.skinnedMesh).filter(Boolean);
+    meshes.forEach(mesh => { mesh.updateMatrixWorld(true); mesh.skeleton?.update(); mesh.computeBoundingSphere?.(); });
+    const propMeshes = [];
+    if (this.doc.conditioning?.poseOcclusion === 'visible') for (const prop of this.doc.props || []) {
+      const root = prop.visible !== false && this.propRoots?.get(prop.id); if (!root) continue;
+      root.updateMatrixWorld(true); root.traverseVisible(object => { if (object.isMesh) propMeshes.push(object); });
+    }
+    const raycaster = new THREE.Raycaster();
+    return actors.map(actor => {
+      const bones = actor.id ? this.actorBones(actor.id) : this.viewer.bones, positions = {}, visibility = {}, hands = {};
+      const mesh = actor.id ? this.actorMesh(actor.id) : this.viewer.skinnedMesh;
+      // Joint centers lie inside their own skin; only other actors and visible props occlude them.
+      const occluders = this.doc.conditioning?.poseOcclusion === 'visible' ? [...meshes.filter(item => item !== mesh), ...propMeshes] : [];
+      const projectWorld = world => {
+        const point = world.clone().project(camera);
+        if (point.z < -1 || point.z > 1) return null;
+        if (this.doc.conditioning?.poseOcclusion === 'visible') {
+          const vector = world.clone().sub(camera.position), distance = vector.length();
+          raycaster.set(camera.position, vector.normalize()); raycaster.far = Math.max(0, distance - 0.01);
+          if (raycaster.intersectObjects(occluders, false).length) return null;
+        }
+        return [(point.x + 1) * width / 2, (1 - point.y) * height / 2];
+      };
+      const landmarks = actor.id && actor.id !== this.doc.activeActorId ? this.viewer.passiveCharacters.get(actor.id)?.modelLandmarkIndices : this.viewer.modelLandmarkIndices;
+      const features = {};
+      for (const [key, name] of [['nose','nose'], ['left_eye','leye'], ['right_eye','reye']]) if (landmarks?.[key]?.length && mesh?.getVertexPosition) {
+        const center = new THREE.Vector3();
+        for (const index of landmarks[key]) center.add(mesh.getVertexPosition(index, new THREE.Vector3()));
+        features[name] = projectWorld(mesh.localToWorld(center.divideScalar(landmarks[key].length)));
+      }
+      for (const [name, bone] of Object.entries(names)) if (bones?.[bone]) {
+        const world = bones[bone].getWorldPosition(new THREE.Vector3()), point = world.clone().project(camera);
+        positions[name] = [(point.x + 1) * width / 2, (1 - point.y) * height / 2];
+        visibility[name] = point.z >= -1 && point.z <= 1;
+        if (this.doc.conditioning?.poseOcclusion === 'visible') {
+          const vector = world.clone().sub(camera.position), distance = vector.length();
+          raycaster.set(camera.position, vector.normalize()); raycaster.far = Math.max(0, distance - 0.01);
+          visibility[name] &&= raycaster.intersectObjects(occluders, false).length === 0;
+        }
+      }
+      if (positions.ls && positions.rs) { positions.neck = positions.ls.map((value, i) => (value + positions.rs[i]) / 2); visibility.neck = visibility.ls || visibility.rs; }
+      for (const name of Object.keys(positions)) if (!visibility[name]) delete positions[name];
+      if (features.nose) positions.head = features.nose;
+      if (this.doc.conditioning?.poseHands) for (const side of ['l', 'r']) {
+        const hand = bones?.[`hand_${side}`]; if (!hand) continue;
+        hands[side] = [projectWorld(hand.getWorldPosition(new THREE.Vector3()))];
+        for (const finger of ['thumb', 'index', 'middle', 'ring', 'pinky']) {
+          for (const index of ['01', '02', '03']) {
+            const bone = bones[`${finger}_${index}_${side}`]; hands[side].push(bone ? projectWorld(bone.getWorldPosition(new THREE.Vector3())) : null);
+          }
+          const tip = bones[`${finger}_03_${side}`], head = tip?.userData.headPos, tail = tip?.userData.tailPos;
+          hands[side].push(head && tail ? projectWorld(tip.localToWorld(new THREE.Vector3(...tail).sub(new THREE.Vector3(...head)))) : null);
+        }
+      }
+      return { id: actor.id, positions, bones, hands, features };
+    });
+  }
+
+  poseJSON(width = this.doc.width, height = this.doc.height) {
+    return { version: '1.3', canvas_width: width, canvas_height: height,
+      people: this.projectPeople(width, height).map(({ id, positions, features, hands }) => ({ actor_id: id,
+        pose_keypoints_2d: Array.from({ length: 18 }, (_, i) => {
+          // Head-bone location is not a measured nose landmark.
+          const point = i === 0 ? features.nose : i === 14 ? features.reye : i === 15 ? features.leye : i < ORDER.length ? positions[ORDER[i]] : null;
+          return point ? [...point, 1] : [0, 0, 0];
+        }).flat(), face_keypoints_2d: [], hand_left_keypoints_2d: (hands.l || []).flatMap(point => point ? [...point,1] : [0,0,0]),
+        hand_right_keypoints_2d: (hands.r || []).flatMap(point => point ? [...point,1] : [0,0,0]) })) };
+  }
+
+  groundActors(ids = [this.doc.activeActorId]) {
+    const floor = this.grid?.position ? this.grid.position.y + 0.03 : 0;
+    for (const actor of this.doc.actors || []) if (ids.includes(actor.id) && !actor.locked) {
+      const mesh = this.actorMesh(actor.id); if (!mesh) continue;
+      actor.transform.y += floor - worldBounds(mesh).min.y;
+      this.updateActorTransform(actor);
+    }
+  }
+
+  async alignHands(idA, sideA, idB, sideB) {
+    const actors = [idA,idB].map(id=>this.doc.actors.find(actor=>actor.id===id));
+    if (actors.some(actor=>!actor||actor.locked)) throw new Error('手部对齐需要两位未锁定人物');
+    const handA=this.actorBones(idA)?.[`hand_${sideA}`], handB=this.actorBones(idB)?.[`hand_${sideB}`];
+    if(!handA||!handB) throw new Error('人物缺少手部骨架');
+    this.viewer.scene.updateMatrixWorld(true);
+    const anchor=handA.getWorldPosition(new THREE.Vector3()).add(handB.getWorldPosition(new THREE.Vector3())).multiplyScalar(.5);
+    const active=this.doc.activeActorId;
+    for(const[id,side]of [[idA,sideA],[idB,sideB]]){
+      await this.selectActor(id);const controller=this.viewer.ikController,key=controller.getChainForEffector(`hand_${side}`),old=controller.getMode(key);
+      controller.setMode(key,'ik');try { for(let i=0;i<8;i++)controller.solve(this.viewer.bones,new Map([[`hand_${side}`,anchor]])); }
+      finally{controller.setMode(key,old);}
+      this.viewer.updateIKEffectorPositions();this.viewer.updateMarkers();this.syncPose();
+    }
+    await this.selectActor(active);this.doc.contacts=[{id:crypto.randomUUID(),actors:[idA,idB],sides:[sideA,sideB],anchor:anchor.toArray(),mode:'align-once'}];
+    this.useRigPose();this.viewer.requestRender();
   }
 
   async morph() {
@@ -476,7 +745,7 @@ export class StudioScene {
     this.restoring = true;
     try {
       this.buildHuman(pose);
-      this.baseTarget = this.viewer.meshCenter.clone().multiplyScalar(this.doc.scale);
+      // Body changes preserve the common scene target and every camera setting.
       this.setMode(this.mode);
       this.syncPose();
       await this.waitForCaptureReady();
@@ -488,7 +757,33 @@ export class StudioScene {
     let drag = null;
     const end = () => { if (drag) { drag = null; this.callbacks.change(); } };
     canvas.addEventListener('pointerdown', event => {
-      if (this.mode !== 'camera' || (event.button !== 0 && event.button !== 1)) return;
+      if (event.button !== 0 && event.button !== 1) return;
+      const ray = () => {
+        const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.viewer.camera);
+        return raycaster;
+      };
+      if (this.mode !== 'camera' && event.button === 0 && !event.shiftKey && this.doc.source.kind === 'human') {
+        const mesh = visibleActors(this.doc).map(actor => this.actorMesh(actor.id)).filter(Boolean);
+        for (const item of mesh) { item.updateMatrixWorld(true); item.skeleton.update(); item.computeBoundingBox(); item.computeBoundingSphere(); }
+        const raycaster = ray(), hit = raycaster.intersectObjects(mesh, false)[0];
+        const id = hit?.object.userData.actorId;
+        if (id && (id !== this.doc.activeActorId || event.ctrlKey || event.metaKey)) {
+          event.stopImmediatePropagation(); event.preventDefault(); this.callbacks.pick?.(id, event.ctrlKey || event.metaKey); return;
+        }
+        if (this.mode === 'position') {
+          event.stopImmediatePropagation(); event.preventDefault();
+          const actor = activeActor(this.doc);
+          if (!hit || !actor || actor.locked) return;
+          const normal = this.doc.interaction?.movePlane === 'ground' ? new THREE.Vector3(0, 1, 0) : this.viewer.camera.getWorldDirection(new THREE.Vector3());
+          const root = this.actorRoots.get(actor.id), plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, root.position);
+          const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3()); if (!point) return;
+          this.callbacks.begin(); drag = { actor: actor.id, plane, point, transform: { ...actor.transform } };
+          canvas.setPointerCapture(event.pointerId); return;
+        }
+        return;
+      }
+      if (this.mode !== 'camera' && event.button !== 1 && !event.shiftKey) return;
       event.stopImmediatePropagation(); event.preventDefault();
       this.callbacks.begin();
       drag = { x: event.clientX, y: event.clientY, camera: { ...this.doc.camera }, pan: event.button === 1 || event.shiftKey };
@@ -496,8 +791,17 @@ export class StudioScene {
     }, true);
     canvas.addEventListener('auxclick', event => { if (this.mode === 'camera' && event.button === 1) event.preventDefault(); });
     canvas.addEventListener('pointermove', event => {
-      if (this.mode === 'camera') event.stopImmediatePropagation();
+      if (this.mode === 'camera' || drag) event.stopImmediatePropagation();
       if (!drag) return;
+      if (drag.actor) {
+        const actor = this.doc.actors.find(item => item.id === drag.actor); if (!actor || actor.locked) return;
+        const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.viewer.camera);
+        const point = raycaster.ray.intersectPlane(drag.plane, new THREE.Vector3()); if (!point) return;
+        const delta = point.sub(drag.point);
+        Object.assign(actor.transform, { x: drag.transform.x + delta.x, y: drag.transform.y + delta.y, z: drag.transform.z + delta.z });
+        this.updateActorTransform(actor); this.callbacks.camera(); return;
+      }
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
       if (drag.pan) {
         this.doc.camera.offsetX = drag.camera.offsetX + dx * 0.025;
@@ -520,15 +824,27 @@ export class StudioScene {
     }, { capture: true, passive: false });
     this.cancelDrag = () => {
       if (!drag) return false;
-      this.doc.camera = drag.camera; drag = null;
+      if (drag.actor) {
+        const actor = this.doc.actors.find(item => item.id === drag.actor);
+        if (actor) { actor.transform = drag.transform; this.updateActorTransform(actor); }
+      } else this.doc.camera = drag.camera;
+      drag = null;
       this.updateShot(); this.callbacks.change(); return true;
     };
   }
 
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     this.resizeObserver?.disconnect();
     this.splat?.dispose();
+    this.actorRoots?.clear();
+    this.morphCache?.clear(); this.morphCacheBytes = 0; this.humanStatic = null; this.cachedPack = null; this.pack = null;
+    // GLB props, the main GLB and line helpers remain attached: the viewer owns
+    // their final disposal and deduplicates shared geometry/material/texture.
+    this.propRoots?.clear();
     this.viewer.dispose();
+    this.glb = null; this.glbName = null;
+    this.grid = this.ring = this.photoFrame = this.shotHelper = null;
   }
 }

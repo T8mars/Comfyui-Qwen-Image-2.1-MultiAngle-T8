@@ -7,7 +7,7 @@ from aiohttp import web
 from PIL import UnidentifiedImageError
 from server import PromptServer
 from .reconstruction import reconstruction_config
-from .dwpose import extract_pose
+from .dwpose import extract_pose, extract_people, people_from_keypoints, keypoints_signature
 from .depth import extract_depth
 from .install_assets import repair_editor_assets
 
@@ -46,10 +46,40 @@ def register_routes(store_factory):
             if not isinstance(name, str) or not name.endswith(".png"):
                 raise ValueError("请先连接或导入参考原图")
             photo = await asyncio.to_thread(store.read_asset, name)
-            points, preview, low_confidence, full_body = await asyncio.to_thread(extract_pose, photo)
+            people, preview = await asyncio.to_thread(extract_people, photo)
+            usable = [person for person in people if person["points"]]
+            if not usable:
+                raise ValueError("未提取到清晰的身体骨架；请换一张人物更清晰的照片")
+            person = max(usable, key=lambda item: item["score"] * max(1, (item["bbox"][2] - item["bbox"][0]) * (item["bbox"][3] - item["bbox"][1])))
             asset = await asyncio.to_thread(store.asset, preview, "png")
             asset["label"] = "DWPose · 原图姿势"
-            return web.json_response({"asset": asset, "points": points, "visibleOnly": True, "lowConfidence": low_confidence, "fullBody": full_body})
+            return web.json_response({"asset": asset, "points": person["points"], "visibleOnly": True,
+                "lowConfidence": person["lowConfidence"], "fullBody": person["fullBody"], "people": people,
+                "width": asset["width"], "height": asset["height"]})
+        except (ValueError, TypeError, OSError, RuntimeError, UnidentifiedImageError) as error:
+            return web.json_response({"error": str(error)}, status=400)
+
+    @routes.post("/anyangle-studio/pose-people")
+    async def pose_people(request):
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid pose request")
+            store = store_factory()
+            signature = None
+            if payload.get("keypoints") is not None:
+                people, png = await asyncio.to_thread(people_from_keypoints, payload["keypoints"])
+                signature = keypoints_signature(payload["keypoints"])
+            else:
+                name = payload.get("reference")
+                if not isinstance(name, str) or not name.endswith(".png"):
+                    raise ValueError("Choose a reference image or pose keypoints")
+                photo = await asyncio.to_thread(store.read_asset, name)
+                people, png = await asyncio.to_thread(extract_people, photo)
+            asset = await asyncio.to_thread(store.asset, png, "png")
+            asset["label"] = "多人 OpenPose"
+            return web.json_response({"people": people, "asset": asset, "signature": signature,
+                "width": asset["width"], "height": asset["height"]})
         except (ValueError, TypeError, OSError, RuntimeError, UnidentifiedImageError) as error:
             return web.json_response({"error": str(error)}, status=400)
 
@@ -177,3 +207,49 @@ def register_routes(store_factory):
             return web.json_response(document)
         except (ValueError, OSError) as error:
             return web.json_response({"error": str(error)}, status=404)
+
+    @routes.post("/anyangle-studio/portable-scenes")
+    async def save_portable_scene(request):
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid scene payload")
+            store = store_factory()
+            snapshot = await asyncio.to_thread(store.save_scene, payload.get("scene"), payload.get("png"))
+            await asyncio.to_thread(store.scene_archive_manifest, snapshot)
+            return web.json_response({**snapshot, "url": f"/anyangle-studio/portable-scenes/{snapshot['id']}"})
+        except (ValueError, OSError, UnidentifiedImageError) as error:
+            return web.json_response({"error": str(error)}, status=400)
+
+    @routes.get("/anyangle-studio/portable-scenes/{id}")
+    async def download_portable_scene(request):
+        try:
+            archive = await asyncio.to_thread(store_factory().scene_archive, {"version": 1, "id": request.match_info["id"]})
+        except (ValueError, OSError) as error:
+            return web.json_response({"error": str(error)}, status=404)
+        try:
+            response = web.StreamResponse(headers={"Content-Type": "application/zip", "Content-Disposition": 'attachment; filename="anyangle-scene.zip"'})
+            await response.prepare(request)
+            while chunk := await asyncio.to_thread(archive.read, 1024 * 1024):
+                await response.write(chunk)
+            await response.write_eof()
+            return response
+        finally:
+            archive.close()
+
+    @routes.post("/anyangle-studio/import-scene")
+    async def import_portable_scene(request):
+        try:
+            reader = await request.multipart()
+            part = await reader.next()
+            if part is None or part.name != "file":
+                raise ValueError("Choose an AnyAngle scene ZIP")
+            data = bytearray()
+            while chunk := await part.read_chunk(1024 * 1024):
+                data.extend(chunk)
+                if len(data) > 512 * 1024 * 1024:
+                    raise ValueError("Scene ZIP exceeds 512 MB")
+            result = await asyncio.to_thread(store_factory().import_scene_archive, bytes(data))
+            return web.json_response(result)
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError, UnidentifiedImageError) as error:
+            return web.json_response({"error": str(error)}, status=400)

@@ -1356,8 +1356,6 @@ export class PoseViewerCore {
         }
 
         this.clearPassiveCharacters();
-        this.cachedSkinTexture?.dispose?.();
-        this.cachedSkinTexture = null;
 
         // Clean up lights
         if (this.lights) {
@@ -1368,32 +1366,43 @@ export class PoseViewerCore {
             this.lights = [];
         }
 
+        // A viewer owns the remaining scene resources, including line helpers,
+        // imported GLB maps and the skin shared by all of its character rigs.
+        // Material.dispose does not dispose textures. Deduplicate everything
+        // before releasing it, and keep the renderer alive for disposal events.
+        const geometries = new Set(), materials = new Set(), textures = new Set(), skeletons = new Set();
+        const collectTexture = value => {
+            if (value?.isTexture) textures.add(value);
+            else if (Array.isArray(value)) value.forEach(collectTexture);
+        };
+        if (this.skeleton) skeletons.add(this.skeleton);
+        collectTexture(this.cachedSkinTexture);
+        // A marker material can be cached without any marker currently using it.
+        for (const geometry of [this.markerGeoNormal, this.markerGeoFinger]) if (geometry) geometries.add(geometry);
+        for (const material of [this.markerMatNormal, this.markerMatSelected, this.markerMatHandHover]) if (material) materials.add(material);
+        this.scene?.traverse(object => {
+            if (object.geometry) geometries.add(object.geometry);
+            if (object.skeleton) skeletons.add(object.skeleton);
+            for (const material of [].concat(object.material || [])) if (material) materials.add(material);
+        });
+        collectTexture(this.scene?.background);
+        collectTexture(this.scene?.environment);
+        for (const material of materials) {
+            Object.values(material).forEach(collectTexture);
+            for (const uniform of Object.values(material.uniforms || {})) collectTexture(uniform?.value);
+        }
+        // Skeleton.dispose owns its bone texture, even if a shader also names it.
+        for (const skeleton of skeletons) if (skeleton.boneTexture) textures.delete(skeleton.boneTexture);
+        skeletons.forEach(skeleton => skeleton.dispose?.());
+        geometries.forEach(geometry => geometry.dispose?.());
+        materials.forEach(material => material.dispose?.());
+        textures.forEach(texture => texture.dispose?.());
+        this.cachedSkinTexture = null;
+        this.scene = null;
+
         if (this.renderer) {
             this.renderer.dispose();
-            if (this.renderer.domElement && this.renderer.domElement.parentNode) {
-                // Don't modify the shell's DOM, just clean up WebGL
-            }
             this.renderer = null;
-        }
-
-        if (this.scene) {
-            // Traverse and dispose materials/geometries
-            this.scene.traverse((object) => {
-                if (!object.isMesh) return;
-
-                if (object.geometry) {
-                    object.geometry.dispose();
-                }
-
-                if (object.material) {
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach(material => material.dispose());
-                    } else {
-                        object.material.dispose();
-                    }
-                }
-            });
-            this.scene = null;
         }
 
         // Drop references
@@ -1401,6 +1410,15 @@ export class PoseViewerCore {
         this.skeleton = null;
         this.bones = {};
         this.boneList = [];
+        this.jointMarkers = [];
+        this.markerGeoNormal = this.markerGeoFinger = null;
+        this.markerMatNormal = this.markerMatSelected = this.markerMatHandHover = null;
+        this.skeletonHelper = this.captureFrame = this.refPlane = null;
+        this.camera = this.captureCamera = null;
+        this.selectedBone = this.selectedIKEffector = this.selectedPoleTarget = this.directDrag = null;
+        this.ikEffectorTargets?.clear();
+        this.pendingData = this.pendingLights = this.pendingBackgroundUrl = null;
+        this.history = []; this.future = [];
         this.passiveCharacters = new Map();
         this.shapedBoneRestPositions = {};
         this.sceneCameraTarget = null;
@@ -2790,12 +2808,16 @@ export class PoseViewerCore {
         // Clean up old effectors
         for (const [name, effector] of Object.entries(this.ikController.effectors)) {
             this.scene.remove(effector);
+            effector.geometry?.dispose?.();
+            for (const material of [].concat(effector.material || [])) material.dispose?.();
         }
         this.ikController.effectors = {};
 
         // Clean up old pole targets
         for (const [key, poleTarget] of Object.entries(this.ikController.poleTargets)) {
             this.scene.remove(poleTarget);
+            poleTarget.geometry?.dispose?.();
+            for (const material of [].concat(poleTarget.material || [])) material.dispose?.();
         }
         this.ikController.poleTargets = {};
 
@@ -3088,10 +3110,15 @@ export class PoseViewerCore {
 
     _cleanupPrevious() {
         if (this.skinnedMesh) {
-            this.scene.remove(this.skinnedMesh);
+            this.skinnedMesh.removeFromParent();
+            this.skinnedMesh.skeleton?.dispose?.();
             this.skinnedMesh.geometry.dispose();
             this.skinnedMesh.material.dispose();
-            if (this.skeletonHelper) this.scene.remove(this.skeletonHelper);
+            if (this.skeletonHelper) {
+                this.skeletonHelper.removeFromParent();
+                this.skeletonHelper.geometry?.dispose?.();
+                this.skeletonHelper.material?.dispose?.();
+            }
         }
         if (this.jointMarkers) {
             this.jointMarkers.forEach(m => {
@@ -4406,6 +4433,7 @@ export class PoseViewerCore {
     _disposePassiveCharacter(entry) {
         if (!entry) return;
         if (entry.mesh?.parent) entry.mesh.parent.remove(entry.mesh);
+        entry.skeleton?.dispose?.();
         entry.mesh?.geometry?.dispose?.();
         const materials = Array.isArray(entry.mesh?.material)
             ? entry.mesh.material
@@ -4488,6 +4516,7 @@ export class PoseViewerCore {
             boneList: clonedBones,
             bones: Object.fromEntries(clonedBones.map(bone => [bone.name, bone])),
             initialPositions,
+            modelLandmarkIndices: { ...this.modelLandmarkIndices },
             color: this._normalizedCharacterColor(this.activeCharacterAppearance?.color),
         };
     }

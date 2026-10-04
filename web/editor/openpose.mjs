@@ -4,6 +4,33 @@ export const LIMBS = [[1,2],[1,5],[2,3],[3,4],[5,6],[6,7],[1,8],[8,9],[9,10],[1,
 export const COLORS = ['#ff0000','#ff5500','#ffaa00','#ffff00','#aaff00','#55ff00','#00ff00','#00ff55','#00ffaa','#00ffff','#00aaff','#0055ff','#0000ff','#5500ff'];
 
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+// Maximum-weight one-to-one assignment avoids factorial search as cast size grows.
+function matchJoints(parents, options, score) {
+    const n=parents.length,m=options.length;if(m<n)return null;
+    const weights=parents.map(parent=>options.map(child=>score(parent,child)));
+    const u=new Float64Array(n+1),v=new Float64Array(m+1),owner=new Int32Array(m+1),way=new Int32Array(m+1);
+    for(let i=1;i<=n;i++) {
+        owner[0]=i;let column=0;
+        const minimum=new Float64Array(m+1).fill(Infinity),used=new Uint8Array(m+1);
+        do {
+            used[column]=1;const row=owner[column];let delta=Infinity,next=0;
+            for(let j=1;j<=m;j++)if(!used[j]) {
+                const weight=weights[row-1][j-1],cost=(weight>=.58?1-weight:1e6)-u[row]-v[j];
+                if(cost<minimum[j]){minimum[j]=cost;way[j]=column;}
+                if(minimum[j]<delta){delta=minimum[j];next=j;}
+            }
+            for(let j=0;j<=m;j++)if(used[j]){u[owner[j]]+=delta;v[j]-=delta;}else minimum[j]-=delta;
+            column=next;
+        } while(owner[column]);
+        do {const previous=way[column];owner[column]=owner[previous];column=previous;} while(column);
+    }
+    const result=new Array(n);
+    for(let j=1;j<=m;j++)if(owner[j]) {
+        if(weights[owner[j]-1][j-1]<.58)return null;
+        result[owner[j]-1]=options[j-1];
+    }
+    return result;
+}
 function hue(r,g,b) {
     const hi=Math.max(r,g,b),lo=Math.min(r,g,b),delta=hi-lo;
     if(hi<75||delta<hi*.6)return -1;
@@ -140,25 +167,31 @@ export function detectSkeleton({data,width,height},diagnostics=null) {
     }
     const roots=candidates[1];
     if(!roots.length)return recoverOccluded(originalCandidates,ends,linkScore,width,height,tolerance,data);
-    if(roots.length>3||candidates.some(list=>list.length>12))throw Error('身体骨架存在多组歧义，暂不能可靠区分最多 3 个人物');
     const people=roots.map(root=>({1:root}));
     for(let color=0;color<LIMBS.length;color++) {
         const [parent,child]=LIMBS[color],options=candidates[child];
-        let best=null,bestScore=-Infinity;
-        function assign(index,used,selected,totalScore) {
-            if(index===people.length){if(totalScore>bestScore){bestScore=totalScore;best=selected.slice();}return;}
-            for(let j=0;j<options.length;j++) {
-                if(used.has(j))continue;
-                const match=score(people[index][parent],options[j],color);
-                if(match<.58)continue;
-                used.add(j);selected.push(options[j]);assign(index+1,used,selected,totalScore+match);selected.pop();used.delete(j);
-            }
-        }
-        assign(0,new Set(),[],0);
+        const best=matchJoints(people.map(person=>person[parent]),options,(a,b)=>score(a,b,color));
         if(!best)throw Error('骨架关节缺失、重叠或配色不匹配，暂未应用；请换完整的 OpenPose 骨架图');
         people.forEach((person,index)=>person[child]=best[index]);
     }
-    return people.map(person=>Object.fromEntries(ORDER.map((name,index)=>[name,person[index].point]))).sort((a,b)=>a.neck[0]-b.neck[0]);
+    const complete=people.map(person=>Object.fromEntries(ORDER.map((name,index)=>[name,person[index].point])));
+    // A complete neighbour must not hide another person's occluded/cropped chain.
+    if(originalCandidates[1].some(root=>roots.every(other=>distance(root.point,other.point)>tolerance*2))) {
+        try {
+            const recovered=recoverOccluded(originalCandidates,ends,linkScore,width,height,tolerance,data);
+            const entries=complete.map(points=>({points,inferred:[]}));
+            for(const [i,points] of recovered.entries()) if(entries.every(other=>distance(other.points.neck,points.neck)>tolerance*2))
+                entries.push({points,inferred:recovered.inferredByPerson[i]});
+            if(entries.length>complete.length) {
+                entries.sort((a,b)=>a.points.neck[0]-b.points.neck[0]);
+                const result=entries.map(entry=>entry.points);
+                result.inferredByPerson=entries.map(entry=>entry.inferred);
+                result.inferredJoints=[...new Set(result.inferredByPerson.flat())];
+                result.warnings=recovered.warnings;return result;
+            }
+        } catch { /* Keep verified bodies; the raw imported guide remains available. */ }
+    }
+    return complete.sort((a,b)=>a.neck[0]-b.neck[0]);
 }
 
 function recoverOccluded(original,ends,pixelScore,width,height,tolerance,data) {
@@ -239,22 +272,24 @@ function recoverOccluded(original,ends,pixelScore,width,height,tolerance,data) {
     const chosen=[];
     for(const solution of solutions){
         if(chosen.some(other=>Object.keys(solution.nodes).filter(k=>distance(solution.nodes[k].point,other.nodes[k].point)<tolerance*2).length>2))continue;
-        chosen.push(solution);if(chosen.length===3)break;
+        chosen.push(solution);
     }
     const people=chosen.map(solution=>Object.fromEntries(ORDER.map((name,joint)=>[name,solution.nodes[joint].point]))).sort((a,b)=>a.neck[0]-b.neck[0]);
-    const inferred=[...new Set(chosen.flatMap(solution=>solution.estimated.map(index=>ORDER[index])))];
+    const ordered=chosen.slice().sort((a,b)=>a.nodes[1].point[0]-b.nodes[1].point[0]);
+    people.inferredByPerson=ordered.map(solution=>[...new Set(solution.estimated.map(index=>ORDER[index]))]);
+    const inferred=[...new Set(people.inferredByPerson.flat())];
     people.warnings=['重叠或裁切的关节已近似补全，请检查姿势'];
     people.inferredJoints=inferred;
     return people;
 }
 
 export function readSkeletonImage(image) {
-    const factor=Math.min(1,1400/Math.max(image.naturalWidth,image.naturalHeight));
+    const factor=Math.min(1,1400/Math.sqrt(image.naturalWidth*image.naturalHeight));
     const canvas=document.createElement('canvas');canvas.width=Math.round(image.naturalWidth*factor);canvas.height=Math.round(image.naturalHeight*factor);
     const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0,canvas.width,canvas.height);
     const people=detectSkeleton(ctx.getImageData(0,0,canvas.width,canvas.height));
     const result=people.map(points=>Object.fromEntries(Object.entries(points).map(([key,[x,y]])=>[key,[x/factor,y/factor]])));
-    result.warnings=people.warnings||[];result.inferredJoints=people.inferredJoints||[];return result;
+    result.warnings=people.warnings||[];result.inferredJoints=people.inferredJoints||[];result.inferredByPerson=people.inferredByPerson||[];return result;
 }
 
 
@@ -352,8 +387,16 @@ export const WORLD_KEYPOINT_NAMES = {
 };
 
 // Copy only observed segments in the image plane, without inventing their depth.
+export function poseCopyIssue(points) {
+    if (['ls', 'rs', 'neck'].some(key => !points[key])) return '缺少左右肩或颈部，保留原图骨架';
+    if (Object.values(points).some(point => !Array.isArray(point) || point.length < 2 || !point.slice(0, 2).every(Number.isFinite))) return '关节坐标无效，保留原图骨架';
+    const pairs = [['rs', 'ls'], ['neck', 'head'], ...LIFT_SEGMENTS.slice(1).map(([, from, to]) => [from, to])];
+    if (points.lh && points.rh) { pairs.push(['rh', 'lh']); if (Math.hypot(...mid(points.lh, points.rh).slice(0, 2).map((v, i) => v - points.neck[i])) < 1e-3) return '躯干关节重合，保留原图骨架'; }
+    if (pairs.some(([a, b]) => points[a] && points[b] && Math.hypot(points[b][0] - points[a][0], points[b][1] - points[a][1]) < 1e-3)) return '关节重合，保留原图骨架';
+    return null;
+}
 export function copyVisiblePose(points, rest) {
-    if (!points.ls || !points.rs || !points.neck) throw Error('复制姿势需要清晰可见的左右肩；请使用人物更完整的照片');
+    const issue = poseCopyIssue(points); if (issue) throw Error(issue);
     const p2 = Object.fromEntries(Object.entries(points).map(([key, [x, y]]) => [key, [x, -y]]));
     const direction = (a, b) => {
         const vector = sub(p2[b], p2[a]), distance = length(vector);

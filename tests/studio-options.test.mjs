@@ -7,13 +7,14 @@ import { PoseViewerCore } from '../web/vendor/vnccs_pose_studio_core.mjs';
 import { StudioScene, defaultScene } from '../web/editor/scene.mjs';
 import { SplatScene } from '../web/editor/splat.mjs';
 import { guidePrompt } from '../web/editor/guides.mjs';
+import { scenePrompt, actorMode, actorPrompt, buildManifest } from '../web/editor/manifest.mjs';
 
 const app = readFileSync(new URL('../web/editor/app.mjs', import.meta.url), 'utf8');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
 test('prompt controls select a LoRA-free single guide and preserve user text without rendering', () => {
   const elements = new Map(), changes = [];
-  const state = { doc: defaultScene(), begin() {}, changed: preview => changes.push(preview), guidePrompt,
+  const state = { doc: defaultScene(), begin() {}, changed: preview => changes.push(preview), guidePrompt, scenePrompt, actorMode, actorPrompt, buildManifest,
     studio: { updatePerformance() {} }, schedulePreview() {}, clearTimeout() {}, renderPreview() {},
     $: id => { if (!elements.has(id)) elements.set(id, {}); return elements.get(id); } };
   const start = app.indexOf("$('#prompt-mode').onchange");

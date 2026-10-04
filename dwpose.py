@@ -6,10 +6,12 @@ Models are downloaded only when the user requests pose extraction.
 
 from functools import lru_cache
 import colorsys
+import hashlib
+import json
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 
 MODEL_REPO = "yzd-v/DWPose"
@@ -51,7 +53,7 @@ def _sessions():
     return tuple(ort.InferenceSession(str(path), providers=["CPUExecutionProvider"]) for path in paths)
 
 
-def _detect_person(image, session):
+def _detect_people(image, session):
     import cv2
     import numpy as np
 
@@ -75,11 +77,32 @@ def _detect_person(image, session):
     candidates = np.flatnonzero(scores > .3)
     if not len(candidates):
         raise ValueError("DWPose 没有识别到人物；请换一张身体更清晰的照片")
-    # The workbench edits one mannequin. Choose the most prominent person.
-    index = max(candidates, key=lambda i: float(scores[i] * sizes[i, 0] * sizes[i, 1]))
-    x0, y0 = (centers[index] - sizes[index] / 2) / ratio
-    x1, y1 = (centers[index] + sizes[index] / 2) / ratio
-    return np.array([max(0, x0), max(0, y0), min(width, x1), min(height, y1)], np.float32)
+    boxes = np.concatenate((centers - sizes / 2, centers + sizes / 2), axis=1) / ratio
+    selected = []
+    for index in candidates[np.argsort(scores[candidates])[::-1]]:
+        box = boxes[index].copy()
+        box[0::2] = np.clip(box[0::2], 0, width)
+        box[1::2] = np.clip(box[1::2], 0, height)
+        if box[2] <= box[0] or box[3] <= box[1]:
+            continue
+        area = (box[2] - box[0]) * (box[3] - box[1])
+        duplicate = False
+        for previous, _ in selected:
+            intersection = np.maximum(0, np.minimum(box[2:], previous[2:]) - np.maximum(box[:2], previous[:2])).prod()
+            union = area + (previous[2] - previous[0]) * (previous[3] - previous[1]) - intersection
+            if intersection / max(union, 1) > .45:
+                duplicate = True
+                break
+        if not duplicate:
+            selected.append((box, float(scores[index])))
+    if not selected:
+        raise ValueError("DWPose 没有识别到人物；请换一张身体更清晰的照片")
+    return sorted(selected, key=lambda item: float(item[0][0]))
+
+
+def _detect_person(image, session):
+    people = _detect_people(image, session)
+    return max(people, key=lambda item: float(item[1] * (item[0][2] - item[0][0]) * (item[0][3] - item[0][1])))[0]
 
 
 def _estimate_body(image, box, session):
@@ -135,18 +158,15 @@ def _render(points, confidence, keypoints, scores, width, height):
     return buffer.getvalue()
 
 
-def extract_pose(photo):
-    """Return Studio keypoints and a preview PNG for a stored photo asset."""
-    import numpy as np
-
+def _photo(photo):
     with Image.open(BytesIO(photo)) as source:
         image = ImageOps.exif_transpose(source).convert("RGB")
     if image.width * image.height > 32_000_000:
         raise ValueError("照片超过 3200 万像素")
-    pixels = np.asarray(image)
-    detector, estimator = _sessions()
-    box = _detect_person(pixels, detector)
-    keypoints, scores = _estimate_body(pixels, box, estimator)
+    return image
+
+
+def _pose_result(keypoints, scores, width, height):
     required = list(COCO_INDEX.values())
     if sum(scores[i] >= .3 for i in required) < 3:
         raise ValueError("未提取到清晰的身体骨架；请换一张人物更清晰的照片")
@@ -155,9 +175,112 @@ def extract_pose(photo):
     confidence = {name: float(scores[index]) for name, index in COCO_INDEX.items()}
     confidence["neck"] = min(confidence["rs"], confidence["ls"])
     low_confidence = sum(scores[i] < .3 for i in required)
-    full_body = all(scores[i] >= .3 and 0 <= keypoints[i, 0] < image.width
-                    and 0 <= keypoints[i, 1] < image.height for i in required)
-    preview = _render(points, confidence, keypoints, scores, image.width, image.height)
+    full_body = all(scores[i] >= .3 and 0 <= keypoints[i, 0] < width
+                    and 0 <= keypoints[i, 1] < height for name, i in COCO_INDEX.items() if name != "head")
+    preview = _render(points, confidence, keypoints, scores, width, height)
     visible = {name: point for name, point in points.items()
-               if confidence[name] >= .3 and 0 <= point[0] < image.width and 0 <= point[1] < image.height}
-    return visible, preview, int(low_confidence), bool(full_body)
+               if confidence[name] >= .3 and 0 <= point[0] < width and 0 <= point[1] < height}
+    return {"points": visible, "confidence": confidence, "lowConfidence": int(low_confidence),
+            "fullBody": bool(full_body), "canEstimate3D": len(visible) == len(ORDER),
+            "visibleOnly": True, "canvasWidth": width, "canvasHeight": height,
+            "normalizedPoints": {name: [point[0] / width, point[1] / height] for name, point in visible.items()}}, preview
+
+
+def extract_pose(photo):
+    """The original single-person four-tuple remains supported."""
+    import numpy as np
+    image = _photo(photo)
+    pixels = np.asarray(image)
+    detector, estimator = _sessions()
+    box = _detect_person(pixels, detector)
+    keys, scores = _estimate_body(pixels, box, estimator)
+    person, preview = _pose_result(keys, scores, image.width, image.height)
+    return person["points"], preview, person["lowConfidence"], person["fullBody"]
+
+
+def extract_people(photo):
+    import numpy as np
+    image = _photo(photo)
+    pixels = np.asarray(image)
+    detector, estimator = _sessions()
+    people = []
+    merged = Image.new("RGB", image.size, "black")
+    for index, (box, score) in enumerate(_detect_people(pixels, detector), 1):
+        try:
+            keys, scores = _estimate_body(pixels, box, estimator)
+            person, preview = _pose_result(keys, scores, image.width, image.height)
+            merged = ImageChops.lighter(merged, Image.open(BytesIO(preview)).convert("RGB"))
+        except ValueError as error:
+            person = {"points": {}, "confidence": {}, "lowConfidence": len(COCO_INDEX), "fullBody": False, "canEstimate3D": False,
+                      "visibleOnly": True, "canvasWidth": image.width, "canvasHeight": image.height,
+                      "normalizedPoints": {}, "warning": str(error)}
+        people.append({"id": f"det-{index}", "bbox": [float(value) for value in box], "score": score, **person})
+    buffer = BytesIO()
+    merged.save(buffer, "PNG")
+    return people, buffer.getvalue()
+
+
+def keypoints_signature(frames):
+    frame = frames[0] if isinstance(frames, list) and frames else frames
+    encoded = json.dumps(frame, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def people_from_keypoints(frames):
+    """Read the first OpenPose frame while preserving every person in that frame."""
+    import numpy as np
+    frame = frames[0] if isinstance(frames, list) and frames else frames
+    if not isinstance(frame, dict) or not isinstance(frame.get("people"), list):
+        raise ValueError("Choose OpenPose JSON or POSE_KEYPOINT frames")
+    width, height = frame.get("canvas_width"), frame.get("canvas_height")
+    if any(type(value) is not int or value <= 0 for value in (width, height)) or width * height > 32_000_000:
+        raise ValueError("Invalid OpenPose canvas dimensions")
+    people = []
+    merged = Image.new("RGB", (width, height), "black")
+    indices = {"head": 0, "neck": 1, "rs": 2, "re": 3, "rw": 4, "ls": 5, "le": 6, "lw": 7,
+               "rh": 8, "rk": 9, "ra": 10, "lh": 11, "lk": 12, "la": 13}
+    for index, raw in enumerate(frame["people"], 1):
+        if not isinstance(raw, dict):
+            raise ValueError("Invalid OpenPose person")
+        values = np.asarray(raw.get("pose_keypoints_2d", []), dtype=np.float32)
+        if values.size not in (54, 75) or not np.isfinite(values).all():
+            raise ValueError("OpenPose body must contain 18 or 25 finite keypoints")
+        values = values.reshape(-1, 3)
+        mapping = {**indices, "rh": 9, "rk": 10, "ra": 11, "lh": 12, "lk": 13, "la": 14} if len(values) == 25 else indices
+        points = {name: [float(value) for value in values[k, :2]] for name, k in mapping.items()}
+        confidence = {name: float(values[k, 2]) for name, k in mapping.items()}
+        visible = {name: point for name, point in points.items() if confidence[name] >= .3 and 0 <= point[0] < width and 0 <= point[1] < height}
+        whole_points, whole_scores = np.zeros((133, 2)), np.zeros(133)
+        arrays = {"pose_keypoints_2d": values.flatten().tolist()}
+        extra_face = []
+        for field, offset, counts in (("face_keypoints_2d", 23, (68, 70)), ("hand_left_keypoints_2d", 91, (21,)), ("hand_right_keypoints_2d", 112, (21,))):
+            source = raw.get(field)
+            extra = np.asarray([] if source is None else source, dtype=np.float32)
+            if extra.size and (extra.size not in [count * 3 for count in counts] or not np.isfinite(extra).all()):
+                raise ValueError(f"Invalid OpenPose {field}")
+            extra = extra.reshape(-1, 3)
+            arrays[field] = extra.flatten().tolist()
+            count = min(len(extra), counts[0])
+            whole_points[offset:offset + count] = extra[:count, :2]
+            whole_scores[offset:offset + count] = extra[:count, 2]
+            if field == "face_keypoints_2d":
+                extra_face = extra[count:]
+        preview = _render(points, confidence, whole_points, whole_scores, width, height)
+        if len(extra_face):
+            face_image = Image.open(BytesIO(preview)).convert("RGB")
+            draw = ImageDraw.Draw(face_image)
+            radius = max(1, round(min(width, height) / 400))
+            for x, y, score in extra_face:
+                if score >= .3:
+                    draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill="white")
+            buffer = BytesIO(); face_image.save(buffer, "PNG"); preview = buffer.getvalue()
+        merged = ImageChops.lighter(merged, Image.open(BytesIO(preview)).convert("RGB"))
+        positions = list(visible.values())
+        bbox = [min(point[0] for point in positions), min(point[1] for point in positions), max(point[0] for point in positions), max(point[1] for point in positions)] if positions else [0, 0, 0, 0]
+        people.append({"id": f"det-{index}", "bbox": bbox, "score": min(confidence.values()), "points": visible,
+                       "confidence": confidence, "visibleOnly": True, "lowConfidence": len(ORDER) - len(visible),
+                       "fullBody": all(name in visible for name in ORDER if name not in ("head", "neck")),
+                       "canEstimate3D": len(visible) == len(ORDER), "canvasWidth": width, "canvasHeight": height,
+                       "normalizedPoints": {name: [point[0] / width, point[1] / height] for name, point in visible.items()}, **arrays})
+    buffer = BytesIO(); merged.save(buffer, "PNG")
+    return people, buffer.getvalue()

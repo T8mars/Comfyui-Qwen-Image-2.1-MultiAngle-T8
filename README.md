@@ -1,14 +1,58 @@
 <p align="center"><img src="web/icons/aperture.svg" width="48" alt="AnyAngle Studio"></p>
 <h1 align="center">AnyAngle Studio · T8</h1>
-<p align="center"><strong>在 ComfyUI 中调整三维机位，或直接从原图提取姿势、深度与轮廓。</strong></p>
+<p align="center"><strong>多人同场编排、独立身份参考、三维相机与结构引导图。</strong></p>
 <p align="center"><strong>简体中文</strong> · <a href="README_EN.md">English</a></p>
 <p align="center">ComfyUI 自定义节点 · Qwen Image 2.1 · 可关闭的 AnyAngle LoRA · TripoSplat · MIT</p>
 
-![同一张原图实际提取的 DWPose 骨架、Depth Anything 3 深度和 Canny 轮廓](docs/images/structure-guides.png)
+![v1.5.0 在实际 ComfyUI 中编辑三位独立人物与统一机位](docs/images/studio-multi-person.jpg)
 
-<p align="center"><sub>同一张原创示例图的真实提取结果 · DWPose / Depth Anything 3 Small / Canny · 非最终生成图</sub></p>
+<p align="center"><sub>v1.5.0 · 实际 ComfyUI 工作台截图 · 内置人偶，无需另装 Fisher</sub></p>
 
 **原模型：[lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [基础工作流](workflows/AnyAngle-Studio-Qwen21.json) · [进阶工作流](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [English README](README_EN.md)
+
+## 多人工作台 · 1.5.0
+
+**[多人工作流](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[含人物参考的三人场景 ZIP](examples/multi-person-photo-pose.zip)** · [实测结果与限制](docs/multi-person-validation.md)
+
+下列中图是本节点实际输出，右图由原生 Qwen Image 2.1 工作流实际生成。参考人物均为原创 AI 虚构人物，示例使用 seed 42、20 步、CFG 3、euler/simple、AnyAngle 强度 0。
+
+| 身份参考 | 三维机位 POSE · `image_1` | Qwen 最终图 |
+|:---:|:---:|:---:|
+| <img src="docs/images/multi-identity-reference.png" width="220" alt="共享的双人身份参考"> | <img src="docs/images/multi-two-pose-guide.png" width="220" alt="实际双人机位骨架"> | <img src="docs/images/multi-two-pose-final.png" width="220" alt="实际双人姿势生成结果"> |
+| <img src="docs/images/multi-identity-reference.png" width="110" alt="共享双人参考"><img src="docs/images/demo-reference.png" width="110" alt="第三位人物身份参考"> | <img src="docs/images/multi-three-pose-guide.png" width="220" alt="实际三人机位骨架"> | <img src="docs/images/multi-three-pose-final.png" width="220" alt="实际三人姿势生成结果"> |
+
+| 身份参考 | 三维机位 Canny · `image_1` | Qwen 最终图 · 构图有偏差 |
+|:---:|:---:|:---:|
+| <img src="docs/images/multi-identity-reference.png" width="110" alt="共享双人参考"><img src="docs/images/demo-reference.png" width="110" alt="第三位人物参考"> | <img src="docs/images/multi-three-canny-fixed-guide.png" width="220" alt="实际三人 Canny 轮廓"> | <img src="docs/images/multi-three-canny-fixed-final.png" width="220" alt="实际 Canny 生成结果，后方人物位置和动作未完全遵循"> |
+
+Canny 示例保留三个人、衣装顺序和蓝衣人物举臂，但没有准确保留后方人物的动作与遮挡。右图保留实际结果，未修饰这些偏差。
+
+双人共用一张合影，三人案例再增加一张独立照片。衣装、左右对应和举臂在上述两组 POSE 示例中生效；脸部、发型与人物比例仍可能漂移，**不是精确身份锁定或逐像素姿势控制**。下载 ZIP，在左侧「全场模板与便携场景 → 导入场景 ZIP」恢复人物、参考与机位，应用后运行多人工作流。
+
+同一场景还可输出以下结构图；这些图片本身不是最终生成结果。
+
+| 全场粗图 · 可选角色色 | 标准 POSE | 同机位三维深度 |
+|:---:|:---:|:---:|
+| <img src="docs/images/multi-coarse.png" width="250" alt="双人三维粗图"> | <img src="docs/images/multi-pose.png" width="250" alt="双人标准骨架"> | <img src="docs/images/multi-depth.png" width="250" alt="双人共用深度范围"> |
+
+- **同场独立人物**：添加、复制、任意删除、排序、显示与锁定；点选人物编辑，Ctrl 点击多选。每人独立体型、动作、位置、尺度、朝向与身份绑定，切人保持镜头。复制默认清空身份照片。
+- **合影 → 多人姿势**：DWPose 提取所有候选并去重，在选人窗口确认后复制到当前人或新建多人。支持多人 Fisher 骨架 PNG、标准 OpenPose JSON 和原生 `POSE_KEYPOINT` 连线。复制动作与匹配原图站位分开；半身、遮挡和低置信度会提示，PNG 近似补全点不参与动作复制。保存、导入和深度翻转只作用当前人物。
+- **全场统一输出**：粗图、标准 POSE、三维机位 Canny 与三维场景深度共用拍摄相机。三维 Depth 支持近白/远白；POSE 可输出真实手指、已知眼鼻点，或过滤被人物与可见道具挡住的关节。原图 DA3 深度仍是静态机位。
+- **身份与提示词同步**：使用 Qwen 底模和「分别绑定人物身份」，为每人上传照片、选择 `actor_reference_1…` 连线或填写文字。合影可共享同一照片；选人区域与描述一同写入提示词，修改描述仍保留所选区域。多人编码节点从已保存清单加载照片，调用原生 Qwen 编码器，自动同步图片顺序与提示词。
+- **编排与复用**：按种子随机当前、选中或全部未锁定人物；全场模板保存人物动作、站位、道具与相机，排序后仍保留角色身份。支持落地、合影/对话/握手编排及带资源的场景 ZIP。握手为一次 IK 近似对齐，可再次对齐或手动微调，不提供持续约束或碰撞仿真。批量机位冻结全场人物与照片。
+- **机位独立保存**：收藏与批量机位包含拍摄中心；应用其他场景模板后，也可恢复原构图，人物动作保持当前状态。
+
+**使用：**导入多人工作流 → 在 Studio 添加人物 → 分别绑定照片或写外观 → 选择粗图/POSE/三维 Depth/Canny → 调整人物与镜头 → 应用到节点 → 运行。`guide_image_2` 和 `scene_json` 接「AnyAngle 多人编码」，人物照片不用再手工接编码器。仅引导图模式会忽略身份照片；自定义模式保留原文。Alt+左右键切人，Delete 删除当前人，文本输入时不触发这些快捷键。
+
+从原图提取或导入的 POSE / Depth / Canny 使用该图片的构图，不套用工作台里保留的三维人物数量。默认使用共享原图；没有共享原图时使用单张结构图与附加描述。切回三维引导后恢复人物绑定。自定义模式可使用人物照片清单，左侧原图需先绑定人物；图片编号由用户维护。
+
+多人摆姿推荐关闭 AnyAngle LoRA；原来的双图换机位工作流继续保留。**[Qwen 官方参考预算为 10 张](https://huggingface.co/Qwen/Qwen-Image-2.1)**（含引导图），并非保证 9 人身份与人数都准确。原生编码器的 16 个图像入口不代表官方质量保证；每个 IMAGE 入口取 batch 首张。推荐引导图先入，首张参考决定生成画幅；实际编码尺寸显示在多人编码节点的 latent 输出旁。人物照片默认按 512 像素面积预算缩放，可设 0 保留原尺寸。
+
+多人功能复用内置人偶与现有 DWPose，不新增权重；三维场景深度无需 DA3。原 GLB / TripoSplat 仍为单资产路线；GLB 道具可以加入多人偶场景，重建资产不能直接当作可编辑骨架。参考了 [Gaoshang Pose](https://github.com/GStaaaaa/ComfyUI-Gaoshang-Pose) 的多人组织方式，未打包其图库。
+
+**实测边界：**32 张多人主矩阵全部执行成功，但综合人数、关键动作和遮挡，仅 7 张基本符合、2 张部分符合；九人场景会增加人物或丢失动作。结构图作为底模图像参考使用，推荐先用少人数、清晰站位和 POSE 验证；复杂遮挡与多人身份需要逐张检查。[完整矩阵、照片案例及性能测量](docs/multi-person-validation.md)。
+
+**三维 Canny：**人偶和 GLB 使用同机位的高对比灰模提取几何轮廓，避免角色色与灰背景对比不足导致全黑；不包含纹理细节。TripoSplat 保留其颜色渲染，原图 Canny 使用原图像素。未检测到边缘时提示降低阈值或调整画幅，仍允许输出用户需要的空白图。
 
 ## 效果与定位
 
@@ -63,6 +107,8 @@
 焦距按 24 mm 垂直画幅计算，目标平面之外的主体大小可能随透视变化。本次无需新增模型；首次使用照片复制仍需已有的 DWPose 权重。
 
 ### 底模与结构图
+
+![同一张原创参考实际提取的 DWPose 骨架、Depth Anything 3 深度和 Canny 轮廓](docs/images/structure-guides.png)
 
 在右侧“引导策略”选择 **Qwen 底模**，节点将 `anyangle_lora_strength` 输出为 **0**；切回 **AnyAngle LoRA** 时输出 **1**。新版基础和进阶工作流使用随节点提供的“AnyAngle 可选 LoRA”加载器，已把该输出接到 `strength_model`：强度为 0 时直接透传底模，无需安装 AnyAngle 权重。旧工作流需替换加载器并补上强度连线，或移除 LoRA 加载器；仅切换工作台按钮不会改写旧工作流中固定的强度。
 
@@ -135,7 +181,7 @@ Change the camera angle from <image2> to <image1>.
 
 **1.2.1 修复：**姿势预设缩略图按完整人物范围取景；编辑人偶后，POSE 输出不再沿用之前提取的原图骨架。旧版（1.0.1 及更早）还存在高 DPI 下预览放大、偏移至右上角的错误，已在 1.0.2 修复。黄框内是实际输出范围；人物超出黄框时先点击「适合画幅」。
 
-更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.4.0**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
+更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.5.0**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
 
 在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
 

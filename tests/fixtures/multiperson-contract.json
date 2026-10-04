@@ -1,0 +1,274 @@
+{
+  "version": 2,
+  "width": 96,
+  "height": 64,
+  "source": {
+    "kind": "human"
+  },
+  "camera": {
+    "azimuth": 35,
+    "elevation": 8,
+    "zoom": 1.3,
+    "offsetX": 0,
+    "offsetY": 0
+  },
+  "cameraTarget": [
+    0,
+    10,
+    0
+  ],
+  "actors": [
+    {
+      "id": "actor-0",
+      "label": "角色 0",
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "scale": 1,
+        "yaw": 0
+      },
+      "pose": {
+        "bones": {
+          "head": [
+            0,
+            0,
+            0
+          ]
+        },
+        "modelRotation": [
+          0,
+          15,
+          0
+        ]
+      },
+      "identity": {
+        "inputKey": "actor_reference_1",
+        "description": "character 0",
+        "asset": {
+          "name": "0000000000000000000000000000000000000000000000000000000000000000.png"
+        },
+        "sourcePerson": {
+          "description": "person 1 in the source photo",
+          "bbox": [
+            80,
+            40,
+            280,
+            400
+          ],
+          "canvasWidth": 640,
+          "canvasHeight": 480
+        }
+      },
+      "editorColor": "#ef6262",
+      "visible": true,
+      "locked": false,
+      "source": {
+        "kind": "human"
+      },
+      "mesh": {},
+      "poseSource": null
+    },
+    {
+      "id": "actor-1",
+      "label": "角色 1",
+      "transform": {
+        "x": 3,
+        "y": 0,
+        "z": 0,
+        "scale": 1,
+        "yaw": 5
+      },
+      "pose": {
+        "bones": {
+          "head": [
+            0,
+            10,
+            0
+          ]
+        },
+        "modelRotation": [
+          0,
+          15,
+          0
+        ]
+      },
+      "identity": {
+        "inputKey": "actor_reference_2",
+        "description": "character 1",
+        "asset": {
+          "name": "0000000000000000000000000000000000000000000000000000000000000000.png"
+        },
+        "sourcePerson": {
+          "description": "person 2 in the source photo",
+          "bbox": [
+            320,
+            40,
+            520,
+            400
+          ],
+          "canvasWidth": 640,
+          "canvasHeight": 480
+        }
+      },
+      "editorColor": "#599cff",
+      "visible": true,
+      "locked": false,
+      "source": {
+        "kind": "human"
+      },
+      "mesh": {},
+      "poseSource": null
+    },
+    {
+      "id": "actor-2",
+      "label": "角色 2",
+      "transform": {
+        "x": 6,
+        "y": 0,
+        "z": 0,
+        "scale": 1,
+        "yaw": 10
+      },
+      "pose": {
+        "bones": {
+          "head": [
+            0,
+            20,
+            0
+          ]
+        },
+        "modelRotation": [
+          0,
+          15,
+          0
+        ]
+      },
+      "identity": {
+        "inputKey": "actor_reference_3",
+        "description": "character 2",
+        "asset": {
+          "name": "0000000000000000000000000000000000000000000000000000000000000002.png"
+        },
+        "sourcePerson": null
+      },
+      "editorColor": "#55c989",
+      "visible": true,
+      "locked": false,
+      "source": {
+        "kind": "human"
+      },
+      "mesh": {},
+      "poseSource": null
+    }
+  ],
+  "conditioning": {
+    "model": "base",
+    "guide": "pose",
+    "identityMode": "actors",
+    "imageOrder": "guide-first"
+  },
+  "manifest": {
+    "version": 1,
+    "imageOrder": "guide-first",
+    "guide": {
+      "index": 1,
+      "width": 96,
+      "height": 64
+    },
+    "references": [
+      {
+        "asset": {
+          "name": "0000000000000000000000000000000000000000000000000000000000000000.png"
+        },
+        "actorIds": [
+          "actor-0",
+          "actor-1"
+        ],
+        "index": 2
+      },
+      {
+        "asset": {
+          "name": "0000000000000000000000000000000000000000000000000000000000000002.png"
+        },
+        "actorIds": [
+          "actor-2"
+        ],
+        "index": 3
+      }
+    ],
+    "actors": [
+      {
+        "id": "actor-0",
+        "label": "角色 0",
+        "editorColor": "#ef6262",
+        "description": "character 0",
+        "sourcePerson": {
+          "description": "person 1 in the source photo",
+          "bbox": [
+            80,
+            40,
+            280,
+            400
+          ],
+          "canvasWidth": 640,
+          "canvasHeight": 480
+        },
+        "inputKey": "actor_reference_1",
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "scale": 1,
+          "yaw": 0
+        },
+        "referenceIndex": 2
+      },
+      {
+        "id": "actor-1",
+        "label": "角色 1",
+        "editorColor": "#599cff",
+        "description": "character 1",
+        "sourcePerson": {
+          "description": "person 2 in the source photo",
+          "bbox": [
+            320,
+            40,
+            520,
+            400
+          ],
+          "canvasWidth": 640,
+          "canvasHeight": 480
+        },
+        "inputKey": "actor_reference_2",
+        "transform": {
+          "x": 3,
+          "y": 0,
+          "z": 0,
+          "scale": 1,
+          "yaw": 5
+        },
+        "referenceIndex": 2
+      },
+      {
+        "id": "actor-2",
+        "label": "角色 2",
+        "editorColor": "#55c989",
+        "description": "character 2",
+        "sourcePerson": null,
+        "inputKey": "actor_reference_3",
+        "transform": {
+          "x": 6,
+          "y": 0,
+          "z": 0,
+          "scale": 1,
+          "yaw": 10
+        },
+        "referenceIndex": 3
+      }
+    ],
+    "imageCount": 3,
+    "warnings": []
+  },
+  "resolvedPrompt": "Create one coherent scene with exactly 3 people.\nUse <image1> as the pose guide for body poses, limb directions, position and framing.\nPerson 1 (角色 0): use the character person 1 in the source photo; selected source pixel region [80, 40, 280, 400] in a 640 x 480 image (normalized region [0.125, 0.083333, 0.4375, 0.833333]) from <image2>; match the person 1 in the guide's pose and placement (world position (0, 0, 0), facing 0 degrees). character 0\nPerson 2 (角色 1): use the character person 2 in the source photo; selected source pixel region [320, 40, 520, 400] in a 640 x 480 image (normalized region [0.5, 0.083333, 0.8125, 0.833333]) from <image2>; match the person 2 in the guide's pose and placement (world position (3, 0, 0), facing 5 degrees). character 1\nPerson 3 (角色 2): use the character from <image3>; match the person 3 in the guide's pose and placement (world position (6, 0, 0), facing 10 degrees). character 2\nKeep each person's face, hairstyle and clothing separate. Do not add extra people, mannequin colors, skeleton lines, labels or guide borders."
+}

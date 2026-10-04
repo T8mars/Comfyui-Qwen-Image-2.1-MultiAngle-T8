@@ -15,7 +15,9 @@
 | DWPose ONNX body estimator and YOLOX detector weights | `yzd-v/DWPose` revision `1a7144101628d69ee7a3768d1ee3a094070dc388` | Apache-2.0 per the model repository; downloaded on the explicit “Extract pose from photo” action, never bundled |
 | Depth Anything 3 Small weights | `Comfy-Org/Depth-Anything-3` revision `afd32929c589f43c2a6fda5246e7df2c01cce529` | Apache-2.0 per the model repository; downloaded on the explicit “Estimate depth from photo” action, never bundled |
 
-Our `web/editor/scene.mjs` adapts the upstream morph-to-rig data mapping. The vendor core is kept intact. Clean capture, camera sign conventions, GLB import, scene persistence, editor UI and ComfyUI bridge are implemented separately. No upstream remote API, analytics or VNCCS inference protocol is used.
+Our `web/editor/scene.mjs` adapts the upstream morph-to-rig data mapping. The vendor core includes small local patches for resource disposal, character roots and landmark metadata. Clean capture, camera sign conventions, GLB import, scene persistence, editor UI and ComfyUI bridge are implemented separately. No upstream remote API, analytics or VNCCS inference protocol is used.
+
+Multi-person design was researched against [GStaaaaa/ComfyUI-Gaoshang-Pose](https://github.com/GStaaaaa/ComfyUI-Gaoshang-Pose/tree/8f33ef271853780620b96d2af4afdc8a20ef4794), MIT, which retains Work-Fisher and GStaaaaa credits. Its active/passive-character approach uses the same VNCCS core already included here. Our scene schema, camera integration, identity manifest and UI are implemented locally. The upstream pose gallery and demonstration images are not redistributed.
 
 Upstream source links:
 - https://github.com/mkkellogg/GaussianSplats3D/tree/v0.4.7

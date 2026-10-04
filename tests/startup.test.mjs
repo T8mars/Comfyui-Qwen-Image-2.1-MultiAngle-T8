@@ -3,9 +3,35 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { defaultScene } from '../web/editor/scene.mjs';
+import { buildManifest, actorMode, actorPrompt, scenePrompt } from '../web/editor/manifest.mjs';
+import { createActor } from '../web/editor/actors.mjs';
 
 const source = readFileSync(new URL('../web/editor/app.mjs', import.meta.url), 'utf8');
 const startSource = source.slice(source.indexOf('async function start('), source.indexOf('\nfunction readPendingReference('));
+
+test('first custom prompt copies the actual cast prompt and subsequent switches preserve edits', () => {
+  const doc=defaultScene();doc.source.kind='human';doc.conditioning={model:'base',identityMode:'actors',guide:'pose'};
+  doc.actors=[createActor(0,{identity:{description:'Alice in red'}}),createActor(1,{identity:{description:'Bob in blue'}})];
+  const expected=scenePrompt(doc),element={},state={doc,scenePrompt,actorMode,actorPrompt,buildManifest,$:()=>element,begin(){},changed(){}};
+  const handler=source.slice(source.indexOf("$('#prompt-mode').onchange ="),source.indexOf("\n$('#image-order').onchange"));
+  vm.runInNewContext(handler,state);element.onchange({target:{value:'custom'}});
+  assert.equal(doc.conditioning.customPrompt,expected);assert.match(expected,/exactly 2 people/);
+  assert.match(expected,/Alice in red/);assert.match(expected,/Bob in blue/);assert.doesNotMatch(expected,/<image2>/);
+  doc.conditioning.customPrompt='User edited text.';element.onchange({target:{value:'default'}});element.onchange({target:{value:'custom'}});
+  assert.equal(doc.conditioning.customPrompt,'User edited text.');
+});
+
+test('first custom static prompt uses the newly enabled identity mapping', () => {
+  const doc=defaultScene();doc.source.kind='human';doc.reference=null;
+  doc.conditioning={model:'base',identityMode:'actors',guide:'pose',map:{name:'pose.png'},mapKind:'pose',imageOrder:'reference-first'};
+  doc.actors=[createActor(0,{identity:{asset:{name:'a.png'},description:'Alice'}}),createActor(1,{identity:{asset:{name:'b.png'},description:'Bob'}})];
+  assert.equal(buildManifest(doc).guide.index,1);assert.doesNotMatch(scenePrompt(doc),/<image2>|<image3>/);
+  const element={},state={doc,scenePrompt,actorMode,actorPrompt,buildManifest,$:()=>element,begin(){},changed(){}};
+  const handler=source.slice(source.indexOf("$('#prompt-mode').onchange ="),source.indexOf("\n$('#image-order').onchange"));
+  vm.runInNewContext(handler,state);element.onchange({target:{value:'custom'}});
+  assert.equal(buildManifest(doc).guide.index,3);assert.match(doc.conditioning.customPrompt,/<image3> as the pose guide/);
+  assert.match(doc.conditioning.customPrompt,/from <image1>/);assert.match(doc.conditioning.customPrompt,/from <image2>/);
+});
 
 function fixture(response) {
   const elements = new Map();
@@ -22,7 +48,7 @@ function fixture(response) {
     toast: message => notices.push(message), error: failure => errors.push(failure.message),
     showLoadError: () => { state.$('#loading').hidden = true; },
     StudioScene: class { async init(doc) { state.initCount++; state.initializedSource = doc.source.kind; } },
-    begin() {}, changed() {}, refresh() {}, schedulePreview() {},
+    begin() {}, changed() {}, refresh() {}, schedulePreview() {}, selectRole() {},
     renderShots() {}, renderLibrary() {}, ensureHumanTools: async () => {},
     usesLocalGuide: () => false, applyStructureAsset: async () => {},
     setBusy: value => { state.busy = value; },
@@ -109,4 +135,22 @@ test('server errors with a non-JSON body retain the HTTP status', async () => {
   assert.equal(state.initCount, 0);
   assert.deepEqual(notices, []);
   assert.match(errors[0], /503/);
+});
+
+test('actor and keypoint replies wait for the current edit and preserve revision history', async () => {
+  const microtasks=[],jobs=[],references=[],notices=[];
+  const state={busy:true,ready:true,pendingActors:{actorReferences:[{inputKey:'actor_reference_2',asset:{name:'b.png'}}]},pendingKeypoints:{posePeople:{asset:{name:'pose.png'},people:[{points:{},fullBody:false}],signature:'new'}},pendingReference:null,pendingStructure:null,
+    doc:{conditioning:{},openpose:null},$:()=>({}),hasGuide:()=>true,linkedReference:{},linkedStructure:{},usesLocalGuide:()=>true,undo:[],redo:[],queueMicrotask:fn=>microtasks.push(fn),
+    readPendingReference(){},readPendingStructure(){},updateActorReferences:value=>references.push(value),toast:message=>notices.push(message),changed:()=>{state.changes++},changes:0,
+    applyOpenPoseAsset:async(asset)=>{state.doc.openpose={sourceName:asset.name,useRig:false};state.changes++},
+  };
+  state.run=task=>{if(state.busy)return;state.setBusy(true);const job=Promise.resolve().then(task).finally(()=>state.setBusy(false));jobs.push(job);return job};
+  const busyCode=source.slice(source.indexOf('function setBusy('),source.indexOf('\nasync function run('));
+  const pendingCode=source.slice(source.indexOf('function readPendingActors('),source.indexOf('\ninstallActorsUI('));
+  vm.runInNewContext(busyCode+'\n'+pendingCode,state);
+  state.readPendingActors();state.readPendingKeypoints();assert.equal(references.length,0);assert.equal(state.changes,0);
+  state.setBusy(false);
+  while(microtasks.length||jobs.length){while(microtasks.length)microtasks.shift()();await Promise.all(jobs.splice(0));}
+  assert.equal(references.length,1);assert.equal(state.doc.openpose.inputSignature,'new');assert.equal(state.changes,2);assert.equal(state.pendingActors,null);assert.equal(state.pendingKeypoints,null);
+  state.pendingKeypoints={posePeople:{asset:{name:'pose.png'},people:[],signature:'new'}};state.readPendingKeypoints();await Promise.all(jobs.splice(0));assert.equal(state.changes,2,'Repeated identical keypoints do not overwrite an edit or add history');
 });

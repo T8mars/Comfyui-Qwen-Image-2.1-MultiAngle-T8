@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cannyEdges, guidePrompt, guideImageIndex, guideSource, PROMPTS, SINGLE_PROMPTS } from '../web/editor/guides.mjs';
+import { cannyEdges, hasCannyEdges, guidePrompt, guideImageIndex, guideSource, PROMPTS, SINGLE_PROMPTS } from '../web/editor/guides.mjs';
 import { detectSkeleton, liftOpenPose, ORDER, LIMBS, COLORS } from '../web/editor/openpose.mjs';
+import { multiSkeleton } from './fixtures/fisher-skeleton.mjs';
 
 test('guide mode changes the edit instruction without changing image roles', () => {
   assert.equal(guidePrompt({ model: 'anyangle', guide: 'depth' }), PROMPTS.anyangle);
@@ -91,6 +92,20 @@ test('default Canny thresholds retain ordinary mid-contrast subject edges', () =
   assert.ok(edges.filter((value, index) => index % 4 === 0 && value).length > 100);
 });
 
+test('low-contrast frame is explicitly empty, while clay silhouettes retain default-threshold edges', () => {
+  const width = 96, height = 96;
+  const paint = (foreground, background) => {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4, value = x >= 24 && x < 72 && y >= 15 && y < 80 ? foreground : background;
+      pixels[i] = pixels[i + 1] = pixels[i + 2] = value; pixels[i + 3] = 255;
+    }
+    return pixels;
+  };
+  assert.equal(hasCannyEdges(cannyEdges(paint(152, 148), width, height)), false);
+  assert.equal(hasCannyEdges(cannyEdges(paint(220, 0), width, height)), true);
+});
+
 test('Fisher-compatible colored body skeleton is detected and depth flips are applied', () => {
   const width = 256, height = 256, data = new Uint8ClampedArray(width * height * 4);
   const points = { head: [128, 25], neck: [128, 50], rs: [95, 60], re: [75, 95], rw: [65, 135],
@@ -123,4 +138,23 @@ test('Fisher-compatible colored body skeleton is detected and depth flips are ap
   const flipped = liftOpenPose(detected[0], rest, { lArmUpper: true });
   assert.ok(Math.abs(first.kps.le[2] - first.kps.ls[2]) > .1);
   assert.ok(Math.abs((first.kps.le[2] - first.kps.ls[2]) + (flipped.kps.le[2] - flipped.kps.ls[2])) < 1e-5);
+});
+
+for(const count of [4,6,9,12])test(`Fisher PNG matches all ${count} complete bodies without a three-person cap or cross-person joints`,()=>{
+  const {image,people}=multiSkeleton(count),parsed=detectSkeleton(image);assert.equal(parsed.length,count);
+  for(const [i,body] of parsed.entries()) for(const key of ORDER) assert.ok(Math.hypot(body[key][0]-people[i][key][0],body[key][1]-people[i][key][1])<8,`${i}/${key}`);
+});
+test('occluded Fisher PNG returns every body with per-person inferred points instead of truncating to three',()=>{
+  const {image}=multiSkeleton(4,true),parsed=detectSkeleton(image);assert.equal(parsed.length,4);assert.equal(parsed.inferredByPerson.length,4);
+  assert.ok(parsed.inferredByPerson.every(keys=>keys.includes('head')));assert.ok(parsed.warnings.length);
+});
+
+test('mixed complete and occluded Fisher bodies are all offered, with inferred points attributed only to the affected person',()=>{
+  const {image,people}=multiSkeleton(6,[1,4]),parsed=detectSkeleton(image);
+  assert.equal(parsed.length,6);
+  for(const [i,body] of parsed.entries()) {
+    assert.ok(Math.abs(body.neck[0]-people[i].neck[0])<8);
+    assert.equal(parsed.inferredByPerson[i].includes('head'),[1,4].includes(i));
+    if(![1,4].includes(i))assert.deepEqual(parsed.inferredByPerson[i],[]);
+  }
 });

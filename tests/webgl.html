@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>Isolated AnyAngle renderer test</title>
+<style>body{margin:0;background:#121c24;color:#e2eff7;font:14px sans-serif}#stage{width:1100px;height:750px;margin:20px}canvas{width:100%;height:100%}</style>
+<div id="stage"><canvas id="viewport"></canvas></div><div id="status">Testing local rendering modules…</div>
+<script type="module">
+import { StudioScene, defaultScene } from '/web/editor/scene.mjs';
+import { createActor, ensureActors, bindActor } from '/web/editor/actors.mjs';
+import { randomPose } from '/web/editor/poses.mjs';
+const doc=defaultScene();doc.source.kind='human';doc.conditioning={model:'base',guide:'coarse',identityMode:'actors',colorActors:true};doc.width=1024;doc.height=768;
+doc.actors=[createActor(0,{id:'first',pose:randomPose(42,'standing'),transform:{x:-5,y:0,z:0,scale:1,yaw:-12}}),createActor(1,{id:'second',pose:randomPose(68,'standing'),transform:{x:5,y:0,z:2,scale:.9,yaw:20}})];ensureActors(doc);bindActor(doc);
+window.studio=new StudioScene(document.querySelector('canvas'),{begin(){},change(){},camera(){},select(){},error(error){throw error}});
+await window.studio.init(doc);window.studio.fit();window.doc=doc;window.ready=true;document.querySelector('#status').textContent='Renderer ready';
+</script>
