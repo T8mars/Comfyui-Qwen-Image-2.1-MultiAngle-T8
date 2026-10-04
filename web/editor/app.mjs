@@ -1,4 +1,4 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261003a';
+import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261004a';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261003a';
 import { readSkeletonImage } from './openpose.mjs';
 import { GUIDE_LABELS, guidePrompt, guideSource, cannyEdges } from './guides.mjs?v=20261003a';
@@ -36,7 +36,7 @@ function toast(message) {
 function error(error) { console.error(error); toast(error?.message || String(error)); }
 function currentGuide() { return doc.conditioning.model === 'anyangle' ? 'coarse' : doc.conditioning.guide; }
 function usesLocalGuide(guide = currentGuide()) {
-  return guide === 'pose' && doc.openpose?.origin === 'dwpose'
+  return guide === 'pose' && (doc.openpose?.origin === 'dwpose' || doc.openpose?.useRig || doc.conditioning.mapOrigin === 'rig')
     || guide === 'depth' && doc.conditioning.mapOrigin === 'da3'
     || guide === 'canny' && ['auto', 'reference'].includes(doc.conditioning.mapOrigin);
 }
@@ -153,7 +153,7 @@ function refresh() {
   for (const id of ['camera-heading', 'camera-eyebrow', 'camera-sliders', 'view-presets', 'shot-shelf', 'scene-panel']) $(`#${id}`).hidden = staticGuide;
   $('#stage-help').textContent = previewVisible ? staticGuide ? '原图结构与构图 · 应用到节点后输出当前引导图' : '当前三维机位的引导图 · 切换 3D 工作台调整机位'
     : studio?.mode === 'edit' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移'
-      : '拖动调整拍摄机位 · 中键或 Shift 平移 · 滚轮缩放';
+      : '黄框为输出范围 · 拖动调整机位 · 中键或 Shift 平移 · 滚轮缩放';
   for (const control of controls.values()) control.refresh();
   $('#width').value = doc.width; $('#height').value = doc.height;
   $('#background').value = doc.background;
@@ -242,7 +242,8 @@ function refresh() {
   $('#lora-hint').textContent = base ? 'LoRA 强度输出 0 → 使用底模' : 'LoRA 强度输出 1 → AnyAngle';
   $('#protocol-hint').textContent = base && unwiredAnyAngle ? '当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的强度输出，或移除 LoRA 加载器。'
     : base ? '底模将结构图作为第二张参考图理解；姿势、深度和轮廓的遵循程度需实测。'
-    : 'AnyAngle 必须使用当前机位粗图。请把 LoRA 强度输出接至模型加载器。';
+    : human ? '修改人物动作请选 Qwen 底模 + POSE 姿势；AnyAngle 用于改变机位。'
+      : 'AnyAngle 必须使用当前机位粗图。请把 LoRA 强度输出接至模型加载器。';
   $('#protocol-hint').classList.toggle('wiring-warning', base && unwiredAnyAngle);
   $('#openpose-status').textContent = doc.openpose ? poseImage ? doc.openpose.fullBody === false
     ? '已提取可见骨架；半身或遮挡照片直接输出原图姿势。' : '已生成原图骨架；可直接输出或选择三维编辑。'
@@ -251,7 +252,7 @@ function refresh() {
   $('#retarget-pose').disabled = doc.openpose?.origin === 'dwpose' && doc.openpose?.fullBody === false;
   $('#retarget-pose').title = $('#retarget-pose').disabled ? '三维人偶编辑需要可见的全身骨架' : '';
   $('#pose-original').hidden = !doc.openpose?.rawAsset || poseImage;
-  $('#pose-flips').hidden = !doc.openpose || poseImage;
+  $('#pose-flips').hidden = !doc.openpose?.points || doc.openpose.fullBody === false || poseImage;
   document.querySelectorAll('[data-flip]').forEach(button => button.classList.toggle('on', !!doc.openpose?.flips?.[button.dataset.flip]));
   $('#read-openpose').hidden = !linkedStructure.connected;
   $('#read-openpose').disabled = !!linkedStructure.pending;
@@ -349,7 +350,7 @@ function setMode(mode) {
   $('#camera-mode').classList.toggle('active', mode === 'camera'); $('#edit-mode').classList.toggle('active', mode === 'edit');
   $('#camera-mode').setAttribute('aria-pressed', String(mode === 'camera')); $('#edit-mode').setAttribute('aria-pressed', String(mode === 'edit'));
   $('#use-view').hidden = mode !== 'edit';
-  $('#stage-help').textContent = mode === 'camera' ? '拖动调整拍摄机位 · 中键或 Shift 平移 · 滚轮缩放'
+  $('#stage-help').textContent = mode === 'camera' ? '黄框为输出范围 · 拖动调整机位 · 中键或 Shift 平移 · 滚轮缩放'
     : doc.source.kind === 'human' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移 · 拍摄机位保持不变'
       : '右键环绕 · 中键平移 · 可将当前视图设为机位';
 }
@@ -379,7 +380,7 @@ document.querySelectorAll('[data-guide]').forEach(button => button.onclick = () 
   begin(); if (guide !== 'coarse') doc.conditioning.model = 'base'; doc.conditioning.guide = guide;
   if (doc.conditioning.mapKind !== guide) { doc.conditioning.map = null; doc.conditioning.mapKind = null; doc.conditioning.mapOrigin = null; }
   if (guide === 'canny' && !doc.conditioning.map) doc.conditioning.mapOrigin = doc.reference ? 'reference' : 'auto';
-  if (guide === 'pose' && doc.openpose?.rawAsset) {
+  if (guide === 'pose' && doc.openpose?.rawAsset && !doc.openpose.useRig) {
     doc.conditioning.map = doc.openpose.rawAsset; doc.conditioning.mapKind = 'pose';
     doc.conditioning.mapOrigin = doc.openpose.origin;
   }
@@ -441,7 +442,7 @@ async function retargetPose() {
       doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1; doc.camera = defaultScene().camera;
       await studio.restore(doc); await ensureHumanTools();
     }
-    doc.openpose = { ...doc.openpose, points, flips: {} };
+    doc.openpose = { ...doc.openpose, points, flips: {}, useRig: true };
     doc.conditioning.model = 'base'; doc.conditioning.guide = 'pose';
     doc.conditioning.map = null; doc.conditioning.mapKind = null; doc.conditioning.mapOrigin = null;
     const facingAway = studio.applyOpenPose(points);
@@ -456,7 +457,8 @@ async function retargetPose() {
 $('#retarget-pose').onclick = () => run(retargetPose);
 $('#pose-original').onclick = () => {
   if (!doc.openpose?.rawAsset) return;
-  begin(); doc.conditioning.map = doc.openpose.rawAsset; doc.conditioning.mapKind = 'pose';
+  begin(); doc.openpose.useRig = false;
+  doc.conditioning.map = doc.openpose.rawAsset; doc.conditioning.mapKind = 'pose';
   doc.conditioning.mapOrigin = doc.openpose.origin; previewVisible = true; changed();
 };
 async function applyStructureAsset(asset) {
@@ -523,7 +525,7 @@ $('#read-map').onclick = $('#read-openpose').onclick = () => {
 };
 document.querySelectorAll('[data-flip]').forEach(button => {
   button.onclick = () => {
-    if (!doc.openpose || doc.source.kind !== 'human') return;
+    if (!doc.openpose?.points || doc.openpose.fullBody === false || doc.source.kind !== 'human') return;
     begin(); const key = button.dataset.flip;
     doc.openpose.flips = { ...doc.openpose.flips, [key]: !doc.openpose.flips[key] };
     studio.applyOpenPose(doc.openpose.points, doc.openpose.flips); changed();
@@ -684,7 +686,7 @@ function renderLibrary() {
     const row = document.createElement('div'); row.className = 'saved-row';
     const button = document.createElement('button'); button.textContent = pose.name;
     button.onclick = () => run(async () => { begin(); doc.mesh = clone(pose.mesh); doc.pose = clone(pose.pose);
-      doc.openpose = pose.openpose ? clone(pose.openpose) : null; await studio.restore(doc); changed(); });
+      doc.openpose = pose.openpose ? clone(pose.openpose) : null; await studio.restore(doc); studio.useRigPose(); changed(); });
     const remove = iconButton('trash', `删除姿势 ${pose.name}`); remove.onclick = () => { poseLibrary = poseLibrary.filter(p => p.id !== pose.id); saveLibrary(); };
     row.append(button, remove); $('#saved-poses').append(row);
   }
@@ -715,7 +717,7 @@ $('#pose-file').onchange = event => run(async () => {
   const previous = clone(doc);
   begin(); doc.mesh = { ...defaultScene().mesh, ...imported.mesh, breast_size: 0, show_genitals: false }; doc.pose = imported.pose;
   doc.openpose = imported.openpose || null;
-  try { await studio.restore(doc); changed(); }
+  try { await studio.restore(doc); studio.useRigPose(); changed(); }
   catch (e) { doc = previous; await studio.restore(doc); throw e; }
 });
 $('#download-guide').onclick = () => run(async () => {
@@ -817,12 +819,13 @@ $('#apply').onclick = () => run(async () => {
 async function buildPresetCards() {
   const working = studio.doc;
   const savedPose = studio.pose(); const savedCamera = clone(working.camera); const mode = studio.mode;
+  const savedWidth = working.width, savedHeight = working.height;
   studio.restoring = true;
   $('#presets').replaceChildren();
   try {
     for (const preset of PRESETS) {
       studio.setPreset(preset); working.camera = { azimuth: 25, elevation: 3, zoom: 1.1, offsetX: 0, offsetY: 0, offsetZ: 0 };
-      studio.updateShot();
+      working.width = 150; working.height = 170; studio.fit();
       const png = await studio.capture(150, 170);
       const button = document.createElement('button'); button.className = 'preset-card';
       const image = document.createElement('img'); image.src = png; image.alt = '';
@@ -830,7 +833,10 @@ async function buildPresetCards() {
       button.onclick = () => { begin(); studio.setPreset(preset); changed(); document.querySelectorAll('.preset-card').forEach(b => b.classList.toggle('active', b === button)); };
       $('#presets').append(button);
     }
-  } finally { studio.viewer.setPose(savedPose, true); working.pose = savedPose; working.camera = savedCamera; studio.setMode(mode); studio.restoring = false; }
+  } finally {
+    studio.viewer.setPose(savedPose, true); working.pose = savedPose; working.camera = savedCamera;
+    working.width = savedWidth; working.height = savedHeight; studio.setMode(mode); studio.restoring = false;
+  }
 }
 
 async function ensureHumanTools() {

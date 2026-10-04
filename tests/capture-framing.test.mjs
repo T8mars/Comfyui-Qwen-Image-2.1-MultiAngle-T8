@@ -55,7 +55,7 @@ function withCanvas(callback) {
   try { callback(); } finally { globalThis.document = oldDocument; }
 }
 
-for (const pixelRatio of [1, 1.25, 1.5, 2]) {
+for (const pixelRatio of [1, 1.25, 1.5, 1.75, 2, 2.5, 3]) {
   test(`center and frame edges agree between preview and PNG at display DPR ${pixelRatio}`, () => withCanvas(() => {
     const renderer = rendererAt(pixelRatio);
     for (const [width, height] of [[1024, 1024], [864, 1536], [1536, 864]]) {

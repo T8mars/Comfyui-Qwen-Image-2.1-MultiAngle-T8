@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css?v=20261003a"></head>
 <body>
 <header class="topbar">
-  <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small>T8</small></div>
+  <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small title="工作台版本">T8 · v1.2.1</small></div>
   <span class="product-label">相机工作台</span>
   <div class="top-actions"><button id="undo" class="icon-button" title="撤销 Ctrl+Z" aria-label="撤销"><img src="../icons/arrow-back-up.svg" alt=""></button><button id="redo" class="icon-button" title="重做 Ctrl+Shift+Z" aria-label="重做"><img src="../icons/arrow-forward-up.svg" alt=""></button><button id="cancel" class="quiet">取消</button><button id="apply" class="primary" disabled><img src="../icons/check.svg" alt="">应用到节点</button></div>
 </header>
@@ -42,7 +42,7 @@
       <div id="stage-guide-view" class="stage-guide-view" hidden><div class="guide-result-meta"><strong id="stage-guide-title">引导图</strong><span id="stage-guide-detail">实际输出 · image_2</span></div><img id="stage-guide" alt="当前引导图的完整输出预览" hidden><div id="stage-guide-empty" class="guide-preview-empty"><strong id="stage-guide-message">请先生成引导图</strong><span>在右侧生成、导入或读取结构图</span></div></div>
       <div id="loading" class="loading" role="status"><img src="../icons/aperture.svg" alt=""><strong id="loading-text">正在准备 3D 工作台</strong><span id="loading-detail">加载本地渲染资源</span></div>
     </div>
-    <div class="stage-help" id="stage-help">拖动调整拍摄机位 <span>中键或 Shift 平移 · 滚轮缩放</span></div>
+    <div class="stage-help" id="stage-help">黄框为输出范围 <span>拖动调整机位 · 中键或 Shift 平移 · 滚轮缩放</span></div>
     <section class="shot-shelf" id="shot-shelf"><div class="section-heading"><h2>已保存机位 <small id="shot-count">0</small></h2><div class="compact-actions"><button id="open-batch">批量机位</button><button id="save-shot"><img src="../icons/plus.svg" alt="">收藏当前机位</button></div></div><div id="shots" class="shots"><p class="empty-note">把满意的机位留在这里。切换收藏只改变相机，姿势保持当前状态。</p></div></section>
   </section>
   <aside class="right-panel">
@@ -68,5 +68,5 @@
 <dialog id="batch-dialog" class="batch-dialog" aria-labelledby="batch-title"><h2 id="batch-title">批量机位 <span class="tag">MULTI-VIEW</span></h2><div id="batch-options"><label>机位来源<select id="batch-mode"><option value="range">角度步进</option><option value="saved">已收藏机位</option></select></label><div id="batch-range" class="batch-range"><label>起始角度<input id="batch-start" type="number" step="any" value="0"></label><label>结束角度<input id="batch-end" type="number" step="any" value="330"></label><label>步长<input id="batch-step" type="number" step="any" value="30"></label></div><p id="batch-count" class="hint"></p><div class="compact-actions"><button id="batch-guides">批量渲染粗图</button><button id="batch-final" class="primary">批量生成最终图</button></div></div><p class="hint">0° → 360°、步长 1° 可生成 360 个机位。最终图沿用当前工作流的种子与采样设置，分别加入 ComfyUI 队列；请连接 Save Image 保存结果。从节点打开工作台才能批量生成最终图。</p><div id="batch-state" class="batch-state" role="status">选择机位范围，再开始批量。</div><p class="hint">停止仅结束后续提交，已入队任务继续运行。</p><div class="compact-actions"><button id="batch-stop" disabled>停止后续机位</button><button id="batch-zip" disabled>下载粗图 ZIP</button><button id="batch-manifest" disabled>下载任务清单</button><button id="batch-close">关闭</button></div></dialog>
 <dialog id="name-dialog"><form method="dialog"><h2 id="name-title">命名</h2><input id="name-input" maxlength="48" required autocomplete="off"><div><button value="cancel" formnovalidate>取消</button><button value="ok" class="primary">保存</button></div></form></dialog>
 <input type="file" id="reference-file" accept="image/*" hidden><input type="file" id="glb-file" accept=".glb" hidden><input type="file" id="pose-file" accept=".json,application/json" hidden><input type="file" id="openpose-file" accept="image/png,image/jpeg,image/webp" hidden><input type="file" id="map-file" accept="image/*" hidden>
-<script type="module" src="./app.mjs?v=20261003a"></script>
+<script type="module" src="./app.mjs?v=20261004a"></script>
 </body></html>

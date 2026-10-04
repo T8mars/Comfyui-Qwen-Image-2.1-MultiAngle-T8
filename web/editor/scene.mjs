@@ -3,8 +3,8 @@ import { GLTFLoader } from '../vendor/GLTFLoader.mjs';
 import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs';
 import { loadMorphPack, solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
-import { SplatScene } from './splat.mjs';
-import { capturePNG } from './capture.mjs?v=20261002a';
+import { SplatScene } from './splat.mjs?v=20261004a';
+import { capturePNG } from './capture.mjs?v=20261004a';
 import { liftOpenPose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs';
 
 export const PRESETS = [
@@ -205,6 +205,9 @@ export class StudioScene {
       this.setMode(this.mode);
       this.updateShot(true);
       await this.viewer.waitForCaptureReady();
+      // Normalize sparse or older pose documents without treating restoration
+      // as a user edit and replacing an explicitly selected photo skeleton.
+      this.syncPose();
     } finally { this.restoring = false; }
   }
 
@@ -213,7 +216,20 @@ export class StudioScene {
     return pose;
   }
 
-  syncPose() { if (this.doc.source.kind === 'human') this.doc.pose = this.pose(); }
+  syncPose() {
+    if (this.doc.source.kind !== 'human') return;
+    const pose = this.pose();
+    if (!this.restoring && JSON.stringify(pose) !== JSON.stringify(this.doc.pose)) this.useRigPose();
+    this.doc.pose = pose;
+  }
+
+  useRigPose() {
+    if (this.doc.openpose) this.doc.openpose.useRig = true;
+    const settings = this.doc.conditioning;
+    if (settings.guide === 'pose') {
+      settings.map = null; settings.mapKind = null; settings.mapOrigin = 'rig';
+    }
+  }
 
   updateShot(snap = false) {
     const d = this.doc, c = d.camera;
@@ -358,6 +374,7 @@ export class StudioScene {
 
   setPreset(preset) {
     this.viewer.setPose({ bones: preset.bones }, true);
+    if (!this.restoring) this.useRigPose();
     this.syncPose();
     this.setMode(this.mode);
   }

@@ -49,6 +49,8 @@ The same original demo image produced 262,144 Gaussians, rendered from a new vie
 
 The included mannequin supports pose presets, hands, body proportions, and joint editing. **POSE → Extract pose from photo** directly outputs the photo skeleton. For a visible full-body skeleton, choose **Edit pose with 3D mannequin** to adjust it further. The screenshot shows standalone preview mode; when opened from a node, the top-right action reads **Apply to node**.
 
+For pose edits, select **Qwen base + POSE** and connect the LoRA strength output. Choosing a preset or editing joints outputs the current mannequin skeleton; this selection survives guide changes and reopening a saved scene. **Use photo skeleton** restores the visible photo pose. DWPose on a cropped photo detects visible joints, without reconstructing limbs outside the image. AnyAngle LoRA is primarily for camera changes.
+
 ### Base model and structure maps
 
 Select **Qwen base** under Guide Strategy to output `anyangle_lora_strength = 0`; switch back to **AnyAngle LoRA** for `1`. The updated basic and advanced workflows use the bundled **AnyAngle Optional LoRA** loader and connect this output to `strength_model`. At strength 0 it passes the base model through without requiring the AnyAngle file. For an older workflow, replace its loader and connect the strength output, or remove its LoRA loader. Switching the editor alone cannot override a fixed strength in an old workflow.
@@ -100,7 +102,9 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 ## Install
 
-**1.0.2 framing fix:** corrects zoom, offset and cropping between the 3D camera frame and exported guides on high-DPI / scaled displays. After updating, close the studio, reload ComfyUI with `Ctrl+F5`, reopen the studio and **Apply to node** again. Guides already saved in workflows must be exported again.
+**1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
+
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.2.1**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 
