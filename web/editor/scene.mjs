@@ -3,7 +3,7 @@ import { GLTFLoader } from '../vendor/GLTFLoader.mjs';
 import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs';
 import { loadMorphPack, solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
-import { SplatScene } from './splat.mjs?v=20261004a';
+import { SplatScene } from './splat.mjs?v=20261004b';
 import { capturePNG } from './capture.mjs?v=20261004a';
 import { liftOpenPose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs';
 
@@ -17,6 +17,7 @@ export const defaultScene = () => ({
   version: 1, width: 1024, height: 1024,
   source: { kind: 'empty' }, reference: null,
   reconstruction: { keepBackground: false },
+  interaction: { mousePitch: true, quality: 'balanced', livePreview: true },
   camera: { azimuth: 35, elevation: 8, zoom: 1.3, offsetX: 0, offsetY: 0, offsetZ: 0 },
   mesh: { age: 25, gender: 0.5, weight: 0.5, muscle: 0.5, height: 0.5, breast_size: 0, firmness: 0.5, show_genitals: false },
   pose: { bones: PRESETS[0].bones }, shots: [], front: 0, scale: 1,
@@ -109,12 +110,15 @@ export class StudioScene {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.canvas.parentElement);
     this.resize();
-    const animateSplat = () => {
-      if (this.disposed) return;
-      if (this.doc.source.kind === 'splat') this.viewer.requestRender();
-      this.splatFrame = requestAnimationFrame(animateSplat);
-    };
-    animateSplat();
+  }
+
+  updatePerformance() {
+    const renderer = this.viewer.renderer;
+    if (!renderer) return;
+    const limit = { economy: 1, balanced: 1.5, sharp: 2 }[this.doc.interaction?.quality] || 1.5;
+    const ratio = Math.min(globalThis.devicePixelRatio || 1, limit);
+    if (renderer.getPixelRatio() !== ratio) renderer.setPixelRatio(ratio);
+    this.viewer.requestRender();
   }
 
   resize() {
@@ -135,6 +139,7 @@ export class StudioScene {
     this.restoring = true;
     try {
       this.doc = doc;
+      this.updatePerformance();
       if (doc.source.kind !== 'splat') [this.viewer.camera, this.viewer.captureCamera].forEach((camera, i) => {
         camera.clearViewOffset(); camera.near = this.cameraClips[i].near; camera.far = this.cameraClips[i].far;
         camera.up.set(0, 1, 0); camera.updateProjectionMatrix();
@@ -467,7 +472,8 @@ export class StudioScene {
         this.doc.camera.offsetY = drag.camera.offsetY - dy * 0.025;
       } else {
         this.doc.camera.azimuth = ((drag.camera.azimuth - dx * 0.35 + 540) % 360) - 180;
-        this.doc.camera.elevation = clamp(drag.camera.elevation + dy * 0.25, -89, 89);
+        if (this.doc.interaction?.mousePitch !== false)
+          this.doc.camera.elevation = clamp(drag.camera.elevation + dy * 0.25, -89, 89);
       }
       this.updateShot(); this.callbacks.camera();
     }, true);
@@ -489,7 +495,6 @@ export class StudioScene {
 
   dispose() {
     this.disposed = true;
-    cancelAnimationFrame(this.splatFrame);
     this.resizeObserver?.disconnect();
     this.splat?.dispose();
     this.viewer.dispose();

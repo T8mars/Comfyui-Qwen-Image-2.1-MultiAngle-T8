@@ -11,9 +11,25 @@ export const PROMPTS = {
   canny: 'Use <image1> as the identity, clothing and style reference. Follow the silhouette, contours and major edge layout shown by <image2>.',
 };
 
+export const SINGLE_PROMPTS = {
+  coarse: 'Generate a finished image following the camera angle and composition in <image1>. Use the accompanying text to define the subject, appearance and style.',
+  pose: 'Generate an image of the subject described in the text, following the body pose and framing in <image1>.',
+  depth: 'Generate an image following the spatial depth, layout and occlusion relationships in <image1>. Use the text to define the subject and style.',
+  canny: 'Generate an image following the silhouette, contours and major edge layout in <image1>. Use the text to define the subject and style.',
+};
+
+export function guideImageIndex(conditioning) {
+  return conditioning?.promptMode === 'single' || conditioning?.imageOrder === 'guide-first' ? 1 : 2;
+}
+
 export function guidePrompt(conditioning, source) {
-  if (conditioning?.model === 'base' && conditioning.guide === 'coarse' && source?.keep_background) return PROMPTS.scene;
-  return conditioning?.model === 'base' ? PROMPTS[conditioning.guide] || PROMPTS.coarse : PROMPTS.anyangle;
+  if (conditioning?.promptMode === 'custom') return conditioning.customPrompt ?? '';
+  let prompt = conditioning?.promptMode === 'single' ? SINGLE_PROMPTS[conditioning.guide] || SINGLE_PROMPTS.coarse
+    : conditioning?.model === 'base' ? conditioning.guide === 'coarse' && source?.keep_background
+      ? PROMPTS.scene : PROMPTS[conditioning.guide] || PROMPTS.coarse : PROMPTS.anyangle;
+  if (conditioning?.promptMode !== 'single' && conditioning?.imageOrder === 'guide-first')
+    prompt = prompt.replace(/<image([12])>/g, (_, index) => `<image${3 - Number(index)}>`);
+  return conditioning?.promptExtra?.trim() ? `${prompt}\n${conditioning.promptExtra.trim()}` : prompt;
 }
 
 export function guideSource(scene) {

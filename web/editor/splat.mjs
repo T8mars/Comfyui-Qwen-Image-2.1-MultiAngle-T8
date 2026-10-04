@@ -122,6 +122,7 @@ export class SplatScene {
     this.dropIn = dropIn;
     this.root.add(dropIn);
     const viewer = dropIn.viewer;
+    this.watchSort(viewer);
     // 0.4.7's tree culling ignores off-axis projection. Keep all nodes available
     // for the uncropped reference frame; sorting still runs in its local worker.
     const gather = viewer.gatherSceneNodesForSort.bind(viewer);
@@ -144,6 +145,20 @@ export class SplatScene {
   configureCamera(camera, doc, width, height) {
     this.root.updateWorldMatrix(true, false);
     return configureSplatCamera(camera, this.source, doc.camera, width, height, this.root.matrixWorld);
+  }
+
+  watchSort(viewer) {
+    const runSort = viewer.runSplatSort.bind(viewer);
+    viewer.runSplatSort = (...args) => {
+      const started = runSort(...args);
+      started.then(() => {
+        const completion = viewer.sortPromise;
+        if (!completion || completion === this.pendingSort || this.disposed) return;
+        this.pendingSort = completion;
+        completion.then(() => { if (!this.disposed) this.core.requestRender(); });
+      });
+      return started;
+    };
   }
 
   async prepareCapture(renderer, camera) {

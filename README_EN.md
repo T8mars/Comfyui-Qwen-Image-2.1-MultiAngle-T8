@@ -70,6 +70,26 @@ Reconstruction opens the interactive **3D workbench** by default. Choose **Previ
 
 The original still goes to `reference_image` and encoder `image_1`; `guide_image_2` goes to encoder `image_2`. Each guide mode supplies a matching edit prompt. DWPose extracts **2D joints**; inspect occluded limbs and front/back depth in the editor. The base model treats the structure map as an **image reference** rather than a dedicated ControlNet input. Pose, depth, and edge adherence are therefore model-dependent, not guaranteed hard constraints. Imported maps are letterboxed to the output size instead of stretched.
 
+### Prompts and single-guide workflows · 1.3.0
+
+![Dual-image and single-guide wiring](docs/images/prompt-modes.svg)
+
+**Wiring and prompt** offers three modes. Settings and output prompts persist with the scene:
+
+| Mode | Wiring and use |
+|---|---|
+| Dual-image template (default) | Keeps the existing AnyAngle / base templates. Select original 1 / guide 2 or reverse the order; template image tags follow that selection. Connect the encoder accordingly. |
+| Single guide | Selects Qwen base and LoRA strength 0. Connect the guide to `image_1`, without an original photo. Add text describing the subject and style. Supports coarse 3D, POSE, Depth and Canny. |
+| Custom | Outputs text verbatim, preserving image tags, spacing and line breaks. Leave it empty to compose the prompt elsewhere in your workflow. |
+
+The [single-guide workflow](workflows/AnyAngle-Studio-Qwen21-SingleGuide.json) connects the guide and LoRA strength. Choose **Single guide** in the studio, load a mannequin / GLB / structure map, then **Apply to node**. The compatible output name remains `guide_image_2`; this template connects it to encoder `image_1`. Single-guide mode needs no AnyAngle weights. Qwen derives its output aspect from the first image received by the encoder.
+
+### Camera bookmarks and performance · 1.3.0
+
+Bookmarking from scene-edit mode adopts the current view. Clicking a thumbnail returns to the photo camera and restores azimuth, elevation, zoom, offsets and dimensions. Bookmarks are draft changes until **Apply to node**; cancelling discards the current edits. Disable **Allow mouse pitch** for horizontal mouse rotation while retaining the elevation slider.
+
+Splat workbenches render on demand, stopping continuous refresh when idle and updating after sorting completes. For slower computers, choose **Economy** under **Workbench performance**, disable **Automatic guide preview**, and refresh the guide manually. Display quality affects viewport pixels; export keeps the configured dimensions. Initial model loading, reconstruction and sorting may temporarily use CPU. If usage stays high while idle, report the browser, GPU, hardware-acceleration setting and stage where it occurs. This update needs no additional models.
+
 ### Batch views and generation · 1.1.0
 
 ![Batch views: choose angles, render independent guides, queue Qwen jobs and save outputs](docs/images/batch-flow.svg)
@@ -104,7 +124,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.2.1**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.3.0**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

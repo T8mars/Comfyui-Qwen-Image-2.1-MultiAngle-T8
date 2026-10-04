@@ -20,14 +20,14 @@ class AnyAngleStudio:
     @classmethod
     def INPUT_TYPES(cls):
         return {"required": {"snapshot": ("STRING", {"default": "", "multiline": True})},
-                "optional": {"reference_image": ("IMAGE", {"tooltip": "Original image for the studio. Also connect this image to Qwen image_1."}),
+                "optional": {"reference_image": ("IMAGE", {"tooltip": "Optional reference photo. Qwen image order follows the studio prompt settings; single-guide mode needs no photo."}),
                              "structure_image": ("IMAGE", {"tooltip": "Optional OpenPose, Depth Anything or Canny image for the base-model guide."})}}
 
     RETURN_TYPES = ("IMAGE", "STRING", "STRING", "FLOAT")
     RETURN_NAMES = ("guide_image_2", "prompt", "scene_json", "anyangle_lora_strength")
     FUNCTION = "render"
     CATEGORY = "T8/AnyAngle"
-    DESCRIPTION = "Edit a 3D camera and apply its clean guide. Connect the original separately to Qwen image_1."
+    DESCRIPTION = "Edit a 3D camera and apply its guide. Select dual-image, single-guide or custom prompts; connect images in the selected order."
 
     @classmethod
     def VALIDATE_INPUTS(cls, snapshot):
@@ -52,7 +52,8 @@ class AnyAngleStudio:
             reference["label"] = "IMAGE input"
             document["scene"]["reference"] = reference
             ui["anyangle_reference"] = [reference]
-        local_guide = (guide_mode == "pose" and (document["scene"].get("openpose") or {}).get("origin") == "dwpose"
+        pose_source = document["scene"].get("openpose") or {}
+        local_guide = (guide_mode == "pose" and (pose_source.get("origin") == "dwpose" or pose_source.get("useRig") or conditioning.get("mapOrigin") == "rig")
                        or guide_mode == "depth" and conditioning.get("mapOrigin") == "da3"
                        or guide_mode == "canny" and conditioning.get("mapOrigin") in ("auto", "reference"))
         if structure_image is not None and model == "base" and guide_mode in ("pose", "depth", "canny") and not local_guide:

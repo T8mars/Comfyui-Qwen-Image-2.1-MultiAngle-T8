@@ -1,7 +1,7 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261004a';
+import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261004b';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261003a';
 import { readSkeletonImage } from './openpose.mjs';
-import { GUIDE_LABELS, guidePrompt, guideSource, cannyEdges } from './guides.mjs?v=20261003a';
+import { GUIDE_LABELS, guidePrompt, guideImageIndex, guideSource, cannyEdges } from './guides.mjs?v=20261004b';
 import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261003a';
 
 const $ = selector => document.querySelector(selector);
@@ -74,16 +74,18 @@ function begin() {
   if (undo.length > 40) undo.shift();
   redo = []; $('#undo').disabled = false; $('#redo').disabled = true;
 }
-function changed() {
+function changed(updatePreview = true) {
   if (!ready || studio.restoring) return;
   studio.syncPose(); revision++; selectedShot = null;
+  if (!updatePreview && previewRevision === revision - 1) previewRevision = revision;
   document.querySelectorAll('.preset-card.active').forEach(button => button.classList.remove('active'));
   document.querySelectorAll('.shot-thumb.active').forEach(button => button.classList.remove('active'));
   $('#status').textContent = '草稿有更改 · 应用后才会更新节点'; $('#status').dataset.state = 'dirty';
-  refresh(); schedulePreview();
+  refresh(); if (updatePreview) schedulePreview();
 }
 function schedulePreview() {
-  clearTimeout(previewTimer); previewTimer = setTimeout(renderPreview, 110);
+  clearTimeout(previewTimer);
+  if (doc.interaction?.livePreview !== false) previewTimer = setTimeout(renderPreview, 450);
 }
 async function imageCanvas(source, width, height) {
   const image = new Image(); image.src = source; await image.decode();
@@ -133,13 +135,14 @@ function refresh() {
       (studio.mode !== 'camera' || $('#edit-mode').classList.contains('active'))) setMode('camera');
   if (linkedReference.connected) doc.reference = linkedReference.asset || null;
   const guide = currentGuide(), base = doc.conditioning.model === 'base', input = guideSource(doc);
+  const imageIndex = guideImageIndex(doc.conditioning), promptMode = doc.conditioning.promptMode || 'default';
   const staticGuide = input.kind === 'image' || input.kind === 'canny-image';
   const poseImage = guide === 'pose' && input.kind === 'image';
   if (previewGuide !== guide) { previewGuide = guide; previewVisible = guide !== 'coarse'; }
   $('#stage').classList.toggle('previewing-guide', previewVisible);
   $('#stage-guide-view').hidden = !previewVisible;
   $('#stage-guide-title').textContent = GUIDE_LABELS[guide];
-  $('#stage-guide-detail').textContent = `实际输出 · image_2 · ${doc.width} × ${doc.height}`;
+  $('#stage-guide-detail').textContent = `实际输出 · image_${imageIndex} · ${doc.width} × ${doc.height}`;
   $('#stage-guide').hidden = !hasGuide() || previewRevision !== revision;
   $('#stage-guide-empty').hidden = hasGuide() && previewRevision === revision;
   $('#stage-guide-message').textContent = hasGuide() ? '正在生成引导图预览…'
@@ -205,6 +208,8 @@ function refresh() {
     : human ? '当前场景是手动人偶；重建原图后可生成对应主体的粗图。'
       : empty ? '先从原图重建三维主体，再输出拍摄机位粗图。' : '当前 GLB 场景可直接渲染粗图。';
   $('#model-anyangle').classList.toggle('active', !base); $('#model-base').classList.toggle('active', base);
+  $('#model-anyangle').disabled = promptMode === 'single';
+  $('#model-anyangle').title = promptMode === 'single' ? '单引导图模式使用 Qwen 底模' : '';
   $('#model-badge').textContent = base ? 'QWEN 2.1' : 'ANYANGLE';
   document.querySelectorAll('[data-guide]').forEach(button => {
     button.classList.toggle('active', button.dataset.guide === guide);
@@ -237,11 +242,25 @@ function refresh() {
       : guide === 'pose' ? poseImage ? '输出原图可见骨架，中央预览与节点输出一致。' : '输出三维人偶在当前机位的骨架，可调整姿势与相机。'
         : guide === 'canny' ? '中央显示实际轮廓图；阈值调整会直接更新边缘。'
           : '底模参考粗图，机位遵循程度需实测。';
-  $('#guide-heading').innerHTML = `${GUIDE_LABELS[guide]} <small>· image_2</small>`;
+  $('#guide-heading').innerHTML = `${GUIDE_LABELS[guide]} <small>· image_${imageIndex}</small>`;
+  $('#guide').alt = `当前会输出到 image_${imageIndex} 的引导图`;
+  $('#prompt-mode').value = promptMode; $('#image-order').value = doc.conditioning.imageOrder || 'reference-first';
+  $('#image-order-row').hidden = promptMode === 'single';
+  $('#custom-prompt-row').hidden = promptMode !== 'custom'; $('#prompt-extra-row').hidden = promptMode === 'custom';
+  if (document.activeElement !== $('#custom-prompt')) $('#custom-prompt').value = doc.conditioning.customPrompt || '';
+  if (document.activeElement !== $('#prompt-extra')) $('#prompt-extra').value = doc.conditioning.promptExtra || '';
+  $('#image-wiring').textContent = promptMode === 'single' ? '当前引导图 → image_1；无需连接原图。用附加描述定义人物、场景与风格。'
+    : `原图 → image_${3 - imageIndex}；当前引导图 → image_${imageIndex}。更改顺序后请对应调整编码器连线。`;
+  $('#prompt-mode-hint').textContent = promptMode === 'custom' ? '提示词按原文输出，不自动改写图片编号；可留空并在工作流中自行拼接。'
+    : promptMode === 'single' ? '单图模式关闭 AnyAngle LoRA；请连接强度输出或移除旧工作流的 LoRA。'
+      : '保持原有双图模板，可调整图片编号并附加描述。';
+  $('#mouse-pitch').checked = doc.interaction?.mousePitch !== false;
+  $('#preview-quality').value = doc.interaction?.quality || 'balanced';
+  $('#live-preview').checked = doc.interaction?.livePreview !== false;
   $('#prompt-preview').textContent = guidePrompt(doc.conditioning, doc.source);
   $('#lora-hint').textContent = base ? 'LoRA 强度输出 0 → 使用底模' : 'LoRA 强度输出 1 → AnyAngle';
   $('#protocol-hint').textContent = base && unwiredAnyAngle ? '当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的强度输出，或移除 LoRA 加载器。'
-    : base ? '底模将结构图作为第二张参考图理解；姿势、深度和轮廓的遵循程度需实测。'
+    : base ? `底模使用 image_${imageIndex} 作为引导图；结构遵循程度需实测。`
     : human ? '修改人物动作请选 Qwen 底模 + POSE 姿势；AnyAngle 用于改变机位。'
       : 'AnyAngle 必须使用当前机位粗图。请把 LoRA 强度输出接至模型加载器。';
   $('#protocol-hint').classList.toggle('wiring-warning', base && unwiredAnyAngle);
@@ -354,7 +373,7 @@ function setMode(mode) {
     : doc.source.kind === 'human' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移 · 拍摄机位保持不变'
       : '右键环绕 · 中键平移 · 可将当前视图设为机位';
 }
-$('#view-output').onclick = () => { previewVisible = true; refresh(); schedulePreview(); };
+$('#view-output').onclick = () => { previewVisible = true; refresh(); renderPreview(); };
 $('#view-scene').onclick = () => { previewVisible = false; setMode(studio.mode); refresh(); };
 $('#camera-mode').onclick = () => setMode('camera'); $('#edit-mode').onclick = () => setMode('edit');
 $('#use-view').onclick = () => { begin(); studio.currentViewAsShot(); setMode('camera'); changed(); };
@@ -372,6 +391,21 @@ $('#ratio').onchange = event => {
   dimensions(a >= b ? long : Math.round(long * a / b / 32) * 32, a >= b ? Math.round(long * b / a / 32) * 32 : long);
 };
 $('#background').onchange = event => { begin(); doc.background = event.target.value; changed(); };
+$('#prompt-mode').onchange = event => {
+  begin();
+  if (event.target.value === 'custom' && doc.conditioning.customPrompt === undefined)
+    doc.conditioning.customPrompt = guidePrompt(doc.conditioning, doc.source);
+  doc.conditioning.promptMode = event.target.value;
+  if (event.target.value === 'single') doc.conditioning.model = 'base';
+  changed();
+};
+$('#image-order').onchange = event => { begin(); doc.conditioning.imageOrder = event.target.value; changed(false); };
+for (const [id, key] of [['custom-prompt', 'customPrompt'], ['prompt-extra', 'promptExtra']])
+  $(`#${id}`).oninput = event => { begin(); doc.conditioning[key] = event.target.value; changed(false); };
+$('#mouse-pitch').onchange = event => { begin(); doc.interaction.mousePitch = event.target.checked; changed(false); };
+$('#preview-quality').onchange = event => { begin(); doc.interaction.quality = event.target.value; studio.updatePerformance(); changed(false); };
+$('#live-preview').onchange = event => { begin(); doc.interaction.livePreview = event.target.checked; changed(false); if (event.target.checked) schedulePreview(); else clearTimeout(previewTimer); };
+$('#refresh-guide').onclick = () => renderPreview();
 $('#model-anyangle').onclick = () => { if (doc.conditioning.model === 'anyangle') return; begin(); doc.conditioning.model = 'anyangle'; changed(); };
 $('#model-base').onclick = () => { if (doc.conditioning.model === 'base') return; begin(); doc.conditioning.model = 'base'; changed(); };
 document.querySelectorAll('[data-guide]').forEach(button => button.onclick = () => run(async () => {
@@ -632,7 +666,7 @@ $('#keep-background').onchange = () => {
   if ($('#reconstruction-model-panel').open) run(loadReconstructionModels);
 };
 $('#extract-coarse').onclick = () => run(reconstructPhoto);
-$('#preview-coarse').onclick = () => { previewVisible = true; refresh(); schedulePreview(); };
+$('#preview-coarse').onclick = () => { previewVisible = true; refresh(); renderPreview(); };
 $('#import-glb').onclick = () => $('#glb-file').click();
 $('#glb-file').onchange = event => run(async () => {
   const file = event.target.files[0]; event.target.value = ''; if (!file) return;
@@ -651,7 +685,7 @@ $('#human').onclick = () => run(async () => {
 });
 
 function askName(title, initial) {
-  $('#name-title').textContent = title; $('#name-input').value = initial;
+  $('#name-title').textContent = title; $('#name-input').value = initial; $('#name-dialog').returnValue = '';
   $('#name-dialog').showModal(); $('#name-input').select();
   return new Promise(resolve => { $('#name-dialog').addEventListener('close', () => resolve($('#name-dialog').returnValue === 'ok' ? $('#name-input').value.trim() : null), { once: true }); });
 }
@@ -663,7 +697,7 @@ function renderShots() {
     const item = document.createElement('div'); item.className = 'shot';
     const thumb = document.createElement('button'); thumb.className = 'shot-thumb'; thumb.classList.toggle('active', selectedShot === shot.id); thumb.title = `应用机位 ${shot.name}`;
     const image = document.createElement('img'); image.src = shot.thumbnail; image.alt = shot.name; thumb.append(image);
-    thumb.onclick = () => { begin(); doc.camera = clone(shot.camera); doc.width = shot.width; doc.height = shot.height; studio.updateShot(); changed(); selectedShot = shot.id; renderShots(); };
+    thumb.onclick = () => { begin(); doc.camera = { ...defaultScene().camera, ...clone(shot.camera) }; doc.width = shot.width; doc.height = shot.height; previewVisible = false; setMode('camera'); changed(); selectedShot = shot.id; renderShots(); };
     const caption = document.createElement('div'); caption.className = 'shot-caption';
     const rename = document.createElement('button'); rename.className = 'rename'; rename.textContent = shot.name; rename.title = '重命名机位';
     rename.onclick = async () => { const name = await askName('重命名机位', shot.name); if (name) { begin(); shot.name = name; changed(); renderShots(); } };
@@ -673,9 +707,11 @@ function renderShots() {
 }
 $('#save-shot').onclick = async () => {
   const name = await askName('收藏当前机位', `机位 ${doc.shots.length + 1}`); if (!name) return;
-  run(async () => { begin(); const scale = 230 / Math.max(doc.width, doc.height); const thumbnail = await studio.capture(Math.round(doc.width * scale), Math.round(doc.height * scale));
+  return run(async () => { begin(); if (studio.mode === 'edit') studio.currentViewAsShot(); setMode('camera');
+    const scale = 230 / Math.max(doc.width, doc.height); const thumbnail = await studio.capture(Math.round(doc.width * scale), Math.round(doc.height * scale));
     const shot = { id: crypto.randomUUID(), name, camera: clone(doc.camera), width: doc.width, height: doc.height, thumbnail };
     doc.shots.push(shot); changed(); selectedShot = shot.id; renderShots();
+    toast('机位已收藏 · 点击缩略图切换；应用到节点后保存收藏。');
   });
 };
 
@@ -860,6 +896,7 @@ async function start(token, reference = { connected: false }, structure = { conn
       else throw new Error(saved.error || `读取快照失败（HTTP ${response.status}）`);
     }
     doc.conditioning = { ...defaultScene().conditioning, ...doc.conditioning };
+    doc.interaction = { ...defaultScene().interaction, ...doc.interaction };
     doc.reconstruction = { keepBackground: !!doc.source.keep_background, ...doc.reconstruction };
     doc.openpose ??= null;
     linkedReference = reference;

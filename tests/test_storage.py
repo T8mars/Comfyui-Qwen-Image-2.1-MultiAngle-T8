@@ -13,7 +13,7 @@ import zipfile
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from storage import StudioStore, BASE_PROMPTS, SCENE_PROMPT
+from storage import StudioStore, BASE_PROMPTS, SCENE_PROMPT, SINGLE_PROMPTS, PROMPT
 
 
 class SnapshotTests(unittest.TestCase):
@@ -96,6 +96,35 @@ class SnapshotTests(unittest.TestCase):
         scene["conditioning"] = {"model": "other", "guide": "coarse"}
         with self.assertRaisesRegex(ValueError, "Unknown model"):
             self.store.save_scene(scene, self.png)
+
+    def test_prompt_options_survive_snapshot_reload_without_a_reference_photo(self):
+        for guide in ("coarse", "pose"):
+            scene = copy.deepcopy(self.scene)
+            scene["conditioning"] = {"model": "base", "guide": guide, "promptMode": "single",
+                                     "promptExtra": "  An astronaut in a moon base.  "}
+            saved, data = StudioStore(self.directory.name).load_scene(self.store.save_scene(scene, self.png))
+            self.assertNotIn("reference", saved["scene"])
+            self.assertEqual(saved["prompt"], SINGLE_PROMPTS[guide] + "\nAn astronaut in a moon base.")
+            self.assertEqual(Image.open(io.BytesIO(data)).size, (96, 64))
+
+    def test_swapped_and_custom_prompts_are_the_authoritative_saved_output(self):
+        scene = copy.deepcopy(self.scene)
+        scene["conditioning"] = {"model": "anyangle", "guide": "coarse", "imageOrder": "guide-first"}
+        self.assertEqual(self.store.load_scene(self.store.save_scene(scene, self.png))[0]["prompt"],
+                         "Change the camera angle from <image1> to <image2>.")
+        for prompt in ("", "  Follow <image3>.\nKeep this spacing.  "):
+            scene["conditioning"].update(promptMode="custom", customPrompt=prompt, promptExtra="do not append")
+            self.assertEqual(self.store.load_scene(self.store.save_scene(scene, self.png))[0]["prompt"], prompt)
+        scene.pop("conditioning")
+        self.assertEqual(self.store.load_scene(self.store.save_scene(scene, self.png))[0]["prompt"], PROMPT)
+
+    def test_invalid_prompt_settings_and_single_guide_lora_are_rejected(self):
+        for invalid in ({"promptMode": "wrong"}, {"imageOrder": "wrong"}, {"customPrompt": 7},
+                        {"promptExtra": "x" * 16001}, {"promptMode": "single", "model": "anyangle"}):
+            scene = copy.deepcopy(self.scene)
+            scene["conditioning"] = {"model": "base", "guide": "coarse", **invalid}
+            with self.subTest(invalid=list(invalid)), self.assertRaises(ValueError):
+                self.store.save_scene(scene, self.png)
 
     def test_extracted_pose_can_be_saved_and_reloaded_without_a_mannequin(self):
         scene = copy.deepcopy(self.scene)

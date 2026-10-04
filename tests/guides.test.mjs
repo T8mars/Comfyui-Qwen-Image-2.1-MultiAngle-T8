@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cannyEdges, guidePrompt, guideSource, PROMPTS } from '../web/editor/guides.mjs';
+import { cannyEdges, guidePrompt, guideImageIndex, guideSource, PROMPTS, SINGLE_PROMPTS } from '../web/editor/guides.mjs';
 import { detectSkeleton, liftOpenPose, ORDER, LIMBS, COLORS } from '../web/editor/openpose.mjs';
 
 test('guide mode changes the edit instruction without changing image roles', () => {
@@ -10,6 +10,32 @@ test('guide mode changes the edit instruction without changing image roles', () 
     assert.match(prompt, /<image1>/);
     assert.match(prompt, /<image2>/);
     assert.notEqual(prompt, PROMPTS.anyangle);
+  }
+});
+
+test('swapping input roles changes each template image tag exactly once', () => {
+  assert.equal(guidePrompt({ model: 'anyangle', imageOrder: 'guide-first' }), 'Change the camera angle from <image1> to <image2>.');
+  for (const guide of ['coarse', 'pose', 'depth', 'canny']) {
+    const settings = { model: 'base', guide, imageOrder: 'guide-first' };
+    assert.ok(guidePrompt(settings).startsWith('Use <image2>'));
+    assert.ok(guidePrompt(settings).endsWith('<image1>.'));
+    assert.equal(guideImageIndex(settings), 1);
+  }
+});
+
+test('single-guide templates refer only to image1 and accept a text subject description', () => {
+  for (const guide of ['coarse', 'pose', 'depth', 'canny']) {
+    const settings = { model: 'base', guide, promptMode: 'single', promptExtra: '  An astronaut in a moon base.  ' };
+    assert.equal(guidePrompt(settings), `${SINGLE_PROMPTS[guide]}\nAn astronaut in a moon base.`);
+    assert.doesNotMatch(guidePrompt(settings), /<image2>|identity.*reference/);
+    assert.equal(guideImageIndex(settings), 1);
+  }
+});
+
+test('custom prompts, including empty text, survive guide and image-order changes verbatim', () => {
+  for (const customPrompt of ['', '  Follow <image3>.\nKeep the text: image1 and image2.  ']) {
+    assert.equal(guidePrompt({ model: 'base', guide: 'pose', promptMode: 'custom', customPrompt,
+      imageOrder: 'guide-first', promptExtra: 'must not append' }), customPrompt);
   }
 });
 

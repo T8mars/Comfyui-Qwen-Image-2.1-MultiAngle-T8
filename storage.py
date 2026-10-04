@@ -20,6 +20,12 @@ BASE_PROMPTS = {
     "canny": "Use <image1> as the identity, clothing and style reference. Follow the silhouette, contours and major edge layout shown by <image2>.",
 }
 SCENE_PROMPT = "Use <image1> as the scene, appearance and style reference. Recreate the entire scene, including foreground and background, at the camera angle and composition shown by <image2>."
+SINGLE_PROMPTS = {
+    "coarse": "Generate a finished image following the camera angle and composition in <image1>. Use the accompanying text to define the subject, appearance and style.",
+    "pose": "Generate an image of the subject described in the text, following the body pose and framing in <image1>.",
+    "depth": "Generate an image following the spatial depth, layout and occlusion relationships in <image1>. Use the text to define the subject and style.",
+    "canny": "Generate an image following the silhouette, contours and major edge layout in <image1>. Use the text to define the subject and style.",
+}
 
 
 def conditioning_for(scene):
@@ -30,7 +36,34 @@ def conditioning_for(scene):
     guide = conditioning.get("guide", "coarse")
     if model not in ("anyangle", "base") or guide not in BASE_PROMPTS:
         raise ValueError("Unknown model or guide mode")
+    if conditioning.get("promptMode", "default") not in ("default", "single", "custom"):
+        raise ValueError("Unknown prompt mode")
+    if conditioning.get("imageOrder", "reference-first") not in ("reference-first", "guide-first"):
+        raise ValueError("Unknown image order")
+    for key in ("customPrompt", "promptExtra"):
+        value = conditioning.get(key, "")
+        if not isinstance(value, str) or len(value) > 16000:
+            raise ValueError(f"Invalid {key}: use text up to 16000 characters")
+    if conditioning.get("promptMode") == "single" and model != "base":
+        raise ValueError("Single-guide mode requires Qwen base without AnyAngle LoRA")
     return model, guide, conditioning
+
+
+def prompt_for(scene):
+    model, guide, settings = conditioning_for(scene)
+    mode = settings.get("promptMode", "default")
+    if mode == "custom":
+        return settings.get("customPrompt", "")
+    if mode == "single":
+        prompt = SINGLE_PROMPTS[guide]
+    else:
+        prompt = PROMPT if model == "anyangle" else BASE_PROMPTS[guide]
+        if model == "base" and guide == "coarse" and scene["source"].get("keep_background"):
+            prompt = SCENE_PROMPT
+        if settings.get("imageOrder") == "guide-first":
+            prompt = re.sub(r"<image([12])>", lambda match: f"<image{3 - int(match[1])}>", prompt)
+    extra = settings.get("promptExtra", "").strip()
+    return f"{prompt}\n{extra}" if extra else prompt
 
 
 TOKEN = re.compile(r"[a-f0-9]{64}\Z")
@@ -193,9 +226,7 @@ class StudioStore:
         guide = self.asset(data, "png")
         if (guide["width"], guide["height"]) != (width, height):
             raise ValueError("Guide dimensions do not match the scene; capture again")
-        document = {"scene": scene, "guide": guide, "prompt": PROMPT if model == "anyangle" else BASE_PROMPTS[guide_mode]}
-        if model == "base" and guide_mode == "coarse" and scene["source"].get("keep_background"):
-            document["prompt"] = SCENE_PROMPT
+        document = {"scene": scene, "guide": guide, "prompt": prompt_for(scene)}
         encoded = json.dumps(document, ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":")).encode()
         digest = hashlib.sha256(encoded).hexdigest()
         self.write(f"{digest}.json", encoded)
