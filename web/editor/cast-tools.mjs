@@ -8,9 +8,13 @@ export function installCastTools(context) {
   $('hands-panel').before(panel);
   const file = document.createElement('input'); file.type = 'file'; file.accept = '.glb'; file.hidden = true; document.body.append(file);
   const mutate = action => context.run(async () => {
-    const previous = structuredClone(context.doc()); context.begin();
+    const previous = structuredClone(context.doc()), rollbackHistory = context.begin();
     try { await action(); context.changed(); render(); }
-    catch(error) { context.replace(previous); await context.studio().restore(previous); throw error; }
+    catch(error) {
+      context.replace(previous); rollbackHistory?.();
+      try { await context.studio().restore(previous); } catch { /* Keep the original cast edit error. */ }
+      throw error;
+    }
   });
   $('apply-layout').onclick = () => mutate(async () => {
     const doc=context.doc(), roles=editableActors(doc,'selected');

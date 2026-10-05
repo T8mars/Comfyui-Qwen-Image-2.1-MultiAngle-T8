@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../web/vendor/three.module.mjs';
 import { PoseViewerCore } from '../web/vendor/vnccs_pose_studio_core.mjs';
-import { StudioScene } from '../web/editor/scene.mjs';
+import { StudioScene, defaultScene } from '../web/editor/scene.mjs';
 
 function fixture() {
   const viewer = new PoseViewerCore({ width: 64, height: 64 });
@@ -73,4 +73,21 @@ test('StudioScene delegates attached GLB props and helpers to one viewer owner, 
   studio.dispose(); studio.dispose();
   for (const [label, count] of counts) assert.equal(count, 1, label);
   assert.equal(studio.glb, null); assert.equal(studio.propRoots.size, 0); assert.equal(studio.ring, null);
+});
+
+test('switching away from an imported skinned GLB releases its bone texture before detaching the mesh', async () => {
+  const studio = Object.create(StudioScene.prototype), scene = new THREE.Scene();
+  const skeleton = new THREE.Skeleton([new THREE.Bone()]); skeleton.computeBoneTexture();
+  const mesh = new THREE.SkinnedMesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()); mesh.bind(skeleton);
+  const root = new THREE.Group(); root.add(mesh); scene.add(root);
+  let released = 0; skeleton.boneTexture.addEventListener('dispose', () => released++);
+  const cameras = [new THREE.PerspectiveCamera(), new THREE.PerspectiveCamera()];
+  studio.viewer = { scene, camera: cameras[0], captureCamera: cameras[1], setMannequinVisible() {}, waitForCaptureReady: async () => {} };
+  studio.cameraClips = cameras.map(camera => ({ near: camera.near, far: camera.far }));
+  studio.glb = root; studio.glbName = 'skinned.glb'; studio.propRoots = new Map();
+  studio.grid = new THREE.Object3D(); studio.ring = new THREE.Object3D();
+  studio.setMode = () => {}; studio.updateShot = () => {};
+  await studio.restore(defaultScene());
+  assert.equal(released, 1); assert.equal(skeleton.boneTexture, null);
+  assert.equal(root.parent, null); assert.equal(studio.glb, null);
 });

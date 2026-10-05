@@ -1,6 +1,6 @@
 import { createActor, activeActor, ensureActors, bindActor, cloneActor, removeActor, moveActor, editableActors, actorSeed, applySceneTemplate } from './actors.mjs?v=20261004mp1';
 import { randomPose } from './poses.mjs?v=20261004mp1';
-import { installCastTools } from './cast-tools.mjs?v=20261005audit1';
+import { installCastTools } from './cast-tools.mjs?v=20261005audit4';
 import { poseCopyIssue, ORDER } from './openpose.mjs?v=20261004mp1';
 import { guideSource } from './guides.mjs?v=20261004mp1';
 
@@ -14,9 +14,13 @@ async function atomic(action) {
   return context.run(() => editTransaction(action));
 }
 async function editTransaction(action) {
-  const previous = clone(context.doc()); context.begin();
+  const previous = clone(context.doc()), rollbackHistory = context.begin();
   try { await action(); context.changed(); }
-  catch (error) { context.replace(previous); await context.studio().restore(previous); throw error; }
+  catch (error) {
+    context.replace(previous); rollbackHistory?.();
+    try { await context.studio().restore(previous); } catch { /* Keep the original edit error. */ }
+    throw error;
+  }
 }
 export function installActorsUI(options) {
   context = options;
@@ -205,7 +209,7 @@ export async function chooseDetectedPeople(people, asset, options = {}) {
   const selected = [...choices.querySelectorAll('input:checked')].map(input => people[Number(input.value)]);
   if (!selected.length) throw new Error('请至少选择一人');
   if (action === 'current' && selected.length !== 1) throw new Error('复制到当前人物时请只勾选一人');
-  const doc = context.doc(), previous = clone(doc); context.begin();
+  const doc = context.doc(), previous = clone(doc), rollbackHistory = context.begin();
   try {
   context.studio().syncPose(); doc.source = { kind: 'human' }; ensureActors(doc, action === 'current');
   let roles;
@@ -235,5 +239,9 @@ export async function chooseDetectedPeople(people, asset, options = {}) {
   if (action === 'all' && $('people-match-layout').checked) { context.studio().groundActors(roles.map(role => role.id)); doc.camera.azimuth = 0; doc.camera.elevation = 0; context.studio().fit(); }
   context.showScene(); context.changed(); context.toast(`已复制 ${roles.length} 人；相机仅在“匹配原图站位”时重设`);
   return true;
-  } catch (error) { context.replace(previous); await context.studio().restore(previous); throw error; }
+  } catch (error) {
+    context.replace(previous); rollbackHistory?.();
+    try { await context.studio().restore(previous); } catch { /* Keep the original pose-copy error. */ }
+    throw error;
+  }
 }

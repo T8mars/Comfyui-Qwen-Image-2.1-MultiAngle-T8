@@ -1,10 +1,10 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit2';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit4';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261004mp1';
 import { readSkeletonImage } from './openpose.mjs?v=20261004mp1';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261004mp2';
 import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261004mp1';
 import { randomPose } from './poses.mjs?v=20261004mp1';
-import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261005audit1';
+import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261005audit4';
 import { activeActor, saveActor } from './actors.mjs?v=20261004mp1';
 import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261004mp3';
 
@@ -91,11 +91,13 @@ async function run(task) {
 }
 function begin() {
   if (!ready || studio.restoring) return;
+  const previousUndo = undo.slice(), previousRedo = redo;
   studio.syncPose();
   const serialized = JSON.stringify(doc);
   if (JSON.stringify(undo.at(-1)) !== serialized) undo.push(clone(doc));
   if (undo.length > 40) undo.shift();
   redo = []; $('#undo').disabled = false; $('#redo').disabled = true;
+  return () => { undo = previousUndo; redo = previousRedo; };
 }
 function changed(updatePreview = true) {
   if (!ready || studio.restoring) return;
@@ -204,7 +206,7 @@ function refresh() {
   const human = doc.source.kind === 'human';
   const splat = doc.source.kind === 'splat', empty = doc.source.kind === 'empty';
   $('#front').disabled = $('#front-number').disabled = human || splat || empty;
-  $('#scale').disabled = $('#scale-number').disabled = splat || empty;
+  $('#scale').disabled = $('#scale-number').disabled = splat || empty || human && !!activeActor(doc)?.locked;
   $('#front').closest('.control').hidden = human || splat || empty;
   $('#scale').closest('.control').hidden = splat || empty;
   $('#calibration-hint').textContent = splat
@@ -577,8 +579,7 @@ async function retargetPose() {
   const points = people[0] && Object.fromEntries(Object.entries(people[0]).filter(([key])=>!inferred.includes(key)));
   const copyMode = inferred.length ? 'conservative' : mode;
   if (!points) throw new Error('没有找到可用的 OpenPose 身体骨架');
-  const previous = clone(doc);
-  begin();
+  const previous = clone(doc), rollbackHistory = begin();
   try {
     if (doc.source.kind !== 'human') {
       doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1; doc.camera = defaultScene().camera;
@@ -596,7 +597,11 @@ async function retargetPose() {
     if (inferred.length) notes.push('近似补全点未参与复制');
     $('#openpose-status').textContent = `${asset.label || 'OpenPose 骨架'}：${notes.join('，')}`;
     return true;
-  } catch (error) { doc = previous; await studio.restore(doc); throw error; }
+  } catch (error) {
+    doc = previous; rollbackHistory?.();
+    try { await studio.restore(doc); } catch { /* Keep the original pose-copy error. */ }
+    throw error;
+  }
 }
 $('#retarget-pose').onclick = () => run(retargetPose);
 $('#pose-copy-mode').onchange = event => {
@@ -771,6 +776,7 @@ async function reconstructPhoto() {
   while (previewRunning) await new Promise(resolve => setTimeout(resolve, 30));
   const reference = clone(doc.reference), keepBackground = doc.reconstruction.keepBackground;
   const previous = clone(doc);
+  let rollbackHistory;
   $('#loading').hidden = false;
   $('#loading-text').textContent = keepBackground ? '准备保留背景重建' : '准备从原图重建主体';
   $('#loading-detail').textContent = keepBackground ? '本地 TripoSplat · 完整图像 → 三维重建 → 对齐参考机位'
@@ -778,7 +784,7 @@ async function reconstructPhoto() {
   try {
     const source = await reconstruct(reference, text => { $('#loading-text').textContent = text; }, true, keepBackground);
     if (doc.reference?.name !== reference.name) throw new Error('原图已改变，请重新重建');
-    begin();
+    rollbackHistory = begin();
     if (doc.source.name !== source.name || !!doc.source.keep_background !== !!source.keep_background) doc.shots = [];
     doc.source = source; doc.front = 0; doc.scale = 1; doc.camera = referenceCamera();
     const outputScale = Math.min(1, 1536 / Math.max(reference.width, reference.height));
@@ -791,8 +797,8 @@ async function reconstructPhoto() {
     changed(); renderShots();
     $('#status').textContent = '原图三维重建已载入 · 拖动调整机位后应用';
   } catch (e) {
-    doc = previous;
-    await studio.restore(doc);
+    doc = previous; rollbackHistory?.();
+    try { await studio.restore(doc); } catch { /* Keep the original reconstruction error. */ }
     $('#status').textContent = '原图重建未完成 · 可重试'; throw e;
   } finally { $('#loading').hidden = true; refresh(); schedulePreview(); }
 }
@@ -806,17 +812,26 @@ $('#preview-coarse').onclick = () => { previewVisible = true; refresh(); renderP
 $('#import-glb').onclick = () => $('#glb-file').click();
 $('#glb-file').onchange = event => run(async () => {
   const file = event.target.files[0]; event.target.value = ''; if (!file) return;
-  const asset = await upload(file); begin();
+  const asset = await upload(file), rollbackHistory = begin();
   const previous = clone(doc); doc.source = { kind: 'glb', ...asset }; doc.front = 0; doc.scale = 1; doc.camera = defaultScene().camera;
-  try { await studio.restore(doc); studio.fit(); } catch (e) { doc = previous; await studio.restore(doc); throw e; }
+  try { await studio.restore(doc); studio.fit(); }
+  catch (e) {
+    doc = previous; rollbackHistory?.();
+    try { await studio.restore(doc); } catch { /* Keep the original GLB error. */ }
+    throw e;
+  }
   changed(); toast('GLB 已载入。可在场景与构图中调整正面与尺度。');
 });
 $('#human').onclick = () => run(async () => {
-  begin();
+  const rollbackHistory = begin();
   const previous = clone(doc);
   doc.source = { kind: 'human' }; doc.front = 0; doc.scale = 1;
   try { await studio.restore(doc); await ensureHumanTools(); }
-  catch (e) { doc = previous; await studio.restore(doc); throw e; }
+  catch (e) {
+    doc = previous; rollbackHistory?.();
+    try { await studio.restore(doc); } catch { /* Keep the original human-load error. */ }
+    throw e;
+  }
   changed();
 });
 

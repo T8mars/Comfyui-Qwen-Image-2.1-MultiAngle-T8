@@ -14,10 +14,12 @@ export async function editorActions(page, origin, out, glb) {
   await page.route('**/anyangle-studio/assets', async route=>{
     const isGLB=route.request().postDataBuffer().includes(Buffer.from('fixture.glb'));
     const isPose=route.request().postDataBuffer().includes(Buffer.from('cast-pose.png'));
-    await route.fulfill({json:isPose?poseFixture:{name:isGLB?'fixture.glb':'fixture-photo.png',width:1024,height:1024,label:'Fixture'}});
+    const isBroken=route.request().postDataBuffer().includes(Buffer.from('broken.glb'));
+    await route.fulfill({json:isPose?poseFixture:{name:isBroken?'broken.glb':isGLB?'fixture.glb':'fixture-photo.png',width:1024,height:1024,label:'Fixture'}});
   });
   await page.route('**/anyangle-studio/assets/*', async route=>{
     const name=new URL(route.request().url()).pathname.split('/').pop();
+    if(name==='broken.glb') return route.fulfill({body:Buffer.from('Invalid GLB body'),contentType:'model/gltf-binary'});
     if(name==='fixture.glb') return route.fulfill({body:glb,contentType:'model/gltf-binary'});
     if(assets.has(name)) return route.fulfill({body:assets.get(name),contentType:'image/png'});
     return route.continue();
@@ -35,6 +37,16 @@ export async function editorActions(page, origin, out, glb) {
   }
   await click('.actor-card:first-child .actor-name');
   await openDetails('#cast-layout');
+  await field('#actor-x',18); await click('#undo');
+  assert.equal(await page.locator('#redo').isEnabled(),true);
+  await page.locator('#cast-layout').selectOption('handshake'); await click('#apply-layout');
+  assert.equal(await page.locator('#redo').isEnabled(),true,'Failed layouts must preserve redo');
+  assert.match(await page.locator('#toast').innerText(),/请选中两位未锁定人物/);
+  await page.locator('#glb-file').setInputFiles({name:'broken.glb',mimeType:'model/gltf-binary',buffer:Buffer.from('Invalid GLB body')});await idle();
+  assert.equal(await page.locator('#redo').isEnabled(),true,'A GLB loader failure must preserve redo');
+  assert.equal(await page.locator('#actor-list .actor-card').count(),3,'Failed import restores the cast');
+  await click('#redo');
+  assert.equal(Number(await page.locator('#actor-x').inputValue()),18);
   const chooser=page.waitForEvent('filechooser');await page.locator('#add-prop').click();await(await chooser).setFiles({name:'fixture.glb',mimeType:'model/gltf-binary',buffer:glb});await idle();
   const beforeTemplate=await save();assert.equal(beforeTemplate.props.length,1);
   await openDetails('#save-composition');await page.locator('#save-composition').click();await page.locator('#name-input').fill('Complete composition');await page.locator('#name-dialog button[value="ok"]').click();
@@ -70,6 +82,10 @@ export async function editorActions(page, origin, out, glb) {
   await click('.prop-card button:has-text("显示")');
   // A locked active role must not prevent randomizing the other roles.
   await click('.actor-card:first-child button[title="锁定人物"]');
+  assert.equal(await page.locator('#actor-scale').isEnabled(),false);
+  assert.equal(await page.locator('#scale-number').isEnabled(),false);
+  assert.equal(await page.locator('#scale').isEnabled(),false);
+  assert.equal(await page.locator('#zoom-number').isEnabled(),true,'A role lock must preserve camera editing');
   await page.locator('#random-scope').selectOption('all');await page.locator('#pose-category').selectOption('standing');await field('#pose-seed',123);
   assert.equal(await page.locator('#repeat-pose').isEnabled(),true);await click('#repeat-pose');
   const randomized=await save();assert.deepEqual(randomized.actors[0].pose,beforeLock.actors[0].pose);assert.equal(randomized.actors[0].locked,true,'Lock after undo applies to the current role object');
@@ -124,5 +140,5 @@ export async function editorActions(page, origin, out, glb) {
   assert.equal(await page.locator('#people-choices input:checked').count(),9);assert.equal(await page.locator('#people-photo').isVisible(),true);assert.equal(await page.locator('#people-bind-photo').isVisible(),false);
   await page.locator('#people-dialog button[value="all"]').click();await idle();const fisher=await save();assert.equal(fisher.actors.length,9);assert.ok(fisher.actors.every(actor=>actor.poseSource.origin==='import'));
   await page.screenshot({path:resolve(out,'studio-fisher-nine.png')});
-  return{bookmarkExactGuideAfterTemplate:true,controlsEditCurrentRolesAfterUndo:true,propControlsAfterUndo:true,stableTemplateIdentities:true,templateProps:true,lockedRandomScope:true,masterSeed:123,handshakeAnchor:true,handshakeWristDistancePx:handDistance,photoCancelPreservesRoles:true,photoCurrentPreservesCamera:true,photoDetected:3,copyable:2,photoNewRoles:2,sourcePhotoIdentityBindings:true,editedDescriptionPreservesSourceRegion:true,sceneDepth:true,sceneCanny:stats,reopenedAllSceneData:true,reopenedExactGuide:true,fisherPNGImportedPeople:9,fisherShowsSourceSkeleton:true,fisherDoesNotBindSkeletonAsIdentity:true};
+  return{failedLayoutPreservesRedo:true,failedGLBPreservesRedo:true,lockedScaleControls:true,bookmarkExactGuideAfterTemplate:true,controlsEditCurrentRolesAfterUndo:true,propControlsAfterUndo:true,stableTemplateIdentities:true,templateProps:true,lockedRandomScope:true,masterSeed:123,handshakeAnchor:true,handshakeWristDistancePx:handDistance,photoCancelPreservesRoles:true,photoCurrentPreservesCamera:true,photoDetected:3,copyable:2,photoNewRoles:2,sourcePhotoIdentityBindings:true,editedDescriptionPreservesSourceRegion:true,sceneDepth:true,sceneCanny:stats,reopenedAllSceneData:true,reopenedExactGuide:true,fisherPNGImportedPeople:9,fisherShowsSourceSkeleton:true,fisherDoesNotBindSkeletonAsIdentity:true};
 }

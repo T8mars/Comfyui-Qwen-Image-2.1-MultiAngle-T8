@@ -2,6 +2,7 @@ import importlib.util
 import base64
 import io
 import json
+import struct
 from pathlib import Path
 import sys
 import tempfile
@@ -199,3 +200,69 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         result = await response.json()
         self.assertNotIn("url", result)
         self.assertIn("error", result)
+
+    async def test_corrupt_compressed_scene_zip_returns_an_error_without_writing_assets(self):
+        from aiohttp import FormData
+        cases = (("deflate", zipfile.ZIP_DEFLATED), ("bzip2", zipfile.ZIP_BZIP2),
+                 ("lzma-properties", zipfile.ZIP_LZMA), ("lzma-property-size", zipfile.ZIP_LZMA),
+                 ("crc", zipfile.ZIP_STORED), ("unsupported", zipfile.ZIP_DEFLATED), ("encrypted", zipfile.ZIP_DEFLATED))
+        for damage, compression in cases:
+            with self.subTest(damage=damage):
+                buffer = io.BytesIO()
+                with zipfile.ZipFile(buffer, "w", compression) as archive:
+                    archive.writestr("manifest.json", json.dumps({"version": 1, "kind": "anyangle-scene"}))
+                encoded = bytearray(buffer.getvalue())
+                with zipfile.ZipFile(io.BytesIO(encoded)) as archive:
+                    entry = archive.getinfo("manifest.json")
+                    central_offset = archive.start_dir
+                name_size, extra_size = struct.unpack_from("<HH", encoded, entry.header_offset + 26)
+                start = entry.header_offset + 30 + name_size + extra_size
+                if damage == "deflate":
+                    encoded[start] = (encoded[start] & 0xf8) | 7
+                elif damage in ("bzip2", "crc"):
+                    encoded[start] ^= 255
+                elif damage == "lzma-properties":
+                    encoded[start + 4] = 255
+                elif damage == "lzma-property-size":
+                    struct.pack_into("<H", encoded, start + 2, 65535)
+                elif damage == "unsupported":
+                    struct.pack_into("<H", encoded, entry.header_offset + 8, 99)
+                    struct.pack_into("<H", encoded, central_offset + 10, 99)
+                else:
+                    struct.pack_into("<H", encoded, entry.header_offset + 6, entry.flag_bits | 1)
+                    struct.pack_into("<H", encoded, central_offset + 8, entry.flag_bits | 1)
+                before = set(self.store.root.iterdir())
+                form = FormData(); form.add_field("file", bytes(encoded), filename="scene.zip", content_type="application/zip")
+                response = await self.client.post("/anyangle-studio/import-scene", data=form)
+                self.assertEqual(response.status, 400)
+                error = (await response.json())["error"]
+                self.assertTrue(error)
+                if damage == "unsupported":
+                    self.assertIn("not supported", error)
+                elif damage == "encrypted":
+                    self.assertIn("encrypted", error)
+                else:
+                    self.assertIn("corrupt", error)
+                self.assertEqual(set(self.store.root.iterdir()), before)
+
+    async def test_scene_zip_supported_compression_and_disk_errors_remain_distinct(self):
+        from aiohttp import FormData
+        buffer = io.BytesIO(); Image.new("RGB", (96, 64), "gray").save(buffer, "PNG")
+        snapshot = self.store.save_scene(scene_for(), "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode())
+        with self.store.scene_archive(snapshot) as output, zipfile.ZipFile(io.BytesIO(output.read())) as original:
+            entries = [(entry.filename, original.read(entry)) for entry in original.infolist()]
+        for compression in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA):
+            with self.subTest(compression=compression):
+                encoded = io.BytesIO()
+                with zipfile.ZipFile(encoded, "w", compression) as archive:
+                    for name, data in entries:
+                        archive.writestr(name, data)
+                form = FormData(); form.add_field("file", encoded.getvalue(), filename="scene.zip", content_type="application/zip")
+                response = await self.client.post("/anyangle-studio/import-scene", data=form)
+                self.assertEqual(response.status, 200)
+                self.assertEqual((await response.json())["snapshot"], snapshot)
+        with patch.object(self.store, "write", side_effect=OSError("disk write unavailable")):
+            form = FormData(); form.add_field("file", encoded.getvalue(), filename="scene.zip", content_type="application/zip")
+            response = await self.client.post("/anyangle-studio/import-scene", data=form)
+        self.assertEqual(response.status, 400)
+        self.assertEqual((await response.json())["error"], "disk write unavailable")

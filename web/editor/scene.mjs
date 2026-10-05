@@ -59,6 +59,7 @@ function modelData(morph, data) {
 function disposeObject(root) {
   root.traverse(object => {
     object.geometry?.dispose();
+    object.skeleton?.dispose();
     for (const material of [].concat(object.material || [])) {
       for (const value of Object.values(material)) if (value?.isTexture) value.dispose();
       material.dispose();

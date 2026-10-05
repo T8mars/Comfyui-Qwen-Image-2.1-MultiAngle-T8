@@ -15,6 +15,26 @@ function cubeGLB(){
   const binary=Buffer.concat([Buffer.from(positions.buffer),Buffer.from(indices.buffer)]),data={asset:{version:'2.0'},scene:0,scenes:[{nodes:[0]}],nodes:[{mesh:0}],meshes:[{primitives:[{attributes:{POSITION:0},indices:1}]}],buffers:[{byteLength:binary.length}],bufferViews:[{buffer:0,byteOffset:0,byteLength:positions.byteLength,target:34962},{buffer:0,byteOffset:positions.byteLength,byteLength:indices.byteLength,target:34963}],accessors:[{bufferView:0,componentType:5126,count:8,type:'VEC3',min:[-2,0,-1],max:[2,8,1]},{bufferView:1,componentType:5123,count:36,type:'SCALAR'}]};
   let json=Buffer.from(JSON.stringify(data));json=Buffer.concat([json,Buffer.alloc((4-json.length%4)%4,32)]);const header=Buffer.alloc(20);header.writeUInt32LE(0x46546c67,0);header.writeUInt32LE(2,4);header.writeUInt32LE(28+json.length+binary.length,8);header.writeUInt32LE(json.length,12);header.writeUInt32LE(0x4e4f534a,16);const tail=Buffer.alloc(8);tail.writeUInt32LE(binary.length,0);tail.writeUInt32LE(0x004e4942,4);return Buffer.concat([header,json,tail,binary]);
 }
+function skinnedGLB() {
+  const base = cubeGLB(), length = base.readUInt32LE(12), data = JSON.parse(base.subarray(20, 20 + length).toString());
+  const original = base.subarray(28 + length), joints = new Uint16Array(32), weights = new Float32Array(32);
+  for (let i = 0; i < 8; i++) weights[i * 4] = 1;
+  const binary = Buffer.concat([original, Buffer.from(joints.buffer), Buffer.from(weights.buffer)]);
+  data.buffers[0].byteLength = binary.length;
+  data.bufferViews.push({ buffer: 0, byteOffset: original.length, byteLength: joints.byteLength },
+    { buffer: 0, byteOffset: original.length + joints.byteLength, byteLength: weights.byteLength });
+  data.accessors.push({ bufferView: 2, componentType: 5123, count: 8, type: 'VEC4' },
+    { bufferView: 3, componentType: 5126, count: 8, type: 'VEC4' });
+  Object.assign(data.meshes[0].primitives[0].attributes, { JOINTS_0: 2, WEIGHTS_0: 3 });
+  data.nodes[0].skin = 0; data.nodes.push({ name: 'FixtureJoint' }); data.scenes[0].nodes.push(1);
+  data.skins = [{ joints: [1], skeleton: 1 }];
+  let json = Buffer.from(JSON.stringify(data)); json = Buffer.concat([json, Buffer.alloc((4 - json.length % 4) % 4, 32)]);
+  const header = Buffer.alloc(20), tail = Buffer.alloc(8);
+  header.writeUInt32LE(0x46546c67, 0); header.writeUInt32LE(2, 4); header.writeUInt32LE(28 + json.length + binary.length, 8);
+  header.writeUInt32LE(json.length, 12); header.writeUInt32LE(0x4e4f534a, 16);
+  tail.writeUInt32LE(binary.length, 0); tail.writeUInt32LE(0x004e4942, 4);
+  return Buffer.concat([header, json, tail, binary]);
+}
 const server=createServer(async(req,res)=>{try{
   const path=new URL(req.url,'http://localhost').pathname;
   if(path==='/tests/editor.html'){
@@ -58,6 +78,17 @@ try{
     const shown=await s.capture();prop.visible=false;s.updateProp(prop);const hidden=await s.capture();d.props=[];await s.restoreProps();
     return{appears:shown!==before,hiddenSame:hidden===before,removed:s.propRoots.size===0,cameraStable:camera===JSON.stringify(d.camera)};
   });assert.ok(Object.values(result.props).every(Boolean));
+  await page.route('**/anyangle-studio/assets/skinned-fixture.glb', route => route.fulfill({ body: skinnedGLB(), contentType: 'model/gltf-binary' }));
+  result.skinnedGLBRelease = await page.evaluate(async () => {
+    const s = window.studio, d = window.doc, before = s.viewer.renderer.info.memory.textures;
+    d.source = { kind: 'glb', name: 'skinned-fixture.glb' }; await s.restore(d); await s.capture();
+    let skeleton; s.glb.traverse(mesh => { if (mesh.skeleton) skeleton = mesh.skeleton; });
+    const allocated = !!skeleton.boneTexture, withGLB = s.viewer.renderer.info.memory.textures;
+    d.source = { kind: 'human' }; await s.restore(d); await s.capture();
+    return { allocated, released: skeleton.boneTexture === null, before, withGLB, after: s.viewer.renderer.info.memory.textures };
+  });
+  assert.ok(result.skinnedGLBRelease.allocated && result.skinnedGLBRelease.released);
+  assert.equal(result.skinnedGLBRelease.after, result.skinnedGLBRelease.before);
   // Exercise the actual editor DOM on this static fixture; no ComfyUI routes exist.
   await page.setViewportSize({width:1660,height:1000});await page.goto(`http://127.0.0.1:${server.address().port}/tests/editor.html`);
   await page.waitForFunction(()=>document.querySelector('#loading').hidden&&!document.querySelector('#workspace').inert,{timeout:120000});

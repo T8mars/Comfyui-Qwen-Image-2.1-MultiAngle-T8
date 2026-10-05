@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import tempfile
 import zipfile
+import zlib
 
 from PIL import Image, ImageOps
 
@@ -80,6 +81,8 @@ ASSET = re.compile(r"[a-f0-9]{64}\.(png|glb|ply)\Z")
 PORTABLE_MAX_TOTAL = 512 * 1024 * 1024
 PORTABLE_MAX_ASSET = 256 * 1024 * 1024
 PORTABLE_MAX_MANIFEST = 8 * 1024 * 1024
+ZIP_DECODE_ERRORS = (zipfile.BadZipFile, zlib.error, OSError, EOFError) + (
+    (zipfile.lzma.LZMAError,) if zipfile.lzma is not None else ())
 
 
 class StudioStore:
@@ -307,7 +310,7 @@ class StudioStore:
             def read_entry(name):
                 try:
                     return archive.read(name)
-                except zipfile.BadZipFile as error:
+                except ZIP_DECODE_ERRORS as error:
                     raise ValueError("Scene ZIP is corrupt") from error
             entries = archive.infolist()
             if len({entry.filename for entry in entries}) != len(entries):
