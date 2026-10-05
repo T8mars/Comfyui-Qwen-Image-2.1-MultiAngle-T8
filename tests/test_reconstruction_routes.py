@@ -70,6 +70,44 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status, 400)
             self.assertIn("install_assets.py", (await response.json())["error"])
 
+    async def test_upload_endpoints_reject_non_multipart_requests_without_writing(self):
+        for endpoint in ("assets", "import-scene"):
+            for options in ({"json": {"file": "invalid"}},
+                            {"data": "invalid", "headers": {"Content-Type": "text/plain"}}, {}):
+                with self.subTest(endpoint=endpoint, options=options):
+                    before = set(self.store.root.iterdir())
+                    response = await self.client.post("/anyangle-studio/" + endpoint, **options)
+                    self.assertEqual(response.status, 400)
+                    self.assertIn("multipart/form-data", (await response.json())["error"])
+                    self.assertEqual(set(self.store.root.iterdir()), before)
+
+    async def test_upload_endpoints_reject_nested_multipart_without_writing(self):
+        nested = (b'--outer\r\nContent-Disposition: form-data; name="file"\r\n'
+                  b'Content-Type: multipart/mixed; boundary=inner\r\n\r\n--inner\r\n'
+                  b'Content-Disposition: attachment; filename="x.png"\r\n'
+                  b'Content-Type: application/octet-stream\r\n\r\nbad\r\n--inner--\r\n\r\n--outer--\r\n')
+        for endpoint in ("assets", "import-scene"):
+            with self.subTest(endpoint=endpoint):
+                before = set(self.store.root.iterdir())
+                response = await self.client.post("/anyangle-studio/" + endpoint, data=nested,
+                    headers={"Content-Type": "multipart/form-data; boundary=outer"})
+                self.assertEqual(response.status, 400)
+                self.assertTrue((await response.json())["error"])
+                self.assertEqual(set(self.store.root.iterdir()), before)
+
+    async def test_nontext_guide_settings_return_400_without_creating_assets(self):
+        buffer = io.BytesIO(); Image.new("RGB", (96, 64), "black").save(buffer, "PNG")
+        for guide in ([], {}, None):
+            for endpoint in ("snapshots", "portable-scenes"):
+                with self.subTest(guide=guide, endpoint=endpoint):
+                    scene = scene_for(); scene["conditioning"]["guide"] = guide
+                    before = set(self.store.root.iterdir())
+                    response = await self.client.post("/anyangle-studio/" + endpoint, json={"scene": scene,
+                        "png": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()})
+                    self.assertEqual(response.status, 400)
+                    self.assertIn("Unknown model or guide", (await response.json())["error"])
+                    self.assertEqual(set(self.store.root.iterdir()), before)
+
     async def test_default_and_manual_models_are_resolved_through_http(self):
         response = await self.client.get("/anyangle-studio/reconstruction-config")
         self.assertEqual(response.status, 200)

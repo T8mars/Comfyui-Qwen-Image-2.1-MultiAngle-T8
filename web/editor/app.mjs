@@ -36,6 +36,7 @@ let poseLibrary;
 try { poseLibrary = JSON.parse(localStorage.getItem('anyangle-studio.poses.v1') || '[]'); }
 catch { poseLibrary = []; }
 if (!Array.isArray(poseLibrary)) poseLibrary = [];
+poseLibrary = poseLibrary.filter(pose => pose && typeof pose.id === 'string' && typeof pose.name === 'string');
 
 function toast(message) {
   $('#toast').textContent = message; $('#toast').hidden = false;
@@ -889,16 +890,27 @@ function renderShots() {
 }
 $('#save-shot').onclick = async () => {
   const name = await askName('收藏当前机位', `机位 ${doc.shots.length + 1}`); if (!name) return;
-  return run(async () => { begin(); if (studio.mode === 'edit') studio.currentViewAsShot(); setMode('camera');
-    const scale = 230 / Math.max(doc.width, doc.height); const thumbnail = await studio.capture(Math.round(doc.width * scale), Math.round(doc.height * scale));
-    const shot = { id: crypto.randomUUID(), name, camera: clone(doc.camera), width: doc.width, height: doc.height, thumbnail };
-    if (doc.source.kind === 'human') shot.cameraTarget = studio.baseTarget.toArray();
-    doc.shots.push(shot); changed(); selectedShot = shot.id; renderShots();
-    toast('机位已收藏 · 点击缩略图切换；应用到节点后保存收藏。');
+  return run(async () => {
+    const previous = clone(doc), previousMode = studio.mode, previousShot = selectedShot, rollbackHistory = begin();
+    try {
+      if (studio.mode === 'edit') studio.currentViewAsShot(); setMode('camera');
+      const scale = 230 / Math.max(doc.width, doc.height); const thumbnail = await studio.capture(Math.round(doc.width * scale), Math.round(doc.height * scale));
+      const shot = { id: crypto.randomUUID(), name, camera: clone(doc.camera), width: doc.width, height: doc.height, thumbnail };
+      if (doc.source.kind === 'human') shot.cameraTarget = studio.baseTarget.toArray();
+      doc.shots.push(shot); changed(); selectedShot = shot.id; renderShots();
+      toast('机位已收藏 · 点击缩略图切换；应用到节点后保存收藏。');
+    } catch (error) {
+      doc = previous; rollbackHistory?.(); selectedShot = previousShot;
+      try { await studio.restore(doc); } catch { /* Keep the original thumbnail error. */ }
+      try { setMode(previousMode); renderShots(); } catch { /* Scene recovery may also be unavailable. */ }
+      throw error;
+    }
   });
 };
 
-function saveLibrary() { localStorage.setItem('anyangle-studio.poses.v1', JSON.stringify(poseLibrary)); renderLibrary(); }
+function saveLibrary(next = poseLibrary) {
+  localStorage.setItem('anyangle-studio.poses.v1', JSON.stringify(next)); poseLibrary = next; renderLibrary();
+}
 function renderLibrary() {
   $('#saved-poses').replaceChildren();
   for (const pose of poseLibrary) {
@@ -917,15 +929,17 @@ function renderLibrary() {
         throw error;
       }
     });
-    const remove = iconButton('trash', `删除姿势 ${pose.name}`); remove.onclick = () => { poseLibrary = poseLibrary.filter(p => p.id !== pose.id); saveLibrary(); };
+    const remove = iconButton('trash', `删除姿势 ${pose.name}`); remove.onclick = () => {
+      try { saveLibrary(poseLibrary.filter(p => p.id !== pose.id)); } catch (e) { error(e); }
+    };
     row.append(button, remove); $('#saved-poses').append(row);
   }
 }
 $('#save-pose').onclick = async () => {
   const name = await askName('保存姿势', `姿势 ${poseLibrary.length + 1}`); if (!name) return;
   const poseSource = activeActor(doc)?.poseSource ?? (doc.actors?.length > 1 ? null : doc.openpose ?? null);
-  poseLibrary.push({ id: crypto.randomUUID(), name, mesh: clone(doc.mesh), pose: studio.pose(), openpose: clone(poseSource) });
-  try { saveLibrary(); toast('姿势已保存到当前浏览器'); } catch (e) { error(e); }
+  const pose = { id: crypto.randomUUID(), name, mesh: clone(doc.mesh), pose: studio.pose(), openpose: clone(poseSource) };
+  try { saveLibrary([...poseLibrary, pose]); toast('姿势已保存到当前浏览器'); } catch (e) { error(e); }
 };
 function download(data, name) {
   const url = typeof data === 'string' ? data : URL.createObjectURL(data);

@@ -72,7 +72,7 @@ function libraryContext(restore) {
     document: { createElement: () => { const element = { append() {} }; created.push(element); return element; } } };
   const beginStart = app.indexOf('function begin()');
   vm.runInNewContext(app.slice(beginStart, app.indexOf('function changed(', beginStart)), state);
-  const libraryStart = app.indexOf('function saveLibrary()');
+  const libraryStart = app.indexOf('function saveLibrary(');
   vm.runInNewContext(app.slice(libraryStart, app.indexOf("$('#save-pose').onclick", libraryStart)), state);
   state.renderLibrary();
   return { state, preset, calls, button: created.find(element => element.textContent === preset.name) };

@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 import re
 import tempfile
+import threading
 import zipfile
 import zlib
 
@@ -40,7 +41,7 @@ def conditioning_for(scene):
         raise ValueError("Invalid guide settings")
     model = conditioning.get("model", "anyangle")
     guide = conditioning.get("guide", "coarse")
-    if model not in ("anyangle", "base") or guide not in BASE_PROMPTS:
+    if model not in ("anyangle", "base") or not isinstance(guide, str) or guide not in BASE_PROMPTS:
         raise ValueError("Unknown model or guide mode")
     if conditioning.get("promptMode", "default") not in ("default", "single", "custom"):
         raise ValueError("Unknown prompt mode")
@@ -86,6 +87,8 @@ ZIP_DECODE_ERRORS = (zipfile.BadZipFile, zlib.error, OSError, EOFError) + (
 
 
 class StudioStore:
+    _write_lock = threading.Lock()
+
     def __init__(self, root):
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
@@ -99,16 +102,20 @@ class StudioStore:
         return path
 
     def write(self, name, data):
-        path = self.path(name)
-        if path.exists() and path.read_bytes() == data:
-            return
-        with tempfile.NamedTemporaryFile(dir=self.root, delete=False) as handle:
-            temporary = Path(handle.name)
-            handle.write(data)
-        try:
-            temporary.replace(path)
-        finally:
-            temporary.unlink(missing_ok=True)
+        with self._write_lock:
+            path = self.path(name)
+            if path.exists() and path.read_bytes() == data:
+                return
+            with tempfile.NamedTemporaryFile(dir=self.root, delete=False) as handle:
+                temporary = Path(handle.name)
+                handle.write(data)
+            try:
+                temporary.replace(path)
+            except PermissionError:
+                if not path.is_file() or path.read_bytes() != data:
+                    raise
+            finally:
+                temporary.unlink(missing_ok=True)
 
     def asset(self, data, kind):
         if kind == "ply":

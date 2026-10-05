@@ -56,7 +56,7 @@ function bookmarkFixture() {
     return 'data:image/png;thumbnail';
   };
   const start = app.indexOf('function iconButton(');
-  vm.runInNewContext(app.slice(start, app.indexOf('function saveLibrary()', start)), state);
+  vm.runInNewContext(app.slice(start, app.indexOf('function saveLibrary(', start)), state);
   return { state, studio, doc, captures, created, elements };
 }
 

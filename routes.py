@@ -3,7 +3,7 @@ import json
 import hashlib
 import math
 
-from aiohttp import web
+from aiohttp import BodyPartReader, web
 from PIL import UnidentifiedImageError
 from server import PromptServer
 from .reconstruction import reconstruction_config
@@ -134,9 +134,11 @@ def register_routes(store_factory):
     @routes.post("/anyangle-studio/assets")
     async def upload(request):
         try:
+            if request.content_type != "multipart/form-data":
+                raise ValueError("Upload the file using multipart/form-data")
             reader = await request.multipart()
             part = await reader.next()
-            if part is None or part.name != "file":
+            if not isinstance(part, BodyPartReader) or part.name != "file":
                 raise ValueError("Choose a file to import")
             data = bytearray()
             while chunk := await part.read_chunk(1024 * 1024):
@@ -241,9 +243,11 @@ def register_routes(store_factory):
     @routes.post("/anyangle-studio/import-scene")
     async def import_portable_scene(request):
         try:
+            if request.content_type != "multipart/form-data":
+                raise ValueError("Upload the scene ZIP using multipart/form-data")
             reader = await request.multipart()
             part = await reader.next()
-            if part is None or part.name != "file":
+            if not isinstance(part, BodyPartReader) or part.name != "file":
                 raise ValueError("Choose an AnyAngle scene ZIP")
             data = bytearray()
             while chunk := await part.read_chunk(1024 * 1024):

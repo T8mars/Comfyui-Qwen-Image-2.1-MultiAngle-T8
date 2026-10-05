@@ -1,5 +1,7 @@
 import base64
 import copy
+import concurrent.futures
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -9,6 +11,7 @@ import tempfile
 import unittest
 import zlib
 import zipfile
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -33,6 +36,44 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(document["scene"], self.scene)
         self.assertEqual(Image.open(io.BytesIO(data)).getpixel((0, 0)), (32, 77, 119))
         self.assertEqual(self.store.save_scene(self.scene, self.png), token)
+
+    def test_concurrent_identical_asset_publish_survives_windows_replace_denial(self):
+        data = b"another writer publishes the same immutable asset"
+        name = hashlib.sha256(data).hexdigest() + ".png"
+        destination = self.store.path(name)
+
+        def publish_then_deny(_temporary, target):
+            target.write_bytes(data)
+            raise PermissionError("Windows target is held by a concurrent reader")
+
+        with patch.object(Path, "replace", publish_then_deny):
+            self.store.write(name, data)
+        self.assertEqual(self.store.read_asset(name), data)
+        self.assertEqual(list(self.store.root.iterdir()), [destination])
+
+    def test_replace_denial_does_not_hide_disk_errors_or_different_asset_data(self):
+        data = b"expected immutable data"
+        name = hashlib.sha256(data).hexdigest() + ".png"
+        destination = self.store.path(name)
+        for existing in (None, b"different bytes"):
+            with self.subTest(existing=existing):
+                if existing is not None:
+                    destination.write_bytes(existing)
+                with patch.object(Path, "replace", side_effect=PermissionError("disk unavailable")):
+                    with self.assertRaisesRegex(PermissionError, "disk unavailable"):
+                        self.store.write(name, data)
+                self.assertEqual(list(self.store.root.iterdir()), [] if existing is None else [destination])
+                if existing is not None:
+                    self.assertEqual(destination.read_bytes(), existing)
+
+    def test_multiple_stores_can_publish_identical_assets_concurrently(self):
+        data = base64.b64decode(self.png.split(",", 1)[1])
+        stores = [StudioStore(self.directory.name) for _ in range(12)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as workers:
+            assets = list(workers.map(lambda index: stores[index % len(stores)].asset(data, "png"), range(96)))
+        self.assertEqual(len({asset["name"] for asset in assets}), 1)
+        self.assertEqual(self.store.read_asset(assets[0]["name"]), data)
+        self.assertEqual(list(self.store.root.iterdir()), [self.store.path(assets[0]["name"])])
 
     def test_null_guide_settings_use_defaults_in_legacy_and_actor_scenes(self):
         for version in (1, 2):

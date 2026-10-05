@@ -36,7 +36,7 @@ function fixture() {
     document: { createElement: () => { const element = { classList: { toggle() {} }, append() {}, setAttribute() {} }; created.push(element); return element; } } };
   studio.capture = async () => 'data:image/png;saved-camera';
   const start = app.indexOf('function iconButton(');
-  vm.runInNewContext(app.slice(start, app.indexOf('function saveLibrary()', start)), state);
+  vm.runInNewContext(app.slice(start, app.indexOf('function saveLibrary(', start)), state);
   return { doc, studio, state, created, elements };
 }
 
