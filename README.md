@@ -4,13 +4,13 @@
 <p align="center"><strong>简体中文</strong> · <a href="README_EN.md">English</a></p>
 <p align="center">ComfyUI 自定义节点 · Qwen Image 2.1 · 可关闭的 AnyAngle LoRA · TripoSplat · MIT</p>
 
-![v1.5.3 实际 ComfyUI 三人工作台与机位收藏](docs/images/studio-multi-person-v153.png)
+![v1.5.4 实际 ComfyUI 三人工作台与机位收藏](docs/images/studio-multi-person-v154.png)
 
-<p align="center"><sub>v1.5.3 · 实际 ComfyUI 工作台截图 · 内置人偶，无需另装 Fisher</sub></p>
+<p align="center"><sub>v1.5.4 · 实际 ComfyUI 工作台截图 · 内置人偶，无需另装 Fisher</sub></p>
 
 **原模型：[lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [基础工作流](workflows/AnyAngle-Studio-Qwen21.json) · [进阶工作流](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [English README](README_EN.md)
 
-## 多人工作台 · 1.5.3
+## 多人工作台 · 1.5.4
 
 **[多人工作流](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[含人物参考的三人场景 ZIP](examples/multi-person-photo-pose.zip)** · [实测结果与限制](docs/multi-person-validation.md)
 
@@ -42,7 +42,7 @@ Canny 示例保留三个人、衣装顺序和蓝衣人物举臂，但没有准�
 - **编排与复用**：按种子随机当前、选中或全部未锁定人物；全场模板保存人物动作、站位、道具与相机，排序后仍保留角色身份。支持落地、合影/对话/握手编排及带资源的场景 ZIP。握手为一次 IK 近似对齐，可再次对齐或手动微调，不提供持续约束或碰撞仿真。批量机位冻结全场人物与照片。
 - **机位独立保存**：收藏与批量机位包含拍摄中心；应用其他场景模板后，也可恢复原构图，人物动作保持当前状态。
 
-**1.5.3 修复：**收藏缩略图失败时恢复相机与撤销/重做；浏览器姿势库容错并保持存储一致；错误上传格式和无效引导类型返回明确错误；修复 Windows 并发保存的访问拒绝。[本轮 20 项联合检查](docs/audit-1.5.3.md) · [1.5.2 检查记录](docs/audit-1.5.2.md)。
+**1.5.4 修复：**侧面/背面平移沿画面方向移动；编辑和人物站位模式中键导航保持拍摄机位；单击、小数角度无操作和取消拖动保留撤销/重做；修复其他指针干扰与鼠标捕获丢失后的误移动。[本轮 20 项联合检查](docs/audit-1.5.4.md) · [1.5.3 检查记录](docs/audit-1.5.3.md)。
 
 标准 OpenPose JSON 使用像素坐标；文件未带画布尺寸时，优先使用左侧原图尺寸，否则使用当前输出尺寸，导入后会提示核对。请让画布与坐标对应。标准化到 `[0,1]` 或 `[-1,1]` 的坐标需要先转换。[官方输出格式](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md#json-output-format)。
 
@@ -79,7 +79,7 @@ Canny 示例保留三个人、衣装顺序和蓝衣人物举臂，但没有准�
 
 ![AnyAngle Studio 三维工作台：参考图、交互相机与实际粗图](docs/images/studio-photo.png)
 
-拖动环绕，中键或 Shift+左键平移，滚轮缩放。重建完成后保持三维交互；点击“预览当前机位粗图”查看无网格的输出。截图展示三维场景模式，四种引导方式统一在右侧选择。
+拍摄模式拖动环绕，中键或 Shift+左键沿画面方向平移，滚轮缩放。编辑和人物站位模式右键环绕、中键平移，拍摄机位保持不变；Escape 取消当前拖动并保留历史。重建完成后保持三维交互；点击“预览当前机位粗图”查看无网格的输出。截图展示三维场景模式，四种引导方式统一在右侧选择。
 
 **保留背景参与重建（1.2.0，实验）：**在左侧原图下方勾选，再点击「保留背景重建 3D」。整张图像进入 TripoSplat，不执行 BiRefNet 去背景；取消勾选后恢复主体模式。两种结果分别缓存，选项随场景保存，切换后需重新重建。可继续旋转相机、导出粗图或批量机位；Qwen 底模的粗图提示词会改为重建前景与背景，AnyAngle 保留官方提示词。
 
@@ -185,7 +185,7 @@ Change the camera angle from <image2> to <image1>.
 
 **1.2.1 修复：**姿势预设缩略图按完整人物范围取景；编辑人偶后，POSE 输出不再沿用之前提取的原图骨架。旧版（1.0.1 及更早）还存在高 DPI 下预览放大、偏移至右上角的错误，已在 1.0.2 修复。黄框内是实际输出范围；人物超出黄框时先点击「适合画幅」。
 
-更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.5.3**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
+更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.5.4**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
 
 在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
 

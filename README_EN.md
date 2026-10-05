@@ -4,13 +4,13 @@
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 <p align="center">ComfyUI custom node · Qwen Image 2.1 · optional AnyAngle LoRA · TripoSplat · MIT</p>
 
-![v1.5.3 actual ComfyUI three-person workbench and camera bookmarks](docs/images/studio-multi-person-v153.png)
+![v1.5.4 actual ComfyUI three-person workbench and camera bookmarks](docs/images/studio-multi-person-v154.png)
 
-<p align="center"><sub>v1.5.3 · Actual ComfyUI workbench screenshot · Bundled mannequin; Fisher is not required</sub></p>
+<p align="center"><sub>v1.5.4 · Actual ComfyUI workbench screenshot · Bundled mannequin; Fisher is not required</sub></p>
 
 **Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Basic workflow](workflows/AnyAngle-Studio-Qwen21.json) · [Advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [中文说明](README.md)
 
-## Multi-person workbench · 1.5.3
+## Multi-person workbench · 1.5.4
 
 **[Multi-person workflow](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[Three-person scene ZIP with reference images](examples/multi-person-photo-pose.zip)** · [Measured results and limitations](docs/multi-person-validation.md#english)
 
@@ -42,7 +42,7 @@ The same scene can also produce these structure maps; the maps themselves are no
 - **Composition and reuse:** randomize current, selected or all unlocked actors with a repeatable seed. Full-scene templates save poses, placement, props and camera, retaining identities after actor reordering. Ground feet, arrange groups/dialogue/handshakes and export portable scene ZIPs. Hand contact performs one approximate IK alignment and can be realigned or refined manually; it is not continuous constraint solving or collision simulation. Batch views freeze the actors and reference photos.
 - **Independent camera bookmarks:** bookmarks and batch views include the camera target. Restore the original framing after applying another scene template while keeping the actors’ current poses.
 
-**1.5.3 fixes:** failed bookmark thumbnails restore the camera and undo/redo; browser pose libraries recover from invalid entries and storage failures; malformed uploads and invalid guide types return clear errors; Windows concurrent saves no longer race within the plugin process. [Fresh 20-scope joint audit](docs/audit-1.5.3.md#english) · [1.5.2 audit](docs/audit-1.5.2.md#english).
+**1.5.4 fixes:** screen-aligned pan at side/rear views; edit and actor-position navigation preserves the shot; unchanged clicks, fractional angles and cancelled drags keep undo/redo; foreign pointers and lost capture no longer cause stray movement. [Fresh 20-scope joint audit](docs/audit-1.5.4.md#english) · [1.5.3 audit](docs/audit-1.5.3.md#english).
 
 OpenPose JSON uses pixel coordinates. If canvas dimensions are absent, the source photo dimensions take priority; without a photo, the current output dimensions are used. An import notice identifies the canvas to check. Convert coordinates normalized to `[0,1]` or `[-1,1]` to pixels first. [Official output format](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md#json-output-format).
 
@@ -79,7 +79,7 @@ A TripoSplat photo reconstruction has **no editable skeleton**. Use camera mode 
 
 ![The 3D workbench with a reference, interactive camera and clean output](docs/images/studio-photo.png)
 
-Drag to orbit, middle-button or Shift+left-button drag to pan, and scroll to zoom. Reconstruction opens the interactive 3D view; choose **Preview current camera render** for the clean output. The screenshot illustrates 3D scene mode; all four guide types are selected in the right panel.
+In photo mode, drag to orbit, middle-button or Shift+left-button drag to pan along the screen axes, and scroll to zoom. Edit and actor-position modes use right-button orbit and middle-button pan without changing the shot. Escape cancels the current drag and preserves history. Reconstruction opens the interactive 3D view; choose **Preview current camera render** for the clean output. The screenshot illustrates 3D scene mode; all four guide types are selected in the right panel.
 
 **Keep background during reconstruction (1.2.0, experimental):** enable **保留背景参与重建** below the reference image, then click **保留背景重建 3D**. The full image enters TripoSplat without BiRefNet segmentation. Disable the checkbox to return to subject-only reconstruction. Both modes have separate caches; the preference is saved with the scene and requires reconstruction after switching. Camera rotation, guide export and batch views remain available. Base-model coarse prompts request both foreground and background; AnyAngle retains its official prompt.
 
@@ -185,7 +185,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.5.3**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.5.4**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

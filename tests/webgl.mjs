@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import { editorActions } from './editor-actions.mjs';
 import { framingMatrix } from './framing-matrix.mjs';
+import { pointerWebGL, pointerEditor } from './pointer-webgl.mjs';
 const require=createRequire(import.meta.url), {chromium}=require(process.env.ANYANGLE_PLAYWRIGHT || 'playwright');
 const hardware=process.env.ANYANGLE_HARDWARE==='1';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url))),out=resolve(root,'.local',hardware?'webgl-hardware':'webgl');await mkdir(out,{recursive:true});
@@ -109,6 +110,8 @@ try{
   await page.locator('#undo').click();await page.waitForFunction(()=>!document.querySelector('#workspace').inert);assert.equal(await page.locator('.actor-card').count(),3);
   result.editorUI={added:2,cloned:3,deleted:2,undoRestored:3,exportedPeople:json.people.length,handPoints:21,noseLandmarks:true};
   result.editorActions=await editorActions(page,`http://127.0.0.1:${server.address().port}`,out,cubeGLB());
+  result.pointerWebGL = await pointerWebGL(browser, `http://127.0.0.1:${server.address().port}`, out, cubeGLB());
+  result.pointerEditor = await pointerEditor(browser, `http://127.0.0.1:${server.address().port}`, out);
   result.framingMatrix=await framingMatrix(browser,`http://127.0.0.1:${server.address().port}`);
   assert.deepEqual(errors,[]);const receipt={date:new Date().toISOString(),hardware:frames.gpu,requestedHardware:hardware,depthStats,initialMemory:frames.memory,...result};await writeFile(resolve(out,'receipt.json'),JSON.stringify(receipt,null,2));process.stdout.write(JSON.stringify(receipt));
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

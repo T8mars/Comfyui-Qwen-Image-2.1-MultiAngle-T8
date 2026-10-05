@@ -425,7 +425,7 @@ export class StudioScene {
     this.viewer.transform.visible = mode === 'edit' && editable;
     this.viewer.skeletonHelper && (this.viewer.skeletonHelper.visible = false);
     this.viewer.jointMarkers.forEach(marker => { marker.visible = mode === 'edit' && editable && this.viewer._shouldMarkerBeVisible(marker); });
-    this.viewer.orbit.enabled = mode === 'edit';
+    this.viewer.orbit.enabled = mode === 'edit' || mode === 'position';
     this.shotHelper.visible = mode === 'edit';
     this.updateShot(mode === 'camera');
   }
@@ -765,9 +765,17 @@ export class StudioScene {
   bindCamera() {
     const canvas = this.canvas;
     let drag = null;
-    const end = () => { if (drag) { drag = null; this.callbacks.change(); } };
+    const beginChange = () => {
+      if (!drag.changed) { drag.rollback = this.callbacks.begin(); drag.changed = true; }
+    };
+    const end = () => {
+      if (!drag) return;
+      const changed = drag.changed; drag = null;
+      if (changed) this.callbacks.change();
+    };
     canvas.addEventListener('pointerdown', event => {
       if (event.button !== 0 && event.button !== 1) return;
+      if (drag) { event.stopImmediatePropagation(); event.preventDefault(); return; }
       const ray = () => {
         const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.viewer.camera);
@@ -788,58 +796,73 @@ export class StudioScene {
           const normal = this.doc.interaction?.movePlane === 'ground' ? new THREE.Vector3(0, 1, 0) : this.viewer.camera.getWorldDirection(new THREE.Vector3());
           const root = this.actorRoots.get(actor.id), plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, root.position);
           const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3()); if (!point) return;
-          this.callbacks.begin(); drag = { actor: actor.id, plane, point, transform: { ...actor.transform } };
+          drag = { pointerId: event.pointerId, actor: actor.id, plane, point, transform: { ...actor.transform } };
           canvas.setPointerCapture(event.pointerId); return;
         }
         return;
       }
-      if (this.mode !== 'camera' && event.button !== 1 && !event.shiftKey) return;
+      // Non-photo view navigation belongs to OrbitControls; it leaves the shot intact.
+      if (this.mode !== 'camera') return;
       event.stopImmediatePropagation(); event.preventDefault();
-      this.callbacks.begin();
-      drag = { x: event.clientX, y: event.clientY, camera: { ...this.doc.camera }, pan: event.button === 1 || event.shiftKey };
+      drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, camera: { ...this.doc.camera }, pan: event.button === 1 || event.shiftKey };
+      if (drag.pan && this.doc.source.kind !== 'splat') drag.panQuaternion = this.viewer.captureCamera.quaternion.clone();
       canvas.setPointerCapture(event.pointerId);
     }, true);
     canvas.addEventListener('auxclick', event => { if (this.mode === 'camera' && event.button === 1) event.preventDefault(); });
     canvas.addEventListener('pointermove', event => {
       if (this.mode === 'camera' || drag) event.stopImmediatePropagation();
-      if (!drag) return;
+      if (!drag || event.pointerId !== drag.pointerId) return;
       if (drag.actor) {
         const actor = this.doc.actors.find(item => item.id === drag.actor); if (!actor || actor.locked) return;
         const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.viewer.camera);
         const point = raycaster.ray.intersectPlane(drag.plane, new THREE.Vector3()); if (!point) return;
         const delta = point.sub(drag.point);
-        Object.assign(actor.transform, { x: drag.transform.x + delta.x, y: drag.transform.y + delta.y, z: drag.transform.z + delta.z });
+        const next = { x: drag.transform.x + delta.x, y: drag.transform.y + delta.y, z: drag.transform.z + delta.z };
+        if (Object.entries(next).every(([key, value]) => actor.transform[key] === value)) return;
+        beginChange(); Object.assign(actor.transform, next);
         this.updateActorTransform(actor); this.callbacks.camera(); return;
       }
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      const next = { ...drag.camera };
       if (drag.pan) {
-        this.doc.camera.offsetX = drag.camera.offsetX + dx * 0.025;
-        this.doc.camera.offsetY = drag.camera.offsetY - dy * 0.025;
+        const delta = new THREE.Vector3(dx * 0.025, -dy * 0.025, 0);
+        // Human/GLB offsets are stored in world axes; splat offsets are camera-local.
+        if (drag.panQuaternion) delta.applyQuaternion(drag.panQuaternion);
+        next.offsetX = drag.camera.offsetX + delta.x;
+        next.offsetY = drag.camera.offsetY + delta.y;
+        next.offsetZ = (drag.camera.offsetZ || 0) + delta.z;
       } else {
-        this.doc.camera.azimuth = ((drag.camera.azimuth - dx * 0.35 + 540) % 360) - 180;
-        if (this.doc.interaction?.mousePitch !== false)
-          this.doc.camera.elevation = clamp(drag.camera.elevation + dy * 0.25, -89, 89);
+        if (dx) next.azimuth = ((drag.camera.azimuth - dx * 0.35 + 540) % 360) - 180;
+        if (dy && this.doc.interaction?.mousePitch !== false)
+          next.elevation = clamp(drag.camera.elevation + dy * 0.25, -89, 89);
       }
+      if (Object.entries(next).every(([key, value]) => this.doc.camera[key] === value)) return;
+      beginChange(); Object.assign(this.doc.camera, next);
       this.updateShot(); this.callbacks.camera();
     }, true);
-    canvas.addEventListener('pointerup', event => { if (drag) { event.stopImmediatePropagation(); end(); } }, true);
-    canvas.addEventListener('pointercancel', end, true);
+    canvas.addEventListener('pointerup', event => { if (drag && event.pointerId === drag.pointerId) { event.stopImmediatePropagation(); end(); } }, true);
+    const cancel = event => { if (drag && event.pointerId === drag.pointerId) this.cancelDrag(); };
+    canvas.addEventListener('pointercancel', cancel, true);
+    canvas.addEventListener('lostpointercapture', cancel, true);
     canvas.addEventListener('wheel', event => {
       if (this.mode !== 'camera') return;
       event.stopImmediatePropagation(); event.preventDefault();
-      this.callbacks.begin();
-      this.doc.camera.zoom = clamp(this.doc.camera.zoom * Math.exp(-event.deltaY * 0.001), 0.1, 8);
+      const zoom = clamp(this.doc.camera.zoom * Math.exp(-event.deltaY * 0.001), 0.1, 8);
+      if (zoom === this.doc.camera.zoom) return;
+      this.callbacks.begin(); this.doc.camera.zoom = zoom;
       this.updateShot(); this.callbacks.change();
     }, { capture: true, passive: false });
     this.cancelDrag = () => {
       if (!drag) return false;
-      if (drag.actor) {
-        const actor = this.doc.actors.find(item => item.id === drag.actor);
-        if (actor) { actor.transform = drag.transform; this.updateActorTransform(actor); }
-      } else this.doc.camera = drag.camera;
-      drag = null;
-      this.updateShot(); this.callbacks.change(); return true;
+      const cancelled = drag; drag = null;
+      if (!cancelled.changed) return true;
+      if (cancelled.actor) {
+        const actor = this.doc.actors.find(item => item.id === cancelled.actor);
+        if (actor) { actor.transform = cancelled.transform; this.updateActorTransform(actor); }
+      } else this.doc.camera = cancelled.camera;
+      cancelled.rollback?.();
+      this.updateShot(); this.callbacks.camera(); return true;
     };
   }
 

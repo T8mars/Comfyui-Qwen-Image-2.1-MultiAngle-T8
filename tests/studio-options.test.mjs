@@ -95,6 +95,7 @@ test('disabling mouse pitch keeps elevation fixed while preserving rotation and 
   studio.canvas = { addEventListener: (name, listener) => listeners.set(name, listener), setPointerCapture() {},
     getBoundingClientRect: () => ({ width: 800, height: 600 }) };
   studio.callbacks = { begin() {}, change() {}, camera() {} }; studio.updateShot = () => {};
+  studio.viewer = { captureCamera: new THREE.PerspectiveCamera() };
   studio.bindCamera();
   const event = props => ({ clientX: 0, clientY: 0, pointerId: 1, button: 0, preventDefault() {}, stopImmediatePropagation() {}, ...props });
   listeners.get('pointerdown')(event()); listeners.get('pointermove')(event({ clientX: 50, clientY: 100 }));

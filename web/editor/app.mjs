@@ -1,4 +1,4 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit4';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit7';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261004mp1';
 import { readSkeletonImage } from './openpose.mjs?v=20261004mp1';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261004mp2';
@@ -93,12 +93,16 @@ async function run(task) {
 function begin() {
   if (!ready || studio.restoring) return;
   const previousUndo = undo.slice(), previousRedo = redo;
+  const undoDisabled = $('#undo').disabled, redoDisabled = $('#redo').disabled;
   studio.syncPose();
   const serialized = JSON.stringify(doc);
   if (JSON.stringify(undo.at(-1)) !== serialized) undo.push(clone(doc));
   if (undo.length > 40) undo.shift();
   redo = []; $('#undo').disabled = false; $('#redo').disabled = true;
-  return () => { undo = previousUndo; redo = previousRedo; };
+  return () => {
+    undo = previousUndo; redo = previousRedo;
+    $('#undo').disabled = undoDisabled; $('#redo').disabled = redoDisabled;
+  };
 }
 function changed(updatePreview = true) {
   if (!ready || studio.restoring) return;
@@ -195,7 +199,7 @@ function refresh() {
   if (document.activeElement !== $('#pose-seed')) $('#pose-seed').value = (doc.randomMaster || doc.poseRandom)?.seed || 0;
   for (const id of ['camera-heading', 'camera-eyebrow', 'camera-sliders', 'view-presets', 'shot-shelf', 'scene-panel']) $(`#${id}`).hidden = staticGuide;
   $('#stage-help').textContent = previewVisible ? staticGuide ? '原图结构与构图 · 应用到节点后输出当前引导图' : '当前三维机位的引导图 · 切换 3D 工作台调整机位'
-    : studio?.mode === 'position' ? '点选人物 · 拖动调整站位 · 左侧选择视图平面 / 地面'
+    : studio?.mode === 'position' ? '点选人物 · 拖动调整站位 · 右键环绕 · 中键平移'
     : studio?.mode === 'edit' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移'
       : '黄框为输出范围 · 拖动调整机位 · 中键或 Shift 平移 · 滚轮缩放';
   for (const control of controls.values()) control.refresh();
@@ -452,6 +456,7 @@ function setMode(mode) {
   $('#camera-mode').setAttribute('aria-pressed', String(mode === 'camera')); $('#edit-mode').setAttribute('aria-pressed', String(mode === 'edit'));
   $('#use-view').hidden = mode !== 'edit';
   $('#stage-help').textContent = mode === 'camera' ? '黄框为输出范围 · 拖动调整机位 · 中键或 Shift 平移 · 滚轮缩放'
+    : mode === 'position' ? '点选人物 · 拖动调整站位 · 右键环绕 · 中键平移'
     : doc.source.kind === 'human' ? '点选关节 / 拖 IK 手脚 · 右键环绕 · 中键平移 · 拍摄机位保持不变'
       : '右键环绕 · 中键平移 · 可将当前视图设为机位';
 }
