@@ -1,4 +1,4 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit11';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit13';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261004mp1';
 import { readSkeletonImage } from './openpose.mjs?v=20261004mp1';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261004mp2';
@@ -472,7 +472,7 @@ $('#use-view').onclick = () => { begin(); studio.currentViewAsShot(); setMode('c
 $('#fit-frame').onclick = () => { begin(); studio.fit(); changed(); };
 document.querySelectorAll('[data-angle]').forEach(button => { button.onclick = () => { begin(); doc.camera.azimuth = Number(button.dataset.angle); doc.camera.elevation = 0; studio.updateShot(); changed(); }; });
 $('#reset-camera').onclick = () => { begin(); doc.camera = doc.source.kind === 'splat' ? referenceCamera() : defaultScene().camera; studio.updateShot(true); changed(); };
-$('#bone-select').onchange = event => { selectedBone = event.target.value; studio.viewer.selectBoneByName(selectedBone); refresh(); };
+$('#bone-select').onchange = event => { studio.finishDrag(false); selectedBone = event.target.value; studio.viewer.selectBoneByName(selectedBone); refresh(); };
 $('#reset-bone').onclick = () => { if (!selectedBone) return; begin(); studio.viewer.resetSelectedBone(); changed(); };
 function dimensions(width, height) { begin(); doc.width = Math.round(Math.max(64, Math.min(4096, width))); doc.height = Math.round(Math.max(64, Math.min(4096, height))); studio.updateShot(); changed(); }
 $('#width').oninput = event => { const value = Number(event.target.value); if (Number.isFinite(value) && value >= 64 && value <= 4096) dimensions(value, doc.height); };

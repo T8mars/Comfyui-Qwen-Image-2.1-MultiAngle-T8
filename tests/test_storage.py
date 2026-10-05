@@ -229,6 +229,35 @@ class SnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "camera"):
             self.store.save_scene(scene, self.png)
 
+    def test_rejected_capture_and_nonfinite_scene_do_not_publish_orphan_guides(self):
+        for invalid in ("dimensions", "nonfinite"):
+            with self.subTest(invalid=invalid):
+                scene = copy.deepcopy(self.scene)
+                if invalid == "dimensions":
+                    scene["width"] = 128
+                else:
+                    scene["poseRandom"] = {"seed": float("nan")}
+                buffer = io.BytesIO()
+                Image.new("RGB", (96, 64), "red" if invalid == "dimensions" else "blue").save(buffer, "PNG")
+                capture = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
+                before = {path.name: path.read_bytes() for path in self.store.root.iterdir()}
+                with self.assertRaises(ValueError):
+                    self.store.save_scene(scene, capture)
+                self.assertEqual({path.name: path.read_bytes() for path in self.store.root.iterdir()}, before)
+
+    def test_capture_orientation_is_normalized_before_size_validation_and_publish(self):
+        buffer = io.BytesIO()
+        image = Image.new("RGB", (64, 96), (19, 53, 101))
+        exif = image.getexif(); exif[274] = 6
+        image.save(buffer, "PNG", exif=exif)
+        token = self.store.save_scene(self.scene, "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode())
+        document, data = self.store.load_scene(token)
+        with Image.open(io.BytesIO(data)) as output:
+            self.assertEqual(output.size, (96, 64))
+            self.assertEqual(output.getexif().get(274), None)
+            self.assertEqual(output.getpixel((0, 0)), (19, 53, 101))
+        self.assertEqual((document["guide"]["width"], document["guide"]["height"]), (96, 64))
+
     def test_glb_external_resources_rejected(self):
         raw = json.dumps({"asset": {"version": "2.0"}, "images": [{"uri": "https://example.org/private.png"}]}).encode()
         raw += b" " * (-len(raw) % 4)

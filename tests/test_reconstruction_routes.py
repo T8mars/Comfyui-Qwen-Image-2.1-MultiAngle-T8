@@ -108,6 +108,22 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
                     self.assertIn("Unknown model or guide", (await response.json())["error"])
                     self.assertEqual(set(self.store.root.iterdir()), before)
 
+    async def test_rejected_snapshot_capture_or_json_does_not_publish_a_guide(self):
+        for endpoint in ("snapshots", "portable-scenes"):
+            for invalid in ("dimensions", "nonfinite"):
+                with self.subTest(endpoint=endpoint, invalid=invalid):
+                    scene = scene_for()
+                    buffer = io.BytesIO()
+                    Image.new("RGB", (128 if invalid == "dimensions" else 96, 64), "red").save(buffer, "PNG")
+                    if invalid == "nonfinite":
+                        scene["poseRandom"] = {"seed": float("nan")}
+                    before = {path.name: path.read_bytes() for path in self.store.root.iterdir()}
+                    response = await self.client.post("/anyangle-studio/" + endpoint, json={"scene": scene,
+                        "png": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()})
+                    self.assertEqual(response.status, 400)
+                    self.assertTrue((await response.json())["error"])
+                    self.assertEqual({path.name: path.read_bytes() for path in self.store.root.iterdir()}, before)
+
     async def test_default_and_manual_models_are_resolved_through_http(self):
         response = await self.client.get("/anyangle-studio/reconstruction-config")
         self.assertEqual(response.status, 200)

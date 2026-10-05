@@ -9,6 +9,7 @@ import { editorActions } from './editor-actions.mjs';
 import { framingMatrix } from './framing-matrix.mjs';
 import { pointerWebGL, pointerEditor } from './pointer-webgl.mjs';
 import { gestureEditor } from './gesture-webgl.mjs';
+import { fkProbe } from './fk-webgl.mjs';
 const require=createRequire(import.meta.url), {chromium}=require(process.env.ANYANGLE_PLAYWRIGHT || 'playwright');
 const hardware=process.env.ANYANGLE_HARDWARE==='1';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url))),out=resolve(root,'.local',hardware?'webgl-hardware':'webgl');await mkdir(out,{recursive:true});
@@ -120,6 +121,7 @@ try{
   result.pointerWebGL = await pointerWebGL(browser, `http://127.0.0.1:${server.address().port}`, out, cubeGLB());
   result.pointerEditor = await pointerEditor(browser, `http://127.0.0.1:${server.address().port}`, out);
   result.gestureEditor = await gestureEditor(browser, `http://127.0.0.1:${server.address().port}`);
+  result.fkEditor = await fkProbe(browser, `http://127.0.0.1:${server.address().port}`);
   result.framingMatrix=await framingMatrix(browser,`http://127.0.0.1:${server.address().port}`);
   assert.deepEqual(errors,[]);const receipt={date:new Date().toISOString(),hardware:frames.gpu,requestedHardware:hardware,depthStats,initialMemory:frames.memory,...result};await writeFile(resolve(out,'receipt.json'),JSON.stringify(receipt,null,2));process.stdout.write(JSON.stringify(receipt));
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

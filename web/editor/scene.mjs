@@ -92,7 +92,13 @@ export class StudioScene {
       onError: error => callbacks.error(error),
     });
     // One editor history owns the pose, camera, assets and shot library together.
-    this.viewer.recordState = () => { if (!this.restoring) callbacks.begin(); };
+    this.viewer.recordState = () => {
+      if (this.restoring) return;
+      // FK marks itself as dragging before requesting its initial history entry.
+      this.beginningRigGesture = true;
+      try { callbacks.begin(); }
+      finally { this.beginningRigGesture = false; }
+    };
     this.viewer.options.onInteractionEnd = () => { if (!this.restoring) callbacks.change(true, this.interactionControls !== false); };
     const requestRender = this.viewer.requestRender.bind(this.viewer);
     this.viewer.requestRender = () => { if (!this.capturing) requestRender(); };
@@ -780,12 +786,19 @@ export class StudioScene {
       return true;
     };
     this.finishDrag = (updateControls = true) => {
-      if (beginning) return false;
+      if (beginning || this.beginningRigGesture) return false;
       let finished = end(updateControls);
-      if (this.viewer.directDrag?.active) {
+      if (this.viewer.directDrag?.active || this.viewer.transform?.dragging) {
         const previous = this.interactionControls;
         this.interactionControls = updateControls;
-        try { this.viewer.handlePointerUp({ pointerId: rigPointerId }); }
+        try {
+          if (this.viewer.directDrag?.active) this.viewer.handlePointerUp({ pointerId: rigPointerId });
+          else {
+            canvas.removeEventListener('pointermove', this.viewer.transform._onPointerMove);
+            this.viewer.transform.pointerUp({ button: 0 });
+            if (canvas.hasPointerCapture(rigPointerId)) canvas.releasePointerCapture(rigPointerId);
+          }
+        }
         finally { this.interactionControls = previous; }
         finished = true;
       }
@@ -863,7 +876,7 @@ export class StudioScene {
     canvas.addEventListener('pointerup', event => { if (drag && event.pointerId === drag.pointerId) { event.stopImmediatePropagation(); end(); } }, true);
     const cancel = event => {
       if (drag && event.pointerId === drag.pointerId) this.cancelDrag();
-      else if (event.pointerId === rigPointerId && this.viewer.directDrag?.active) this.finishDrag();
+      else if (event.pointerId === rigPointerId && (this.viewer.directDrag?.active || this.viewer.transform?.dragging)) this.finishDrag();
     };
     canvas.addEventListener('pointercancel', cancel, true);
     canvas.addEventListener('lostpointercapture', cancel, true);

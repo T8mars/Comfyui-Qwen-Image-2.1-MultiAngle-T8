@@ -86,6 +86,22 @@ ZIP_DECODE_ERRORS = (zipfile.BadZipFile, zlib.error, OSError, EOFError) + (
     (zipfile.lzma.LZMAError,) if zipfile.lzma is not None else ())
 
 
+def _png(data):
+    try:
+        opened = Image.open(io.BytesIO(data))
+    except Image.DecompressionBombError as error:
+        raise ValueError("Image exceeds 32 megapixels") from error
+    with opened as source:
+        if source.width * source.height > 32_000_000:
+            raise ValueError("Image exceeds 32 megapixels")
+        source = ImageOps.exif_transpose(source)
+        source.load()
+        image = source.convert("RGB")
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        return buffer.getvalue(), {"width": image.width, "height": image.height}
+
+
 class StudioStore:
     _write_lock = threading.Lock()
 
@@ -159,20 +175,7 @@ class StudioStore:
                 raise ValueError("Export this GLB without Draco, Meshopt or KTX2 compression")
             meta = {}
         elif kind == "png":
-            try:
-                opened = Image.open(io.BytesIO(data))
-            except Image.DecompressionBombError as error:
-                raise ValueError("Image exceeds 32 megapixels") from error
-            with opened as source:
-                if source.width * source.height > 32_000_000:
-                    raise ValueError("Image exceeds 32 megapixels")
-                source = ImageOps.exif_transpose(source)
-                source.load()
-                image = source.convert("RGB")
-                buffer = io.BytesIO()
-                image.save(buffer, format="PNG")
-                data = buffer.getvalue()
-                meta = {"width": image.width, "height": image.height}
+            data, meta = _png(data)
         else:
             raise ValueError("Only GLB, Gaussian PLY and images are supported")
         digest = hashlib.sha256(data).hexdigest()
@@ -260,12 +263,15 @@ class StudioStore:
             data = base64.b64decode(png.split(",", 1)[1], validate=True)
         except binascii.Error as error:
             raise ValueError("Guide must contain valid PNG data") from error
-        guide = self.asset(data, "png")
-        if (guide["width"], guide["height"]) != (width, height):
+        data, meta = _png(data)
+        if (meta["width"], meta["height"]) != (width, height):
             raise ValueError("Guide dimensions do not match the scene; capture again")
+        guide_digest = hashlib.sha256(data).hexdigest()
+        guide = {"name": f"{guide_digest}.png", "sha256": guide_digest, **meta}
         document = {"scene": scene, "guide": guide, "prompt": prompt_for(scene)}
         encoded = json.dumps(document, ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":")).encode()
         digest = hashlib.sha256(encoded).hexdigest()
+        self.write(guide["name"], data)
         self.write(f"{digest}.json", encoded)
         return {"version": 1, "id": digest}
 
