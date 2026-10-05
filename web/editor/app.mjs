@@ -1,7 +1,7 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit13';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit14';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261004mp1';
 import { readSkeletonImage } from './openpose.mjs?v=20261004mp1';
-import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261004mp2';
+import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261005audit14';
 import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261004mp1';
 import { randomPose } from './poses.mjs?v=20261004mp1';
 import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261005audit4';

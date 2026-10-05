@@ -49,7 +49,10 @@ export async function editorActions(page, origin, out, glb) {
   assert.equal(Number(await page.locator('#actor-x').inputValue()),18);
   const chooser=page.waitForEvent('filechooser');await page.locator('#add-prop').click();await(await chooser).setFiles({name:'fixture.glb',mimeType:'model/gltf-binary',buffer:glb});await idle();
   const beforeTemplate=await save();assert.equal(beforeTemplate.props.length,1);
+  const templateCount=await page.locator('#composition-list option').count();
   await openDetails('#save-composition');await page.locator('#save-composition').click();await page.locator('#name-input').fill('Complete composition');await page.locator('#name-dialog button[value="ok"]').click();
+  // Dialog close commits asynchronously; wait for the new template before editing.
+  await page.waitForFunction(count=>document.querySelector('#composition-list').options.length===count+1,templateCount);
   await field('#actor-x',31);await field('.prop-card label:first-of-type input',15);
   await click('.actor-card:first-child button[title="图层向后"]');
   const templateId=await page.locator('#composition-list option').last().getAttribute('value');await page.locator('#composition-list').selectOption(templateId);await click('#apply-composition');

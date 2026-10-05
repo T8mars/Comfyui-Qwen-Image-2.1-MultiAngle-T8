@@ -92,6 +92,25 @@ test('default Canny thresholds retain ordinary mid-contrast subject edges', () =
   assert.ok(edges.filter((value, index) => index % 4 === 0 && value).length > 100);
 });
 
+test('zero Canny thresholds keep uniform dark, gray and white frames empty', () => {
+  const width = 64, height = 64;
+  for (const gray of [0, 97, 255]) {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < pixels.length; i += 4) { pixels[i] = pixels[i + 1] = pixels[i + 2] = gray; pixels[i + 3] = 255; }
+    assert.equal(hasCannyEdges(cannyEdges(pixels, width, height, 0, 0)), false, `Uniform ${gray} is not an edge`);
+  }
+});
+
+test('zero Canny thresholds find a step without filling either constant side', () => {
+  const width = 64, height = 64, pixels = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const i = (y * width + x) * 4; pixels[i] = pixels[i + 1] = pixels[i + 2] = x < 32 ? 97 : 220; pixels[i + 3] = 255;
+  }
+  const edges = cannyEdges(pixels, width, height, 0, 0);
+  assert.ok(hasCannyEdges(edges));
+  for (let y = 1; y < height - 1; y++) for (const x of [8, 55]) assert.equal(edges[(y * width + x) * 4], 0);
+});
+
 test('low-contrast frame is explicitly empty, while clay silhouettes retain default-threshold edges', () => {
   const width = 96, height = 96;
   const paint = (foreground, background) => {

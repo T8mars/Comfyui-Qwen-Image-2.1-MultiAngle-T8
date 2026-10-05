@@ -66,10 +66,11 @@ export function cannyEdges(rgba, width, height, low = 50, high = 150) {
   const magnitude = new Float32Array(size), direction = new Uint8Array(size);
   for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
     const i = y * width + x;
-    const gx = blurred[i - width + 1] + 2 * blurred[i + 1] + blurred[i + width + 1]
-      - blurred[i - width - 1] - 2 * blurred[i - 1] - blurred[i + width - 1];
-    const gy = blurred[i + width - 1] + 2 * blurred[i + width] + blurred[i + width + 1]
-      - blurred[i - width - 1] - 2 * blurred[i - width] - blurred[i - width + 1];
+    // Pair equal neighbours before summing so uniform floats have zero gradient.
+    const gx = (blurred[i - width + 1] - blurred[i - width - 1])
+      + 2 * (blurred[i + 1] - blurred[i - 1]) + (blurred[i + width + 1] - blurred[i + width - 1]);
+    const gy = (blurred[i + width - 1] - blurred[i - width - 1])
+      + 2 * (blurred[i + width] - blurred[i - width]) + (blurred[i + width + 1] - blurred[i - width + 1]);
     magnitude[i] = Math.min(255, Math.hypot(gx, gy));
     const angle = (Math.atan2(gy, gx) * 180 / Math.PI + 180) % 180;
     direction[i] = angle < 22.5 || angle >= 157.5 ? 0 : angle < 67.5 ? 1 : angle < 112.5 ? 2 : 3;
@@ -79,7 +80,7 @@ export function cannyEdges(rgba, width, height, low = 50, high = 150) {
   high = Math.max(low, high);
   for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
     const i = y * width + x, delta = offsets[direction[i]], value = magnitude[i];
-    if (value < low || value < magnitude[i - delta] || value < magnitude[i + delta]) continue;
+    if (value === 0 || value < low || value < magnitude[i - delta] || value < magnitude[i + delta]) continue;
     weak[i] = 1;
     if (value >= high) { weak[i] = 2; stack.push(i); }
   }

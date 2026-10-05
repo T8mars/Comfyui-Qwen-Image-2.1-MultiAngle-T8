@@ -82,6 +82,8 @@ export class StudioScene {
     this.callbacks = callbacks;
     this.mode = 'camera';
     this.restoring = true;
+    this.rigPointerDown = false;
+    this.rigHistory = null;
     this.actorRoots = new Map();
     this.propRoots = new Map();
     this.viewer = new PoseViewerCore(canvas, {
@@ -96,10 +98,20 @@ export class StudioScene {
       if (this.restoring) return;
       // FK marks itself as dragging before requesting its initial history entry.
       this.beginningRigGesture = true;
-      try { callbacks.begin(); }
+      try {
+        const pose = this.rigPointerDown ? JSON.stringify(this.viewer.getPose()) : null;
+        const rollback = callbacks.begin();
+        if (pose !== null) this.rigHistory = { pose, rollback };
+      }
       finally { this.beginningRigGesture = false; }
     };
-    this.viewer.options.onInteractionEnd = () => { if (!this.restoring) callbacks.change(true, this.interactionControls !== false); };
+    this.viewer.options.onInteractionEnd = () => {
+      const history = this.rigHistory; this.rigHistory = null;
+      if (this.restoring) return;
+      // Selecting an IK marker or FK ring without moving leaves history intact.
+      if (history && history.pose === JSON.stringify(this.viewer.getPose())) history.rollback?.();
+      else callbacks.change(true, this.interactionControls !== false);
+    };
     const requestRender = this.viewer.requestRender.bind(this.viewer);
     this.viewer.requestRender = () => { if (!this.capturing) requestRender(); };
   }
@@ -787,6 +799,7 @@ export class StudioScene {
     };
     this.finishDrag = (updateControls = true) => {
       if (beginning || this.beginningRigGesture) return false;
+      this.rigPointerDown = false;
       let finished = end(updateControls);
       if (this.viewer.directDrag?.active || this.viewer.transform?.dragging) {
         const previous = this.interactionControls;
@@ -807,7 +820,7 @@ export class StudioScene {
     canvas.addEventListener('pointerdown', event => {
       if (event.button !== 0 && event.button !== 1) return;
       if (drag) { event.stopImmediatePropagation(); event.preventDefault(); return; }
-      if (this.mode === 'edit' && event.button === 0) rigPointerId = event.pointerId;
+      if (this.mode === 'edit' && event.button === 0) { rigPointerId = event.pointerId; this.rigPointerDown = true; }
       const ray = () => {
         const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.viewer.camera);
@@ -873,8 +886,12 @@ export class StudioScene {
       beginChange(); Object.assign(this.doc.camera, next);
       this.updateShot(); this.callbacks.camera();
     }, true);
-    canvas.addEventListener('pointerup', event => { if (drag && event.pointerId === drag.pointerId) { event.stopImmediatePropagation(); end(); } }, true);
+    canvas.addEventListener('pointerup', event => {
+      if (event.pointerId === rigPointerId) this.rigPointerDown = false;
+      if (drag && event.pointerId === drag.pointerId) { event.stopImmediatePropagation(); end(); }
+    }, true);
     const cancel = event => {
+      if (event.pointerId === rigPointerId) this.rigPointerDown = false;
       if (drag && event.pointerId === drag.pointerId) this.cancelDrag();
       else if (event.pointerId === rigPointerId && (this.viewer.directDrag?.active || this.viewer.transform?.dragging)) this.finishDrag();
     };
