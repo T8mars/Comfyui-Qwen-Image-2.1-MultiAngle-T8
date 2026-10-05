@@ -175,7 +175,7 @@ def output_actors(scene):
 
 
 def actor_mode(scene):
-    settings = scene.get("conditioning", {})
+    settings = scene.get("conditioning") or {}
     guide = settings.get("guide", "coarse")
     static_guide = guide != "coarse" and (
         settings.get("map") and (settings.get("mapKind") or guide) == guide
@@ -185,7 +185,7 @@ def actor_mode(scene):
 
 
 def build_manifest(scene):
-    settings = scene.get("conditioning", {})
+    settings = scene.get("conditioning") or {}
     order = settings.get("imageOrder", "guide-first" if actor_mode(scene) else "reference-first")
     actors = output_actors(scene) if actor_mode(scene) else []
     references = []
@@ -241,7 +241,7 @@ def source_person_text(source):
 
 
 def actor_prompt(scene, manifest):
-    settings = scene.get("conditioning", {})
+    settings = scene.get("conditioning") or {}
     if settings.get("promptMode") == "custom":
         return settings.get("customPrompt", "")
     guide = settings.get("guide", "coarse")

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { defaultScene } from '../web/editor/scene.mjs';
+import { defaultScene, restoreSceneDefaults } from '../web/editor/scene.mjs';
+import { ensureActors } from '../web/editor/actors.mjs';
 import { buildManifest, actorMode, actorPrompt, scenePrompt } from '../web/editor/manifest.mjs';
 import { createActor } from '../web/editor/actors.mjs';
 
@@ -39,7 +40,7 @@ function fixture(response) {
   const state = {
     doc: defaultScene(), snapshot: null, ready: false, busy: true,
     initCount: 0, reconstructionCount: 0, previewCount: 0,
-    defaultScene,
+    defaultScene, restoreSceneDefaults,
     $: selector => {
       if (!elements.has(selector)) elements.set(selector, { hidden: false, textContent: '', dataset: {} });
       return elements.get(selector);
@@ -105,6 +106,22 @@ test('existing saved snapshot retains its camera and scene without new reconstru
   assert.equal(state.reconstructionCount, 0);
   assert.deepEqual(notices, []);
   assert.deepEqual(errors, []);
+});
+
+test('sparse legacy snapshot without bookmarks or optional settings opens and preserves its original pose during migration', async () => {
+  const saved = { version: 1, width: 96, height: 64, source: { kind: 'human' }, conditioning: null,
+    camera: { azimuth: 17, elevation: 9, zoom: .8 }, front: 42, scale: .7,
+    mesh: { muscle: .8 }, pose: { bones: { head: [3, 24, 0] } } };
+  const { state, errors } = fixture({ ok: true, status: 200, json: async () => ({ scene: saved }) });
+  await state.start({ version: 1, id: 'sparse-legacy' });
+  assert.equal(state.ready, true); assert.equal(state.busy, false); assert.deepEqual(errors, []);
+  assert.deepEqual(state.doc.shots, []); assert.equal(state.doc.background, '#69717b');
+  assert.equal(state.doc.camera.azimuth, 17); assert.equal(state.doc.camera.offsetZ, 0);
+  assert.equal(state.doc.conditioning.model, 'anyangle'); assert.equal(state.doc.mesh.muscle, .8);
+  assert.equal(state.doc.actors, undefined);
+  ensureActors(state.doc, true);
+  assert.equal(state.doc.actors.length, 1); assert.deepEqual(state.doc.actors[0].pose, saved.pose);
+  assert.equal(state.doc.actors[0].transform.yaw, 42); assert.equal(state.doc.actors[0].transform.scale, .7);
 });
 
 test('background reconstruction preference restores with its snapshot and old scenes default to subject mode', async () => {

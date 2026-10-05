@@ -4,13 +4,13 @@
 <p align="center"><strong>简体中文</strong> · <a href="README_EN.md">English</a></p>
 <p align="center">ComfyUI 自定义节点 · Qwen Image 2.1 · 可关闭的 AnyAngle LoRA · TripoSplat · MIT</p>
 
-![v1.5.0 在实际 ComfyUI 中编辑三位独立人物与统一机位](docs/images/studio-multi-person.jpg)
+![v1.5.1 在实际 ComfyUI 中编辑三位独立人物与统一机位](docs/images/studio-multi-person.jpg)
 
-<p align="center"><sub>v1.5.0 · 实际 ComfyUI 工作台截图 · 内置人偶，无需另装 Fisher</sub></p>
+<p align="center"><sub>v1.5.1 · 实际 ComfyUI 工作台截图 · 内置人偶，无需另装 Fisher</sub></p>
 
 **原模型：[lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [基础工作流](workflows/AnyAngle-Studio-Qwen21.json) · [进阶工作流](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [English README](README_EN.md)
 
-## 多人工作台 · 1.5.0
+## 多人工作台 · 1.5.1
 
 **[多人工作流](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[含人物参考的三人场景 ZIP](examples/multi-person-photo-pose.zip)** · [实测结果与限制](docs/multi-person-validation.md)
 
@@ -42,11 +42,15 @@ Canny 示例保留三个人、衣装顺序和蓝衣人物举臂，但没有准�
 - **编排与复用**：按种子随机当前、选中或全部未锁定人物；全场模板保存人物动作、站位、道具与相机，排序后仍保留角色身份。支持落地、合影/对话/握手编排及带资源的场景 ZIP。握手为一次 IK 近似对齐，可再次对齐或手动微调，不提供持续约束或碰撞仿真。批量机位冻结全场人物与照片。
 - **机位独立保存**：收藏与批量机位包含拍摄中心；应用其他场景模板后，也可恢复原构图，人物动作保持当前状态。
 
+**1.5.1 修复：**旧场景空设置与缺省字段、撤销后道具编辑、标准骨架 JSON 导入；POSE 说明随实际输出来源切换。[20 轮联合检查](docs/audit-1.5.1.md)。
+
+标准 OpenPose JSON 使用像素坐标；文件未带画布尺寸时，优先使用左侧原图尺寸，否则使用当前输出尺寸，导入后会提示核对。请让画布与坐标对应。标准化到 `[0,1]` 或 `[-1,1]` 的坐标需要先转换。[官方输出格式](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md#json-output-format)。
+
 **使用：**导入多人工作流 → 在 Studio 添加人物 → 分别绑定照片或写外观 → 选择粗图/POSE/三维 Depth/Canny → 调整人物与镜头 → 应用到节点 → 运行。`guide_image_2` 和 `scene_json` 接「AnyAngle 多人编码」，人物照片不用再手工接编码器。仅引导图模式会忽略身份照片；自定义模式保留原文。Alt+左右键切人，Delete 删除当前人，文本输入时不触发这些快捷键。
 
 从原图提取或导入的 POSE / Depth / Canny 使用该图片的构图，不套用工作台里保留的三维人物数量。默认使用共享原图；没有共享原图时使用单张结构图与附加描述。切回三维引导后恢复人物绑定。自定义模式可使用人物照片清单，左侧原图需先绑定人物；图片编号由用户维护。
 
-多人摆姿推荐关闭 AnyAngle LoRA；原来的双图换机位工作流继续保留。**[Qwen 官方参考预算为 10 张](https://huggingface.co/Qwen/Qwen-Image-2.1)**（含引导图），并非保证 9 人身份与人数都准确。原生编码器的 16 个图像入口不代表官方质量保证；每个 IMAGE 入口取 batch 首张。推荐引导图先入，首张参考决定生成画幅；实际编码尺寸显示在多人编码节点的 latent 输出旁。人物照片默认按 512 像素面积预算缩放，可设 0 保留原尺寸。
+多人摆姿推荐关闭 AnyAngle LoRA；原来的双图换机位工作流继续保留。**[Qwen 官方参考预算为 10 张](https://huggingface.co/Qwen/Qwen-Image-2.1)**（含引导图），并非保证 9 人身份与人数都准确。原生编码器的图像入口数量不代表官方质量保证；每个 IMAGE 入口取 batch 首张。推荐引导图先入，首张参考决定生成画幅；实际编码尺寸显示在多人编码节点的 latent 输出旁。人物照片默认按 512 像素面积预算缩放，可设 0 保留原尺寸。
 
 多人功能复用内置人偶与现有 DWPose，不新增权重；三维场景深度无需 DA3。原 GLB / TripoSplat 仍为单资产路线；GLB 道具可以加入多人偶场景，重建资产不能直接当作可编辑骨架。参考了 [Gaoshang Pose](https://github.com/GStaaaaa/ComfyUI-Gaoshang-Pose) 的多人组织方式，未打包其图库。
 
@@ -181,7 +185,7 @@ Change the camera angle from <image2> to <image1>.
 
 **1.2.1 修复：**姿势预设缩略图按完整人物范围取景；编辑人偶后，POSE 输出不再沿用之前提取的原图骨架。旧版（1.0.1 及更早）还存在高 DPI 下预览放大、偏移至右上角的错误，已在 1.0.2 修复。黄框内是实际输出范围；人物超出黄框时先点击「适合画幅」。
 
-更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.5.0**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
+更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.5.1**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
 
 在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
 

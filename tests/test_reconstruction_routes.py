@@ -123,6 +123,19 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/anyangle-studio/batch-guides/invalid")
         self.assertEqual(response.status, 404)
 
+    async def test_null_guide_settings_apply_and_read_back_through_http(self):
+        buffer = io.BytesIO(); Image.new("RGB", (96, 64), "black").save(buffer, "PNG")
+        scene = {"version": 1, "width": 96, "height": 64, "source": {"kind": "human"},
+                 "camera": {"azimuth": 0, "elevation": 0, "zoom": 1, "offsetX": 0, "offsetY": 0},
+                 "conditioning": None}
+        response = await self.client.post("/anyangle-studio/snapshots", json={"scene": scene,
+            "png": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()})
+        self.assertEqual(response.status, 200)
+        snapshot = await response.json()
+        response = await self.client.get("/anyangle-studio/snapshots/" + snapshot["id"])
+        self.assertEqual(response.status, 200)
+        self.assertEqual((await response.json())["prompt"], "Change the camera angle from <image2> to <image1>.")
+
     async def test_portable_scene_routes_restore_references_and_report_invalid_zips(self):
         buffer = io.BytesIO(); Image.new("RGB", (96, 64), "gray").save(buffer, "PNG")
         scene = scene_for()
@@ -158,6 +171,24 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["people"][0]["canvasWidth"], 96)
         response = await self.client.post("/anyangle-studio/pose-people", json={"reference": "../image.png"})
         self.assertEqual(response.status, 400)
+
+    async def test_standard_openpose_json_reads_explicit_fallback_canvas_through_http(self):
+        values = [value for index in range(18) for value in (20 + index, 20 + index, .9)]
+        frame = {"version": 1.3, "people": [{"pose_keypoints_2d": values}] * 2}
+        with patch.object(self.routes_module, "people_from_keypoints", side_effect=people_from_keypoints):
+            response = await self.client.post("/anyangle-studio/pose-people", json={
+                "keypoints": frame, "canvas_width": 96, "canvas_height": 64})
+            self.assertEqual(response.status, 200)
+            result = await response.json()
+            self.assertEqual(len(result["people"]), 2)
+            self.assertEqual((result["width"], result["height"]), (96, 64))
+            self.assertEqual(result["people"][0]["points"]["head"], [20, 20])
+            self.assertEqual(result["signature"], keypoints_signature(frame))
+            response = await self.client.post("/anyangle-studio/pose-people", json={
+                "keypoints": frame, "canvas_width": -1, "canvas_height": 64})
+            self.assertEqual(response.status, 400)
+            response = await self.client.post("/anyangle-studio/pose-people", json={"keypoints": frame})
+            self.assertEqual(response.status, 400)
 
     async def test_portable_scene_over_budget_fails_before_returning_a_download_url(self):
         buffer = io.BytesIO(); Image.new("RGB", (96, 64), "gray").save(buffer, "PNG")

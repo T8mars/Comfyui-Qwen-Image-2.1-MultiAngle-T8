@@ -34,6 +34,17 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(Image.open(io.BytesIO(data)).getpixel((0, 0)), (32, 77, 119))
         self.assertEqual(self.store.save_scene(self.scene, self.png), token)
 
+    def test_null_guide_settings_use_defaults_in_legacy_and_actor_scenes(self):
+        for version in (1, 2):
+            with self.subTest(version=version):
+                self.scene.update(version=version, conditioning=None)
+                token = self.store.save_scene(self.scene, self.png)
+                document, _ = self.store.load_scene(token)
+                self.assertEqual(document["prompt"], PROMPT)
+                self.assertIsNone(document["scene"]["conditioning"])
+                if version == 2:
+                    self.assertEqual(document["scene"]["manifest"]["imageCount"], 1)
+
     def test_camera_only_revision_keeps_distinct_scene(self):
         first = self.store.save_scene(self.scene, self.png)
         self.scene["camera"]["azimuth"] = 90

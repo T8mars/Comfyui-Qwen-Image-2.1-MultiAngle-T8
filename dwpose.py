@@ -226,13 +226,15 @@ def keypoints_signature(frames):
     return hashlib.sha256(encoded).hexdigest()
 
 
-def people_from_keypoints(frames):
+def people_from_keypoints(frames, canvas_size=None):
     """Read the first OpenPose frame while preserving every person in that frame."""
     import numpy as np
     frame = frames[0] if isinstance(frames, list) and frames else frames
     if not isinstance(frame, dict) or not isinstance(frame.get("people"), list):
         raise ValueError("Choose OpenPose JSON or POSE_KEYPOINT frames")
     width, height = frame.get("canvas_width"), frame.get("canvas_height")
+    if width is None and height is None and canvas_size is not None:
+        width, height = canvas_size
     if any(type(value) is not int or value <= 0 for value in (width, height)) or width * height > 32_000_000:
         raise ValueError("Invalid OpenPose canvas dimensions")
     people = []

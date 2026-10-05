@@ -300,6 +300,23 @@ class MultiPersonTests(unittest.TestCase):
         self.assertGreater(pixels[:, :45].sum(), 0)
         self.assertGreater(pixels[:, 45:].sum(), 0)
 
+    def test_standard_openpose_json_uses_explicit_canvas_without_rescaling_coordinates(self):
+        for count in (18, 25):
+            with self.subTest(keypoints=count):
+                values = [value for index in range(count) for value in (20, 20 + index, .9)]
+                frame = {"version": 1.3, "people": [{"pose_keypoints_2d": values}] * 2}
+                before = copy.deepcopy(frame)
+                people, png = dwpose.people_from_keypoints(frame, (96, 64))
+                self.assertEqual(len(people), 2)
+                self.assertEqual(people[0]["points"]["head"], [20, 20])
+                self.assertEqual((people[0]["canvasWidth"], people[0]["canvasHeight"]), (96, 64))
+                self.assertEqual(Image.open(io.BytesIO(png)).size, (96, 64))
+                self.assertEqual(frame, before)
+                frame.update(canvas_width=128, canvas_height=80)
+                people, png = dwpose.people_from_keypoints([frame], (0, -1))
+                self.assertEqual((people[0]["canvasWidth"], people[0]["canvasHeight"]), (128, 80))
+                self.assertEqual(Image.open(io.BytesIO(png)).size, (128, 80))
+
     def test_a_full_body_without_a_nose_remains_full_body_but_cannot_guess_three_dimensions(self):
         values = [value for index in range(18) for value in (20, 20 + index, 0 if index == 0 else .9)]
         result, _ = dwpose.people_from_keypoints({"canvas_width": 96, "canvas_height": 64, "people": [{"pose_keypoints_2d": values}]})

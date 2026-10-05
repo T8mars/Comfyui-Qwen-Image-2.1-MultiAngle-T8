@@ -1,10 +1,10 @@
-import { StudioScene, defaultScene, PRESETS, assetURL } from './scene.mjs?v=20261004mp3';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit2';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261004mp1';
 import { readSkeletonImage } from './openpose.mjs?v=20261004mp1';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261004mp2';
 import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261004mp1';
 import { randomPose } from './poses.mjs?v=20261004mp1';
-import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261004mp3';
+import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261005audit1';
 import { activeActor, saveActor } from './actors.mjs?v=20261004mp1';
 import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261004mp3';
 
@@ -255,6 +255,9 @@ function refresh() {
     button.setAttribute('aria-pressed', String(button.dataset.guide === guide));
   });
   $('#openpose-panel').hidden = !base || guide !== 'pose';
+  $('#pose-source-description').textContent = poseImage
+    ? '直接输出原图的彩色骨架，保留原构图。可复制可见关节到人偶，画外肢体保持原姿势。'
+    : '当前输出三维场景骨架，随人物动作、站位和拍摄机位变化。也可从原图提取或导入骨架，再复制到人偶。';
   $('#extract-pose').disabled = !doc.reference || !!linkedReference.pending;
   $('#map-inputs').hidden = !base || !['depth', 'canny'].includes(guide);
   $('#extract-depth').hidden = guide !== 'depth';
@@ -666,9 +669,17 @@ $('#pose-hands').onchange = event => { begin(); doc.conditioning.poseHands = eve
 $('#openpose-file').onchange = event => run(async () => {
   const file = event.target.files[0]; event.target.value = ''; if (!file) return;
   if (file.name.toLowerCase().endsWith('.json')) {
-    const response = await fetch('/anyangle-studio/pose-people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keypoints: JSON.parse(await file.text()) }) });
+    const keypoints = JSON.parse(await file.text());
+    const photoCanvas = doc.reference?.width && doc.reference?.height;
+    const canvasWidth = photoCanvas ? doc.reference.width : doc.width, canvasHeight = photoCanvas ? doc.reference.height : doc.height;
+    const frame = Array.isArray(keypoints) ? keypoints[0] : keypoints;
+    const missingCanvas = frame?.canvas_width == null && frame?.canvas_height == null;
+    const response = await fetch('/anyangle-studio/pose-people', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keypoints, canvas_width: canvasWidth, canvas_height: canvasHeight }) });
     const result = await response.json(); if (!response.ok) throw new Error(result.error || '骨架 JSON 无效');
-    await applyOpenPoseAsset(result.asset, result.points, result.fullBody, result.visibleOnly); doc.openpose.people = result.people; doc.openpose.origin = 'json'; changed(); return;
+    await applyOpenPoseAsset(result.asset, result.points, result.fullBody, result.visibleOnly); doc.openpose.people = result.people; doc.openpose.origin = 'json'; changed();
+    if (missingCanvas) toast(`JSON 未带画布尺寸；按${photoCanvas ? '原图' : '当前输出'} ${canvasWidth} × ${canvasHeight} 像素坐标导入，请确保与骨架坐标一致。`);
+    return;
   }
   await applyOpenPoseAsset(await upload(file));
 });
@@ -1075,10 +1086,7 @@ async function start(token, reference = { connected: false }, structure = { conn
       else if (response.status === 404) toast('上次应用的场景不在本机，已回到空白场景 · 重建主体或导入 GLB 后再应用');
       else throw new Error(saved.error || `读取快照失败（HTTP ${response.status}）`);
     }
-    doc.conditioning = { ...defaultScene().conditioning, ...doc.conditioning };
-    doc.interaction = { ...defaultScene().interaction, ...doc.interaction };
-    doc.reconstruction = { keepBackground: !!doc.source.keep_background, ...doc.reconstruction };
-    doc.openpose ??= null;
+    restoreSceneDefaults(doc);
     linkedReference = reference;
     linkedStructure = structure;
     unwiredAnyAngle = needsWiring;

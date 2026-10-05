@@ -41,5 +41,11 @@ export function installCastTools(context) {
       card.append(actions);$('prop-list').append(card);
     }
   }
-  let key;return()=>{const next=JSON.stringify(context.doc().props||[]);if(next!==key){key=next;render();}};
+  let key, renderedDoc, renderedProps = [];
+  return () => {
+    const doc = context.doc(), props = doc.props || [], next = JSON.stringify(props);
+    if (next !== key || doc !== renderedDoc || props.some((prop, i) => prop !== renderedProps[i])) {
+      key = next; renderedDoc = doc; renderedProps = props.slice(); render();
+    }
+  };
 }

@@ -29,6 +29,15 @@ export const defaultScene = () => ({
   conditioning: { model: 'anyangle', guide: 'coarse', map: null, cannyLow: 50, cannyHigh: 150 },
   openpose: null,
 });
+export function restoreSceneDefaults(doc) {
+  const defaults = defaultScene();
+  for (const key of ['width', 'height', 'source', 'reference', 'shots', 'front', 'scale', 'background', 'pose', 'openpose'])
+    doc[key] ??= defaults[key];
+  for (const key of ['camera', 'mesh', 'conditioning', 'interaction']) doc[key] = { ...defaults[key], ...doc[key] };
+  doc.reconstruction = { keepBackground: !!doc.source.keep_background, ...doc.reconstruction };
+  // Leave legacy actors absent so ensureActors can migrate the original pose.
+  return doc;
+}
 export const assetURL = name => `/anyangle-studio/assets/${encodeURIComponent(name)}`;
 const radians = THREE.MathUtils.degToRad;
 const degrees = THREE.MathUtils.radToDeg;
@@ -235,7 +244,7 @@ export class StudioScene {
   async restore(doc) {
     this.restoring = true;
     try {
-      this.doc = doc;
+      this.doc = restoreSceneDefaults(doc);
       ensureActors(doc, doc.source.kind === 'human');
       await this.restoreProps();
       this.updatePerformance();

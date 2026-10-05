@@ -68,7 +68,8 @@ def register_routes(store_factory):
             store = store_factory()
             signature = None
             if payload.get("keypoints") is not None:
-                people, png = await asyncio.to_thread(people_from_keypoints, payload["keypoints"])
+                people, png = await asyncio.to_thread(people_from_keypoints, payload["keypoints"],
+                    (payload.get("canvas_width"), payload.get("canvas_height")))
                 signature = keypoints_signature(payload["keypoints"])
             else:
                 name = payload.get("reference")

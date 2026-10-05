@@ -1,6 +1,6 @@
 import { createActor, activeActor, ensureActors, bindActor, cloneActor, removeActor, moveActor, editableActors, actorSeed, applySceneTemplate } from './actors.mjs?v=20261004mp1';
 import { randomPose } from './poses.mjs?v=20261004mp1';
-import { installCastTools } from './cast-tools.mjs?v=20261004mp1';
+import { installCastTools } from './cast-tools.mjs?v=20261005audit1';
 import { poseCopyIssue, ORDER } from './openpose.mjs?v=20261004mp1';
 import { guideSource } from './guides.mjs?v=20261004mp1';
 

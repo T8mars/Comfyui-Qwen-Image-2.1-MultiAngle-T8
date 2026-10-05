@@ -61,6 +61,13 @@ export async function editorActions(page, origin, out, glb) {
   assert.deepEqual(replayed.actors,beforeBookmarkReplay.actors);assert.equal(latest.png,bookmarkedPNG,'Bookmark restores the exact original guide after a template changes target');
   // Undo replaces the doc without changing card labels; controls must edit new roles.
   await click('#undo');const beforeLock=await save();
+  // Same-valued props after history replacement must also rebind their controls.
+  await field('.prop-card label:first-of-type input',7);
+  const movedProp=await save();assert.equal(movedProp.props[0].transform.x,7);
+  await click('.prop-card button:has-text("锁定")');const lockedProp=await save();assert.equal(lockedProp.props[0].locked,true);
+  await click('.prop-card button:has-text("解锁")');
+  await click('.prop-card button:has-text("隐藏")');const hiddenProp=await save();assert.equal(hiddenProp.props[0].visible,false);
+  await click('.prop-card button:has-text("显示")');
   // A locked active role must not prevent randomizing the other roles.
   await click('.actor-card:first-child button[title="锁定人物"]');
   await page.locator('#random-scope').selectOption('all');await page.locator('#pose-category').selectOption('standing');await field('#pose-seed',123);
@@ -117,5 +124,5 @@ export async function editorActions(page, origin, out, glb) {
   assert.equal(await page.locator('#people-choices input:checked').count(),9);assert.equal(await page.locator('#people-photo').isVisible(),true);assert.equal(await page.locator('#people-bind-photo').isVisible(),false);
   await page.locator('#people-dialog button[value="all"]').click();await idle();const fisher=await save();assert.equal(fisher.actors.length,9);assert.ok(fisher.actors.every(actor=>actor.poseSource.origin==='import'));
   await page.screenshot({path:resolve(out,'studio-fisher-nine.png')});
-  return{bookmarkExactGuideAfterTemplate:true,controlsEditCurrentRolesAfterUndo:true,stableTemplateIdentities:true,templateProps:true,lockedRandomScope:true,masterSeed:123,handshakeAnchor:true,handshakeWristDistancePx:handDistance,photoCancelPreservesRoles:true,photoCurrentPreservesCamera:true,photoDetected:3,copyable:2,photoNewRoles:2,sourcePhotoIdentityBindings:true,editedDescriptionPreservesSourceRegion:true,sceneDepth:true,sceneCanny:stats,reopenedAllSceneData:true,reopenedExactGuide:true,fisherPNGImportedPeople:9,fisherShowsSourceSkeleton:true,fisherDoesNotBindSkeletonAsIdentity:true};
+  return{bookmarkExactGuideAfterTemplate:true,controlsEditCurrentRolesAfterUndo:true,propControlsAfterUndo:true,stableTemplateIdentities:true,templateProps:true,lockedRandomScope:true,masterSeed:123,handshakeAnchor:true,handshakeWristDistancePx:handDistance,photoCancelPreservesRoles:true,photoCurrentPreservesCamera:true,photoDetected:3,copyable:2,photoNewRoles:2,sourcePhotoIdentityBindings:true,editedDescriptionPreservesSourceRegion:true,sceneDepth:true,sceneCanny:stats,reopenedAllSceneData:true,reopenedExactGuide:true,fisherPNGImportedPeople:9,fisherShowsSourceSkeleton:true,fisherDoesNotBindSkeletonAsIdentity:true};
 }
