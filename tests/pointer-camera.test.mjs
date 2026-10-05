@@ -104,6 +104,67 @@ test('wheel movement at the zoom limit keeps redo and does not commit a no-op', 
   assert.equal(doc.camera.zoom, 8); assert.deepEqual(state.redo, redo); assert.equal(calls.change, 0);
 });
 
+for (const button of [0, 1]) {
+  test(`held wheel and ${button === 0 ? 'rotation' : 'pan'} create one undo and preserve zoom`, () => {
+    const { doc, state, send, calls } = fixture(), before = structuredClone(doc);
+    send('pointerdown', { button }); send('pointermove', { button, clientX: 130 });
+    send('wheel', { deltaY: -180 }); const zoom = doc.camera.zoom;
+    send('pointermove', { button, clientX: 160 }); send('pointerup', { button });
+    assert.equal(doc.camera.zoom, zoom); assert.ok(zoom > before.camera.zoom);
+    assert.deepEqual(structuredClone(state.undo.at(-1)), before);
+    assert.equal(state.undo[0].index, 1, 'Only one entry may be evicted from a full history');
+    assert.equal(calls.change, 1);
+  });
+}
+
+test('Escape after wheel-started dragging restores the whole camera and full history', () => {
+  const { doc, studio, state, send, calls } = fixture(), before = structuredClone(doc.camera), undo = structuredClone(state.undo), redo = structuredClone(state.redo);
+  send('pointerdown'); send('wheel', { deltaY: -180 }); send('pointermove', { clientX: 140 });
+  assert.equal(studio.cancelDrag(), true); send('pointerup');
+  assert.deepEqual(doc.camera, before); assert.deepEqual(state.undo, undo); assert.deepEqual(state.redo, redo);
+  assert.equal(calls.change, 0);
+});
+
+test('returning to the initial pointer position restores angle while retaining held-wheel zoom', () => {
+  const { doc, send } = fixture({ azimuth: .1, elevation: 8 }), before = structuredClone(doc.camera);
+  send('pointerdown'); send('pointermove', { clientX: 130, clientY: 140 }); send('wheel', { deltaY: -180 });
+  const zoom = doc.camera.zoom; send('pointermove'); send('pointerup');
+  assert.equal(doc.camera.azimuth, before.azimuth); assert.equal(doc.camera.elevation, before.elevation);
+  assert.equal(doc.camera.zoom, zoom);
+});
+
+test('finishing a gesture commits once and ignores later movement, release and cancellation', () => {
+  const { doc, studio, state, send, calls } = fixture(); send('pointerdown'); send('pointermove', { clientX: 140 });
+  assert.equal(studio.finishDrag(), true); const camera = structuredClone(doc.camera), undo = structuredClone(state.undo);
+  assert.equal(studio.finishDrag(), false); assert.equal(studio.cancelDrag(), false);
+  send('pointermove', { clientX: 180 }); send('pointerup'); send('lostpointercapture');
+  assert.deepEqual(doc.camera, camera); assert.deepEqual(state.undo, undo); assert.equal(calls.change, 1);
+});
+
+test('an editor command finishes its active gesture before running against the current document', async () => {
+  const { doc, studio, state, send, calls } = fixture(), before = structuredClone(doc.camera);
+  send('pointerdown'); send('pointermove', { clientX: 140 }); const dragged = structuredClone(doc.camera);
+  Object.assign(state, { busy: false, previewRunning: false, setBusy: value => { state.busy = value; },
+    renderPreview: async () => {}, error: error => { throw error; } });
+  const start = app.indexOf('async function run(task)'); vm.runInNewContext(app.slice(start, app.indexOf('function begin()', start)), state);
+  await state.run(() => {
+    assert.equal(calls.change, 1); assert.equal(studio.cancelDrag(), false);
+    assert.deepEqual(doc.camera, dragged); doc.camera = before;
+  });
+  send('pointermove', { clientX: 180 }); send('pointerup');
+  assert.deepEqual(doc.camera, before); assert.equal(calls.change, 1); assert.equal(state.busy, false);
+});
+
+test('a synchronous control edit finishes dragging and records a separate undo state', () => {
+  const { doc, studio, state, send, calls } = fixture(), before = structuredClone(doc.camera);
+  send('pointerdown'); send('pointermove', { clientX: 140 }); const dragged = structuredClone(doc.camera);
+  state.begin(); doc.camera.azimuth += .1;
+  assert.equal(studio.cancelDrag(), false); send('pointermove', { clientX: 180 }); send('pointerup');
+  assert.equal(doc.camera.azimuth, dragged.azimuth + .1); assert.equal(calls.change, 1);
+  assert.deepEqual(structuredClone(state.undo.at(-1).camera), dragged);
+  assert.deepEqual(structuredClone(state.undo.at(-2).camera), before);
+});
+
 test('splat panning retains its existing camera-local coordinate convention', () => {
   const { doc, studio, send } = fixture({ azimuth: 90, elevation: 40 });
   doc.source.kind = 'splat'; studio.updateShot = () => {};

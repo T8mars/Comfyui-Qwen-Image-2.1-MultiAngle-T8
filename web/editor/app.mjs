@@ -1,4 +1,4 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit7';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit11';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261004mp1';
 import { readSkeletonImage } from './openpose.mjs?v=20261004mp1';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261004mp2';
@@ -83,6 +83,7 @@ function setBusy(value) {
 }
 async function run(task) {
   if (busy) return;
+  studio?.finishDrag?.(false);
   setBusy(true);
   try {
     while (previewRunning) await new Promise(resolve => setTimeout(resolve, 30));
@@ -92,6 +93,8 @@ async function run(task) {
 }
 function begin() {
   if (!ready || studio.restoring) return;
+  // Finish the previous gesture without overwriting this control's new DOM value.
+  studio.finishDrag?.(false);
   const previousUndo = undo.slice(), previousRedo = redo;
   const undoDisabled = $('#undo').disabled, redoDisabled = $('#redo').disabled;
   studio.syncPose();
@@ -104,14 +107,15 @@ function begin() {
     $('#undo').disabled = undoDisabled; $('#redo').disabled = redoDisabled;
   };
 }
-function changed(updatePreview = true) {
+function changed(updatePreview = true, updateControls = true) {
   if (!ready || studio.restoring) return;
   studio.syncPose(); revision++; selectedShot = null;
   if (!updatePreview && previewRevision === revision - 1) previewRevision = revision;
   document.querySelectorAll('.preset-card.active').forEach(button => button.classList.remove('active'));
   document.querySelectorAll('.shot-thumb.active').forEach(button => button.classList.remove('active'));
   $('#status').textContent = '草稿有更改 · 应用后才会更新节点'; $('#status').dataset.state = 'dirty';
-  refresh(); if (updatePreview) schedulePreview();
+  if (updateControls) refresh();
+  if (updatePreview) schedulePreview();
 }
 function schedulePreview() {
   clearTimeout(previewTimer);
@@ -1127,7 +1131,7 @@ async function start(token, reference = { connected: false }, structure = { conn
     const referenceChanged = reference.connected && !!reference.asset && reference.asset.name !== doc.reference?.name;
     if (reference.connected) doc.reference = reference.asset || null;
     if (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name) doc.source = { kind: 'empty' };
-    studio = new StudioScene($('#viewport'), { begin, change: changed, camera: () => { revision++; refresh(); schedulePreview(); $('#status').textContent = '机位草稿 · 尚未应用'; $('#status').dataset.state = 'dirty'; }, pick: selectRole, select: name => { selectedBone = name || ''; refresh(); }, error });
+    studio = new StudioScene($('#viewport'), { begin, change: changed, camera: () => { revision++; refresh(); schedulePreview(); $('#status').textContent = '机位草稿 · 尚未应用'; $('#status').dataset.state = 'dirty'; }, pick: selectRole, select: (name, updateControls = true) => { selectedBone = name || ''; if (updateControls) refresh(); }, error });
     await studio.init(doc);
     if (doc.source.kind === 'human') await ensureHumanTools();
     if (structure.asset && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(doc.conditioning.guide)

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { editorActions } from './editor-actions.mjs';
 import { framingMatrix } from './framing-matrix.mjs';
 import { pointerWebGL, pointerEditor } from './pointer-webgl.mjs';
+import { gestureEditor } from './gesture-webgl.mjs';
 const require=createRequire(import.meta.url), {chromium}=require(process.env.ANYANGLE_PLAYWRIGHT || 'playwright');
 const hardware=process.env.ANYANGLE_HARDWARE==='1';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url))),out=resolve(root,'.local',hardware?'webgl-hardware':'webgl');await mkdir(out,{recursive:true});
@@ -40,6 +41,12 @@ const server=createServer(async(req,res)=>{try{
   const path=new URL(req.url,'http://localhost').pathname;
   if(path==='/tests/editor.html'){
     const html=await readFile(resolve(root,'web/editor/index.html'),'utf8');res.writeHead(200,{'Content-Type':'text/html'});res.end(html.replace('<head>','<head><base href="/web/editor/">'));return;
+  }
+  if (path === '/tests/gestures.html') {
+    const html = await readFile(resolve(root, 'web/editor/index.html'), 'utf8'), app = await readFile(resolve(root, 'web/editor/app.mjs'), 'utf8');
+    const scene = app.match(/from '(\.\/scene\.mjs[^']*)'/)[1];
+    const fixture = html.replace(/<script type="module" src="([^"]+)"><\/script>/, (_, entry) => `<script type="module">import {StudioScene} from '${scene}'; const init = StudioScene.prototype.init; StudioScene.prototype.init = async function(...args) { window.auditStudio = this; return init.apply(this,args); }; await import('${entry}');</script>`);
+    res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(fixture.replace('<head>', '<head><base href="/web/editor/">')); return;
   }
   if(path!=='/tests/webgl.html'&&path!=='/tests/fixtures/fisher-skeleton.mjs'&&!path.startsWith('/web/')){res.writeHead(404);res.end();return;}
   const file=resolve(root,'.'+path);if(!file.startsWith(root+sep)){res.writeHead(400);res.end();return;}
@@ -112,6 +119,7 @@ try{
   result.editorActions=await editorActions(page,`http://127.0.0.1:${server.address().port}`,out,cubeGLB());
   result.pointerWebGL = await pointerWebGL(browser, `http://127.0.0.1:${server.address().port}`, out, cubeGLB());
   result.pointerEditor = await pointerEditor(browser, `http://127.0.0.1:${server.address().port}`, out);
+  result.gestureEditor = await gestureEditor(browser, `http://127.0.0.1:${server.address().port}`);
   result.framingMatrix=await framingMatrix(browser,`http://127.0.0.1:${server.address().port}`);
   assert.deepEqual(errors,[]);const receipt={date:new Date().toISOString(),hardware:frames.gpu,requestedHardware:hardware,depthStats,initialMemory:frames.memory,...result};await writeFile(resolve(out,'receipt.json'),JSON.stringify(receipt,null,2));process.stdout.write(JSON.stringify(receipt));
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

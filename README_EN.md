@@ -4,13 +4,13 @@
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 <p align="center">ComfyUI custom node · Qwen Image 2.1 · optional AnyAngle LoRA · TripoSplat · MIT</p>
 
-![v1.5.4 actual ComfyUI three-person workbench and camera bookmarks](docs/images/studio-multi-person-v154.png)
+![v1.5.5 actual ComfyUI three-person workbench and camera bookmarks](docs/images/studio-multi-person-v155.png)
 
-<p align="center"><sub>v1.5.4 · Actual ComfyUI workbench screenshot · Bundled mannequin; Fisher is not required</sub></p>
+<p align="center"><sub>v1.5.5 · Actual ComfyUI workbench screenshot · Bundled mannequin; Fisher is not required</sub></p>
 
 **Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Basic workflow](workflows/AnyAngle-Studio-Qwen21.json) · [Advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [中文说明](README.md)
 
-## Multi-person workbench · 1.5.4
+## Multi-person workbench · 1.5.5
 
 **[Multi-person workflow](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[Three-person scene ZIP with reference images](examples/multi-person-photo-pose.zip)** · [Measured results and limitations](docs/multi-person-validation.md#english)
 
@@ -42,9 +42,9 @@ The same scene can also produce these structure maps; the maps themselves are no
 - **Composition and reuse:** randomize current, selected or all unlocked actors with a repeatable seed. Full-scene templates save poses, placement, props and camera, retaining identities after actor reordering. Ground feet, arrange groups/dialogue/handshakes and export portable scene ZIPs. Hand contact performs one approximate IK alignment and can be realigned or refined manually; it is not continuous constraint solving or collision simulation. Batch views freeze the actors and reference photos.
 - **Independent camera bookmarks:** bookmarks and batch views include the camera target. Restore the original framing after applying another scene template while keeping the actors’ current poses.
 
-**1.5.4 fixes:** screen-aligned pan at side/rear views; edit and actor-position navigation preserves the shot; unchanged clicks, fractional angles and cancelled drags keep undo/redo; foreign pointers and lost capture no longer cause stray movement. [Fresh 20-scope joint audit](docs/audit-1.5.4.md#english) · [1.5.3 audit](docs/audit-1.5.3.md#english).
+**1.5.5 fixes:** normalized upstream OpenPose coordinates render at the correct canvas positions; wheel zoom survives continued dragging; undo, role switching and keyboard edits finish the preceding camera/IK interaction, with separate history retained for actor deletion. [Fresh 20-scope joint audit](docs/audit-1.5.5.md#english) · [1.5.4 audit](docs/audit-1.5.4.md#english).
 
-OpenPose JSON uses pixel coordinates. If canvas dimensions are absent, the source photo dimensions take priority; without a photo, the current output dimensions are used. An import notice identifies the canvas to check. Convert coordinates normalized to `[0,1]` or `[-1,1]` to pixels first. [Official output format](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md#json-output-format).
+Pixel coordinates and upstream `[0,1]` normalized OpenPose JSON are supported, with body, hands and face converted independently. If canvas dimensions are absent, the source photo dimensions take priority; otherwise the current output dimensions are used. An import notice identifies the canvas to check. Convert `[-1,1]` coordinates to pixels first. [Official output format](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/02_output.md#json-output-format).
 
 **Use:** load the multi-person workflow → add actors in Studio → bind photos or describe appearance → choose scene render/POSE/3D Depth/Canny → adjust actors and camera → Apply → run. Connect `guide_image_2` and `scene_json` to **AnyAngle Multi-person Encode**; separate encoder photo wires are unnecessary. Single-guide mode ignores identity photos; custom mode preserves the prompt verbatim. Alt+Left/Right switches actors and Delete removes the current actor; these shortcuts do not trigger while typing.
 
@@ -185,7 +185,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.5.4**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.5.5**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

@@ -87,13 +87,13 @@ export class StudioScene {
     this.viewer = new PoseViewerCore(canvas, {
       skinMode: 'naked', enableTextureSkinning: true,
       showSkeletonHelper: false, showCaptureFrame: false, useHandControlPopover: false,
-      onPoseChange: () => { if (!this.restoring) callbacks.change(); },
-      onBoneSelectionChange: ({ boneName }) => callbacks.select(boneName),
+      onPoseChange: () => { if (!this.restoring) callbacks.change(true, this.interactionControls !== false); },
+      onBoneSelectionChange: ({ boneName }) => callbacks.select(boneName, this.interactionControls !== false),
       onError: error => callbacks.error(error),
     });
     // One editor history owns the pose, camera, assets and shot library together.
     this.viewer.recordState = () => { if (!this.restoring) callbacks.begin(); };
-    this.viewer.options.onInteractionEnd = () => { if (!this.restoring) callbacks.change(); };
+    this.viewer.options.onInteractionEnd = () => { if (!this.restoring) callbacks.change(true, this.interactionControls !== false); };
     const requestRender = this.viewer.requestRender.bind(this.viewer);
     this.viewer.requestRender = () => { if (!this.capturing) requestRender(); };
   }
@@ -416,6 +416,7 @@ export class StudioScene {
   }
 
   setMode(mode) {
+    this.finishDrag?.();
     if (this.doc.source.kind === 'splat' || this.doc.source.kind === 'empty') mode = 'camera';
     this.mode = mode;
     const human = this.doc.source.kind === 'human';
@@ -764,18 +765,36 @@ export class StudioScene {
 
   bindCamera() {
     const canvas = this.canvas;
-    let drag = null;
+    let drag = null, beginning = false, rigPointerId = null;
     const beginChange = () => {
-      if (!drag.changed) { drag.rollback = this.callbacks.begin(); drag.changed = true; }
+      if (!drag.changed) {
+        beginning = true;
+        try { drag.rollback = this.callbacks.begin(); drag.changed = true; }
+        finally { beginning = false; }
+      }
     };
-    const end = () => {
-      if (!drag) return;
+    const end = (updateControls = true) => {
+      if (!drag || beginning) return false;
       const changed = drag.changed; drag = null;
-      if (changed) this.callbacks.change();
+      if (changed) this.callbacks.change(true, updateControls);
+      return true;
+    };
+    this.finishDrag = (updateControls = true) => {
+      if (beginning) return false;
+      let finished = end(updateControls);
+      if (this.viewer.directDrag?.active) {
+        const previous = this.interactionControls;
+        this.interactionControls = updateControls;
+        try { this.viewer.handlePointerUp({ pointerId: rigPointerId }); }
+        finally { this.interactionControls = previous; }
+        finished = true;
+      }
+      return finished;
     };
     canvas.addEventListener('pointerdown', event => {
       if (event.button !== 0 && event.button !== 1) return;
       if (drag) { event.stopImmediatePropagation(); event.preventDefault(); return; }
+      if (this.mode === 'edit' && event.button === 0) rigPointerId = event.pointerId;
       const ray = () => {
         const rect = canvas.getBoundingClientRect(), raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.viewer.camera);
@@ -824,7 +843,7 @@ export class StudioScene {
         this.updateActorTransform(actor); this.callbacks.camera(); return;
       }
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
-      const next = { ...drag.camera };
+      const next = { ...this.doc.camera };
       if (drag.pan) {
         const delta = new THREE.Vector3(dx * 0.025, -dy * 0.025, 0);
         // Human/GLB offsets are stored in world axes; splat offsets are camera-local.
@@ -833,8 +852,8 @@ export class StudioScene {
         next.offsetY = drag.camera.offsetY + delta.y;
         next.offsetZ = (drag.camera.offsetZ || 0) + delta.z;
       } else {
-        if (dx) next.azimuth = ((drag.camera.azimuth - dx * 0.35 + 540) % 360) - 180;
-        if (dy && this.doc.interaction?.mousePitch !== false)
+        next.azimuth = dx ? ((drag.camera.azimuth - dx * 0.35 + 540) % 360) - 180 : drag.camera.azimuth;
+        if (this.doc.interaction?.mousePitch !== false)
           next.elevation = clamp(drag.camera.elevation + dy * 0.25, -89, 89);
       }
       if (Object.entries(next).every(([key, value]) => this.doc.camera[key] === value)) return;
@@ -842,7 +861,10 @@ export class StudioScene {
       this.updateShot(); this.callbacks.camera();
     }, true);
     canvas.addEventListener('pointerup', event => { if (drag && event.pointerId === drag.pointerId) { event.stopImmediatePropagation(); end(); } }, true);
-    const cancel = event => { if (drag && event.pointerId === drag.pointerId) this.cancelDrag(); };
+    const cancel = event => {
+      if (drag && event.pointerId === drag.pointerId) this.cancelDrag();
+      else if (event.pointerId === rigPointerId && this.viewer.directDrag?.active) this.finishDrag();
+    };
     canvas.addEventListener('pointercancel', cancel, true);
     canvas.addEventListener('lostpointercapture', cancel, true);
     canvas.addEventListener('wheel', event => {
@@ -850,8 +872,9 @@ export class StudioScene {
       event.stopImmediatePropagation(); event.preventDefault();
       const zoom = clamp(this.doc.camera.zoom * Math.exp(-event.deltaY * 0.001), 0.1, 8);
       if (zoom === this.doc.camera.zoom) return;
-      this.callbacks.begin(); this.doc.camera.zoom = zoom;
-      this.updateShot(); this.callbacks.change();
+      if (drag) beginChange(); else this.callbacks.begin();
+      this.doc.camera.zoom = zoom; this.updateShot();
+      if (drag) this.callbacks.camera(); else this.callbacks.change();
     }, { capture: true, passive: false });
     this.cancelDrag = () => {
       if (!drag) return false;

@@ -226,6 +226,14 @@ def keypoints_signature(frames):
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _pixel_points(values, width, height):
+    points = values[:, :2].copy()
+    visible = points[values[:, 2] >= .3]
+    if len(visible) and (abs(visible) <= 1).all():
+        points *= [width, height]
+    return points
+
+
 def people_from_keypoints(frames, canvas_size=None):
     """Read the first OpenPose frame while preserving every person in that frame."""
     import numpy as np
@@ -249,7 +257,8 @@ def people_from_keypoints(frames, canvas_size=None):
             raise ValueError("OpenPose body must contain 18 or 25 finite keypoints")
         values = values.reshape(-1, 3)
         mapping = {**indices, "rh": 9, "rk": 10, "ra": 11, "lh": 12, "lk": 13, "la": 14} if len(values) == 25 else indices
-        points = {name: [float(value) for value in values[k, :2]] for name, k in mapping.items()}
+        body_points = _pixel_points(values, width, height)
+        points = {name: [float(value) for value in body_points[k]] for name, k in mapping.items()}
         confidence = {name: float(values[k, 2]) for name, k in mapping.items()}
         visible = {name: point for name, point in points.items() if confidence[name] >= .3 and 0 <= point[0] < width and 0 <= point[1] < height}
         whole_points, whole_scores = np.zeros((133, 2)), np.zeros(133)
@@ -263,10 +272,12 @@ def people_from_keypoints(frames, canvas_size=None):
             extra = extra.reshape(-1, 3)
             arrays[field] = extra.flatten().tolist()
             count = min(len(extra), counts[0])
-            whole_points[offset:offset + count] = extra[:count, :2]
+            extra_points = _pixel_points(extra, width, height)
+            whole_points[offset:offset + count] = extra_points[:count]
             whole_scores[offset:offset + count] = extra[:count, 2]
             if field == "face_keypoints_2d":
-                extra_face = extra[count:]
+                extra_face = extra[count:].copy()
+                extra_face[:, :2] = extra_points[count:]
         preview = _render(points, confidence, whole_points, whole_scores, width, height)
         if len(extra_face):
             face_image = Image.open(BytesIO(preview)).convert("RGB")
