@@ -1,6 +1,6 @@
 [project]
 name = "qwen-image-21-multiangle-t8"
-version = "1.6.0"
+version = "1.6.1"
 description = "Interactive multi-person camera studio and multi-purpose reference library for Qwen Image 2.1, with 3D, POSE, depth and Canny guides."
 readme = "README.md"
 license = { file = "LICENSE" }

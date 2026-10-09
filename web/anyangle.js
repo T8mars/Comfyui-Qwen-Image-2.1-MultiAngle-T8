@@ -6,7 +6,7 @@ import { promptForSnapshot } from './batch-queue.mjs?v=20261009v160';
 let graphRevision = 0;
 let closeActive = null;
 const extensionURL = new URL('./editor/index.html', import.meta.url);
-extensionURL.searchParams.set('v', '20261009v160');
+extensionURL.searchParams.set('v', '20261009v161');
 
 function openEditor(node, widget) {
   closeActive?.();
@@ -185,7 +185,8 @@ function openEditor(node, widget) {
       const inputErrors = [];
       try { await readActors(); } catch (error) { inputErrors.push(error.message); }
       try { await readKeypoints(); } catch (error) { inputErrors.push(error.message); }
-      send('anyangle-load', { snapshot, reference, structure, actorReferences, inputError: inputErrors.join('\n'), keypointsConnected: !!poseSignature, unwiredAnyAngle: unwiredAnyAngleLoader(), initialSettings: node.properties?.anyangleStart });
+      const settings = node.properties?.anyangleStart;
+      send('anyangle-load', { snapshot, reference, structure, actorReferences, inputError: inputErrors.join('\n'), keypointsConnected: !!poseSignature, unwiredAnyAngle: unwiredAnyAngleLoader(), initialSettings: settings ? { model: settings.model, mode: settings.mode } : null });
     } else if (event.data.type === 'anyangle-read-reference') {
       await readReference(true); send('anyangle-reference', { reference });
     } else if (event.data.type === 'anyangle-read-structure') {

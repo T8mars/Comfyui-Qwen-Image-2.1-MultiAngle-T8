@@ -11,6 +11,31 @@ import { createActor } from '../web/editor/actors.mjs';
 const source = readFileSync(new URL('../web/editor/app.mjs', import.meta.url), 'utf8');
 const startSource = source.slice(source.indexOf('async function start('), source.indexOf('\nfunction readPendingReference('));
 
+test('workflow startup settings cross the iframe boundary without frontend reactive proxies', async () => {
+  const parent = readFileSync(new URL('../web/anyangle.js', import.meta.url), 'utf8');
+  const receiveSource = parent.slice(parent.indexOf('  const receive ='), parent.indexOf("  window.addEventListener('message', receive)"));
+  const settings = new Proxy({ model: 'base', mode: 'guided' }, {});
+  assert.throws(() => structuredClone(settings), { name: 'DataCloneError' });
+  const replies = [], frame = { contentWindow: {} };
+  const state = { location: { origin: 'http://localhost:8192' }, frame, session: 'session',
+    node: { properties: { anyangleStart: settings } }, initial: '{"version":1,"id":"saved"}',
+    valid: () => true, close() {}, reference: { connected: false }, structure: { connected: false },
+    actorReferences: [], poseSignature: null, readReference: async () => {}, readStructure: async () => {},
+    readActors: async () => {}, readKeypoints: async () => {}, unwiredAnyAngleLoader: () => false,
+    send: (type, payload) => replies.push(structuredClone({ type, ...payload })),
+  };
+  vm.runInNewContext(receiveSource + '\nthis.receive = receive;', state);
+  const event = { origin: state.location.origin, source: frame.contentWindow, data: { type: 'anyangle-ready', session: state.session } };
+  await state.receive(event);
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].type, 'anyangle-load');
+  assert.deepEqual(replies[0].initialSettings, { model: 'base', mode: 'guided' });
+  assert.deepEqual(replies[0].snapshot, { version: 1, id: 'saved' });
+  state.node.properties = {};
+  await state.receive(event);
+  assert.equal(replies[1].initialSettings, null);
+});
+
 test('first custom prompt copies the actual cast prompt and subsequent switches preserve edits', () => {
   const doc=defaultScene();doc.source.kind='human';doc.conditioning={model:'base',identityMode:'actors',guide:'pose'};
   doc.actors=[createActor(0,{identity:{description:'Alice in red'}}),createActor(1,{identity:{description:'Bob in blue'}})];
