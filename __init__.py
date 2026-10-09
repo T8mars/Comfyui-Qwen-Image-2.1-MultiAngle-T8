@@ -144,7 +144,7 @@ class AnyAngleMultiPersonEncode(comfy_io.ComfyNode):
         return comfy_io.Schema(node_id="AnyAngleMultiPersonEncodeT8", display_name="AnyAngle 多图编码 · Qwen 2.1", category="T8/AnyAngle",
             inputs=[comfy_io.Clip.Input("clip"), comfy_io.Vae.Input("vae"), comfy_io.String.Input("scene_json", force_input=True),
                     comfy_io.Image.Input("guide_image", optional=True, display_name="当前构图引导（可选）"), comfy_io.Int.Input("reference_resolution", display_name="其他参考图预算", default=512, min=0, max=4096, step=32,
-                        tooltip="一般参考图像素面积预算，0保留原尺寸。引导图及仅参考模式的首图单独处理。"),
+                        tooltip="一般参考图像素面积预算，0保留原尺寸。AnyAngle双图换机位推荐0保留清晰原图；引导图及仅参考模式的首图单独处理。"),
                     comfy_io.String.Input("prompt", display_name="正向提示词", default="", multiline=True, optional=True, tooltip="可手写或转为输入接线。全文模式原样使用，补充模式追加到 Studio 文本。"),
                     comfy_io.String.Input("negative_prompt", display_name="负向提示词", default="", multiline=True, optional=True),
                     comfy_io.Combo.Input("prompt_mode", display_name="提示词方式", options=["studio-plus-input", "input-full"], default="studio-plus-input", optional=True,

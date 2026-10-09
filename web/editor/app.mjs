@@ -346,7 +346,7 @@ function refresh() {
   $('#protocol-hint').textContent = base && unwiredAnyAngle ? '当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的强度输出，或移除 LoRA 加载器。'
     : base ? `底模使用 image_${imageIndex} 作为引导图；结构遵循程度需实测。`
     : human ? '修改人物动作请选 Qwen 底模 + POSE 姿势；AnyAngle 用于改变机位。'
-      : 'AnyAngle 必须使用当前机位粗图。请把 LoRA 强度输出接至模型加载器。';
+      : 'AnyAngle 推荐原图 1 / 当前机位粗图 2，并保留清晰原图；对调图序可能削弱机位跟随。请把 LoRA 强度输出接至加载器。';
   $('#protocol-hint').classList.toggle('wiring-warning', base && unwiredAnyAngle);
   $('#openpose-status').textContent = doc.openpose ? poseImage ? doc.openpose.fullBody === false
     ? '已提取可见骨架；半身或遮挡照片直接输出原图姿势。' : '已生成原图骨架；可直接输出或选择三维编辑。'
@@ -513,7 +513,13 @@ $('#mouse-pitch').onchange = event => { begin(); doc.interaction.mousePitch = ev
 $('#preview-quality').onchange = event => { begin(); doc.interaction.quality = event.target.value; studio.updatePerformance(); changed(false); };
 $('#live-preview').onchange = event => { begin(); doc.interaction.livePreview = event.target.checked; changed(false); if (event.target.checked) schedulePreview(); else clearTimeout(previewTimer); };
 $('#refresh-guide').onclick = () => renderPreview();
-$('#model-anyangle').onclick = () => { if (doc.conditioning.model === 'anyangle') return; begin(); doc.conditioning.model = 'anyangle'; changed(); };
+$('#model-anyangle').onclick = () => {
+  const custom = doc.conditioning.promptMode === 'custom';
+  if (doc.conditioning.model === 'anyangle' && (custom || doc.conditioning.imageOrder === 'reference-first')) return;
+  begin(); doc.conditioning.model = 'anyangle';
+  if (!custom) doc.conditioning.imageOrder = 'reference-first';
+  changed();
+};
 $('#model-base').onclick = () => { if (doc.conditioning.model === 'base') return; begin(); doc.conditioning.model = 'base'; changed(); };
 document.querySelectorAll('[data-guide]').forEach(button => button.onclick = () => run(async () => {
   const guide = button.dataset.guide;

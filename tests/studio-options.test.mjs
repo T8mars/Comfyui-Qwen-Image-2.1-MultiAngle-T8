@@ -31,6 +31,33 @@ test('prompt controls select a LoRA-free single guide and preserve user text wit
   assert.deepEqual(changes.slice(-2), [false, false]);
 });
 
+test('selecting AnyAngle restores the author image order without changing the scene or custom prompts', () => {
+  const elements = new Map(), changes = [];
+  const state = { doc: defaultScene(), begin() {}, changed: () => changes.push(true),
+    $: id => { if (!elements.has(id)) elements.set(id, {}); return elements.get(id); } };
+  const start = app.indexOf("$('#model-anyangle').onclick");
+  vm.runInNewContext(app.slice(start, app.indexOf('document.querySelectorAll', start)), state);
+  state.doc.conditioning.model = 'base'; state.doc.conditioning.imageOrder = 'guide-first';
+  const camera = structuredClone(state.doc.camera), pose = structuredClone(state.doc.pose);
+  elements.get('#model-anyangle').onclick();
+  assert.equal(state.doc.conditioning.model, 'anyangle');
+  assert.equal(state.doc.conditioning.imageOrder, 'reference-first');
+  assert.equal(guidePrompt(state.doc.conditioning), 'Change the camera angle from <image2> to <image1>.');
+  assert.deepEqual(state.doc.camera, camera); assert.deepEqual(state.doc.pose, pose);
+  elements.get('#model-anyangle').onclick(); assert.equal(changes.length, 1);
+  state.doc.conditioning.imageOrder = 'guide-first';
+  elements.get('#model-anyangle').onclick();
+  assert.equal(state.doc.conditioning.imageOrder, 'reference-first');
+  state.doc.conditioning.model = 'base'; state.doc.conditioning.promptMode = 'custom';
+  state.doc.conditioning.imageOrder = 'guide-first'; state.doc.conditioning.customPrompt = '  My prompt <image3>.\n';
+  elements.get('#model-anyangle').onclick();
+  assert.equal(state.doc.conditioning.imageOrder, 'guide-first');
+  assert.equal(guidePrompt(state.doc.conditioning), '  My prompt <image3>.\n');
+  elements.get('#model-base').onclick();
+  assert.equal(state.doc.conditioning.model, 'base');
+  assert.equal(state.doc.conditioning.imageOrder, 'guide-first');
+});
+
 function bookmarkFixture() {
   const studio = Object.create(StudioScene.prototype), doc = defaultScene();
   studio.doc = doc; doc.source.kind = 'human'; doc.width = 864; doc.height = 1536;
