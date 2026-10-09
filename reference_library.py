@@ -191,6 +191,8 @@ def encoder_prompt(studio_prompt, prompt="", prompt_mode="studio-plus-input"):
         return prompt
     if prompt_mode != "studio-plus-input":
         raise ValueError("Unknown encoder prompt mode")
+    if prompt == studio_prompt:
+        return studio_prompt
     return f"{studio_prompt}\n{prompt}" if studio_prompt and prompt else studio_prompt or prompt
 
 

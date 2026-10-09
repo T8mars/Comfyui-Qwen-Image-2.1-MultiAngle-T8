@@ -2,6 +2,76 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { reconstruct, reconstructionGraph, reconstructionConfig, saveReconstructionModels, selectedReconstructionModels } from '../web/editor/reconstruct.mjs';
 
+test('RGB reconstruction exports bind to the original RGBA image from the executed graph', async () => {
+  const originalFetch = globalThis.fetch, originalStorage = globalThis.localStorage;
+  const reference = { name: 'original-rgba.png', width: 1536, height: 864, label: '原图' };
+  const exported = { kind: 'splat', name: 'people.ply', reference: { name: 'exported-rgb.png', width: 1536, height: 864 } };
+  const item = { prompt: [0, 'job', reconstructionGraph(reference, {})], outputs: { '12': { anyangle_reconstruction: [{ source: exported }] } } };
+  const storage = new Map(), requests = [];
+  globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
+  globalThis.fetch = async url => {
+    requests.push(url);
+    if (url === '/anyangle-studio/reconstruction-config') return { ok: true, json: async () => ({ available: true, models: {} }) };
+    if (url === '/prompt') return { ok: true, json: async () => ({ prompt_id: 'job' }) };
+    if (url === '/history/job') return { ok: true, json: async () => ({ job: item }) };
+    assert.equal(url, '/anyangle-studio/assets/people.ply'); return { ok: true };
+  };
+  try {
+    const source = await reconstruct(reference, () => {});
+    assert.deepEqual(source, { ...exported, reference });
+    assert.equal(exported.reference.name, 'exported-rgb.png');
+    assert.deepEqual(await reconstruct(reference, () => {}), source);
+    assert.equal(requests.filter(url => url === '/prompt').length, 1);
+    assert.deepEqual(JSON.parse(storage.get('anyangle-reconstruction:original-rgba.png')), { source });
+  } finally { globalThis.fetch = originalFetch; globalThis.localStorage = originalStorage; }
+});
+
+test('old RGB-only completed caches recover from real job provenance without queuing models', async () => {
+  const originalFetch = globalThis.fetch, originalStorage = globalThis.localStorage;
+  const reference = { name: 'original.png', width: 1536, height: 864 };
+  const source = { name: 'people.ply', reference: { name: 'rgb.png', width: 1536, height: 864 } };
+  const output = { '12': { anyangle_reconstruction: [{ source }] } };
+  const graph = reconstructionGraph(reference, {});
+  const storage = new Map([['anyangle-reconstruction:original.png', JSON.stringify({ source })]]), requests = [];
+  globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
+  globalThis.fetch = async (url, options) => {
+    requests.push(url);
+    if (url === '/history?max_items=200') return { ok: true, json: async () => ({
+      other: { prompt: [0, 'other', reconstructionGraph({ name: 'different.png' }, {})], outputs: output },
+      matching: { prompt: [0, 'matching', graph], outputs: output },
+    }) };
+    assert.equal(url, '/anyangle-studio/assets/people.ply'); assert.equal(options.method, 'HEAD'); return { ok: true };
+  };
+  try {
+    assert.deepEqual(await reconstruct(reference, () => {}), { ...source, reference });
+    assert.deepEqual(requests, ['/history?max_items=200', '/anyangle-studio/assets/people.ply']);
+    assert.deepEqual(JSON.parse(storage.get('anyangle-reconstruction:original.png')).source.reference, reference);
+  } finally { globalThis.fetch = originalFetch; globalThis.localStorage = originalStorage; }
+});
+
+test('a renamed export without matching image provenance cannot be rebound or cached', async () => {
+  const originalFetch = globalThis.fetch, originalStorage = globalThis.localStorage;
+  const reference = { name: 'original.png', width: 1536, height: 864 };
+  const source = { name: 'people.ply', reference: { name: 'rgb.png', width: 1536, height: 864 } };
+  const storage = new Map();
+  globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
+  try {
+    for (const change of ['different-image', 'different-output-input', 'missing-receipt', 'different-dimensions']) {
+      const graph = reconstructionGraph(reference, {}), result = structuredClone(source);
+      if (change === 'different-image') graph['1'].inputs.image = 'anyangle_studio/other.png';
+      if (change === 'different-output-input') graph['12'].inputs.reference = ['4', 0];
+      if (change === 'different-dimensions') result.reference.width = 512;
+      globalThis.fetch = async url => ({ ok: true, json: async () =>
+        url === '/anyangle-studio/reconstruction-config' ? { available: true, models: {} }
+          : url === '/prompt' ? { prompt_id: 'job' }
+            : { job: { ...(change === 'missing-receipt' ? {} : { prompt: [0, 'job', graph] }), outputs: { '12': { anyangle_reconstruction: [{ source: result }] } } } },
+      });
+      await assert.rejects(reconstruct(reference, () => {}), /无法确认重建所用来源图/, change);
+      assert.equal(storage.has('anyangle-reconstruction:original.png'), false);
+    }
+  } finally { globalThis.fetch = originalFetch; globalThis.localStorage = originalStorage; }
+});
+
 test('preserving backgrounds replaces segmentation with an opaque mask and keeps the native camera preprocessing', () => {
   const photo = { name: 'room.png' }, models = { background_removal: 'birefnet.safetensors' };
   const subject = reconstructionGraph(photo, models), scene = reconstructionGraph(photo, models, 46, true);

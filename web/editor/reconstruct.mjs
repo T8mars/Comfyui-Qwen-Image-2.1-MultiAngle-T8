@@ -24,6 +24,19 @@ export function reconstructionGraph(reference, models, seed = 46, keepBackground
 
 const MODEL_SELECTION_KEY = 'anyangle-reconstruction.models.v1';
 
+function reconstructionSource(item, reference) {
+  const source = item?.outputs?.['12']?.anyangle_reconstruction?.[0]?.source;
+  if (!source || source.reference?.name === reference.name) return source;
+  const graph = item.prompt?.[2], load = graph?.['1'], output = graph?.['12'];
+  // LoadImage drops alpha; its RGB re-export can have a different file hash.
+  if (load?.class_type !== 'LoadImage' || load.inputs?.image !== `anyangle_studio/${reference.name}`
+      || output?.class_type !== 'AnyAngleReconstructionOutputT8'
+      || output.inputs?.reference?.[0] !== '1' || output.inputs.reference[1] !== 0
+      || source.reference?.width !== reference.width || source.reference?.height !== reference.height)
+    throw new Error('无法确认重建所用来源图，请重新重建；机位和构图可以自由调整');
+  return { ...source, reference: { ...reference } };
+}
+
 export function selectedReconstructionModels() {
   try {
     const selected = JSON.parse(localStorage.getItem(MODEL_SELECTION_KEY));
@@ -54,6 +67,20 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true, k
   const key = `anyangle-reconstruction:${reference.name}${suffix}${keepBackground ? ':keep-background' : ''}`;
   let cached;
   try { cached = JSON.parse(localStorage.getItem(key)); } catch { /* Ignore an incomplete browser save. */ }
+  if (cached?.source && cached.source.reference?.name !== reference.name && !!cached.source.keep_background === keepBackground) {
+    const response = await fetch('/history?max_items=200');
+    if (response.ok) {
+      const item = Object.values(await response.json()).find(item =>
+        item.outputs?.['12']?.anyangle_reconstruction?.[0]?.source?.name === cached.source.name
+        && item.prompt?.[2]?.['1']?.inputs?.image === `anyangle_studio/${reference.name}`);
+      if (item) {
+        try {
+          cached = { source: reconstructionSource(item, reference) };
+          localStorage.setItem(key, JSON.stringify(cached));
+        } catch { localStorage.removeItem(key); cached = null; }
+      }
+    }
+  }
   if (cached?.source?.reference?.name === reference.name) {
     const existing = await fetch(`/anyangle-studio/assets/${encodeURIComponent(cached.source.name)}`, { method: 'HEAD' });
     if (existing.ok && !!cached.source.keep_background === keepBackground) return cached.source;
@@ -80,8 +107,11 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true, k
     const item = (await historyResponse.json())[job];
     const result = item?.outputs?.['12']?.anyangle_reconstruction?.[0];
     if (result) {
-      localStorage.setItem(key, JSON.stringify({ source: result.source }));
-      return result.source;
+      let source;
+      try { source = reconstructionSource(item, reference); }
+      catch (error) { localStorage.removeItem(key); throw error; }
+      localStorage.setItem(key, JSON.stringify({ source }));
+      return source;
     }
     if (item?.status?.status_str === 'error') {
       localStorage.removeItem(key);

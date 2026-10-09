@@ -5,6 +5,35 @@ export async function guideEditor(browser, origin, { baseline = false } = {}) {
   const results = [];
   const pose = page => page.evaluate(() => structuredClone(window.auditStudio.viewer.getPose()));
   const cases = [
+    ['collapsed-materials-replace-delete-undo-and-reopen', async c => {
+      await c.reference('flat'); await c.click('#tab-materials'); await c.click('#source-to-library');
+      await c.page.locator('.reference-card>summary').click();
+      await c.page.locator('.reference-use label').filter({hasText:'用途'}).first().locator('select').selectOption('accessory'); await c.idle();
+      await c.page.locator('.reference-card>summary').click();
+      assert.equal(await c.page.locator('.reference-card').getAttribute('open'), null);
+      assert.equal(await c.page.getByRole('button',{name:'替换图片',exact:true}).isVisible(), true);
+      assert.equal(await c.page.getByRole('button',{name:'删除素材',exact:true}).isVisible(), true);
+      const original = await c.save(), old = original.scene.referenceLibrary.items[0];
+      await c.uploadLibrary('.reference-card-tools button:first-child', 'step');
+      const replaced = await c.save(), next = replaced.scene.referenceLibrary.items[0];
+      assert.equal(next.asset.name, 'step.png'); assert.equal(next.reviewSource, true);
+      for (const key of ['id','label','usages','enabled']) assert.deepEqual(next[key],old[key],key);
+      assert.equal(replaced.scene.referenceLibrary.firstReferenceId, original.scene.referenceLibrary.firstReferenceId);
+      assert.deepEqual(replaced.scene.reference, original.scene.reference);
+      assert.deepEqual(replaced.scene.camera, original.scene.camera); assert.deepEqual(replaced.scene.actors, original.scene.actors);
+      await c.click('.reference-card-tools button:last-child'); assert.equal((await c.save()).scene.referenceLibrary.items.length,0);
+      await c.click('#undo'); assert.deepEqual((await c.save()).scene.referenceLibrary.items, replaced.scene.referenceLibrary.items);
+      await c.click('#undo'); assert.deepEqual((await c.save()).scene.referenceLibrary.items, original.scene.referenceLibrary.items);
+      await c.click('#redo'); const saved = await c.save();
+      await c.page.goto(`${origin}/tests/gestures.html?snapshot=${c.token().id}`); await c.idle(); await c.click('#tab-materials');
+      assert.deepEqual((await c.save()).scene.referenceLibrary.items,saved.scene.referenceLibrary.items);
+      for (const width of [320,390,1440]) {
+        await c.page.setViewportSize({width,height:900});
+        const tools = await c.page.locator('.reference-card-tools').boundingBox(), button = await c.page.locator('.reference-card-tools button:last-child').boundingBox();
+        assert.ok(button.x+button.width <= tools.x+tools.width,`${width}px delete button clipped`);
+        assert.ok(await c.page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth),`${width}px material overflow`);
+      }
+    }],
     ['static-pose-custom-prompt-disables-scene-only-controls', async c => {
       await c.importPose(); await c.page.locator('#prompt-mode').selectOption('custom'); await c.idle();
       assert.equal(await c.page.locator('#pose-scene-options').isVisible(),false);
@@ -138,7 +167,7 @@ export async function guideEditor(browser, origin, { baseline = false } = {}) {
       snapshots.set(id, structuredClone(latest)); latestToken = {version:1, id}; await route.fulfill({json: latestToken});
     });
     await page.route('**/anyangle-studio/snapshots/*', route => route.fulfill({json:snapshots.get(new URL(route.request().url()).pathname.split('/').pop())}));
-    await page.route('**/anyangle-studio/assets', route => route.fulfill({json:{name:`${uploadKind}.png`, label:uploadKind, width:64, height:64}}));
+    await page.route(/\/anyangle-studio\/assets(?:\?.*)?$/, route => route.fulfill({json:{name:`${uploadKind}.png`, label:uploadKind, width:64, height:64}}));
     await page.route('**/anyangle-studio/assets/*', route => {
       const buffer = assets.get(new URL(route.request().url()).pathname.split('/').pop());
       return buffer ? route.fulfill({body:buffer, contentType:'image/png'}) : route.continue();
@@ -154,6 +183,8 @@ export async function guideEditor(browser, origin, { baseline = false } = {}) {
       const buffer = Buffer.from(png.split(',')[1],'base64'); assets.set(`${kind}.png`,buffer); return buffer;
     };
     const c = {page, idle, click, field, token:()=>latestToken,
+      uploadLibrary: async (selector, kind) => {uploadKind=kind; const buffer=await paint(kind), picker=page.waitForEvent('filechooser');
+        await page.locator(selector).click(); await (await picker).setFiles({name:`${kind}.png`,mimeType:'image/png',buffer}); await idle();},
       save: async () => {await click('#apply'); await page.waitForFunction(() => document.querySelector('#status').dataset.state==='saved'); return structuredClone(latest);},
       reference: async kind => {uploadKind=kind; const buffer=await paint(kind); await page.locator('#reference-file').setInputFiles({name:`${kind}.png`,mimeType:'image/png',buffer}); await idle();},
       importMap: async kind => {uploadKind=kind; const buffer=await paint(kind); await page.locator('#map-file').setInputFiles({name:`${kind}.png`,mimeType:'image/png',buffer}); await idle();},

@@ -96,6 +96,7 @@ function useControls(scene, item, use) {
     const delimiter = value.indexOf(':'), kind = delimiter < 0 ? value : value.slice(0, delimiter), id = delimiter < 0 ? '' : value.slice(delimiter + 1);
     use.target = { kind: kind === 'actor' ? 'actors' : kind === 'prop' ? 'props' : kind, ids: id ? [id] : [], text: use.target.text || '' };
   })); panel.append(field('用于谁 / 什么', target));
+  if (use.kind === 'identity') panel.append(el('p', '身份用途只参考脸型和发型。复制整个人物外观需另加服装、配饰或风格用途；多视图可先裁切单人。', 'hint'));
   if (use.target.kind === 'actors' || use.target.kind === 'props') {
     const group = el('div', '', 'reference-targets');
     for (const object of scene[use.target.kind] || []) {
@@ -114,6 +115,7 @@ function useControls(scene, item, use) {
   const controls = el('div', '', 'reference-use-actions'); controls.append(field('启用用途', enabled), button('删除用途', () => edit(() => { item.usages = item.usages.filter(value => value.id !== use.id); }))); panel.append(controls); return panel;
 }
 function card(scene, item, manifest) {
+  const entry = el('div', '', 'reference-entry');
   const details = el('details', '', 'reference-card'); details.open = openId === item.id;
   details.ontoggle = () => { if (!details.isConnected) return; if (details.open) openId = item.id; else if (openId === item.id) openId = null; };
   const summary = el('summary'), image = el('img'); image.alt = item.label; if (item.asset) image.src = imageURL(item.asset);
@@ -133,12 +135,35 @@ function card(scene, item, manifest) {
   source.title = context.sourceConnected() ? '来源图由节点连线提供，请更换上游图片或断开来源图连线' : !item.asset ? '请先读取或导入此素材' : '将此素材用于姿势提取或三维重建';
   const crop = button('裁切素材', () => cropReference(item)); crop.disabled = !item.asset;
   actions.append(button('＋ 添加用途', () => edit(() => { item.usages.push(newUse('identity', { kind: 'scene', ids: [], text: '' })); })),
-    source, crop, button('↑', () => moveReference(scene, item, -1)), button('↓', () => moveReference(scene, item, 1)),
-    button('删除素材', () => edit(() => { scene.referenceLibrary.items = scene.referenceLibrary.items.filter(value => value.id !== item.id); if (scene.referenceLibrary.firstReferenceId === item.id) scene.referenceLibrary.firstReferenceId = null; })));
+    source, crop, button('↑', () => moveReference(scene, item, -1)), button('↓', () => moveReference(scene, item, 1)));
   if (item.inputKey) actions.append(button('使用已保存版本', () => edit(() => { item.inputKey = null; item.missing = false; })));
   if (item.inputKey && item.batchCount > 1) actions.append(button('拆分批次为多素材', () => splitBatch(scene, item)));
   if (item.reviewSource) actions.append(button('已核对新来源', () => edit(() => { item.reviewSource = false; })));
-  details.append(actions); return details;
+  details.append(actions);
+  const tools = el('div', '', 'reference-card-tools');
+  const replace = button('替换图片', () => replaceReference(scene, item));
+  replace.disabled = !!item.inputKey;
+  replace.title = item.inputKey ? '请在上游换图，或展开素材选择「使用已保存版本」后替换' : '替换图片，保留名称、用途、目标和排序';
+  const remove = button('删除素材', () => edit(() => {
+    scene.referenceLibrary.items = scene.referenceLibrary.items.filter(value => value.id !== item.id);
+    if (scene.referenceLibrary.firstReferenceId === item.id) scene.referenceLibrary.firstReferenceId = null;
+    if (openId === item.id) openId = null;
+  }));
+  remove.title = '从参考库移除，可撤销；场景来源图和人物保留';
+  tools.append(replace, remove); entry.append(details, tools); return entry;
+}
+function replaceReference(scene, item) {
+  const file = el('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true; document.body.append(file);
+  file.oncancel = () => file.remove();
+  file.onchange = () => {
+    const selected = file.files[0]; file.remove(); if (!selected) return;
+    context.run(async () => {
+      const asset = await context.upload(selected, true);
+      if (context.doc() !== scene || !scene.referenceLibrary.items.includes(item)) throw new Error('场景已改变，请重新替换素材');
+      edit(() => { item.asset = asset; item.batchIndex = 0; item.batchCount = 1; item.missing = false; item.reviewSource = true; delete item.parent; });
+    });
+  };
+  file.click();
 }
 function moveReference(scene, item, delta) {
   edit(() => { const items = scene.referenceLibrary.items, index = items.indexOf(item), next = Math.min(items.length - 1, Math.max(0, index + delta)); items.splice(index, 1); items.splice(next, 0, item); });

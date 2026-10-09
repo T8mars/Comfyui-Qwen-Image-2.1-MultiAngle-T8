@@ -75,7 +75,7 @@ test('reference card edits bind to the restored scene after undo keeps the same 
   vm.runInNewContext(source.slice(source.indexOf('function card('), source.indexOf('\nfunction moveReference(')), state);
   state.refresh();
   const restored = structuredClone(scene); state.doc = restored; state.refresh();
-  const card = get('reference-cards').children[0], label = card.children.find(node => node.tag === 'label').children[0];
+  const card = get('reference-cards').children[0].children[0], label = card.children.find(node => node.tag === 'label').children[0];
   label.value = 'Changed after undo'; label.onchange();
   assert.equal(restored.referenceLibrary.items[0].label, 'Changed after undo');
   assert.notEqual(scene.referenceLibrary.items[0].label, 'Changed after undo');
@@ -87,10 +87,30 @@ test('source and crop actions reflect wired source ownership and missing materia
     field: (text, input) => { const node = new Element('label', text); node.append(input); return node; },
     button: (text, action) => { const node = new Element('button', text); node.onclick = action; return node; } });
   vm.runInNewContext(source.slice(source.indexOf('function card('), source.indexOf('\nfunction moveReference(')), state);
-  const action = text => get('reference-cards').children[0].children.at(-1).children.find(node => node.textContent === text);
+  const action = text => get('reference-cards').children[0].children[0].children.at(-1).children.find(node => node.textContent === text);
   state.refresh(); assert.equal(action('作为来源图').disabled, false); assert.equal(action('裁切素材').disabled, false);
   state.context.sourceConnected = () => true; state.refresh();
   assert.equal(action('作为来源图').disabled, true); assert.match(action('作为来源图').title, /连线/); assert.equal(action('裁切素材').disabled, false);
   scene.referenceLibrary.items[0].asset = null; state.context.sourceConnected = () => false; state.refresh();
   assert.equal(action('作为来源图').disabled, true); assert.equal(action('裁切素材').disabled, true);
+});
+
+test('material replace and delete actions remain outside collapsed details and respect connected images', () => {
+  const { state, scene, get } = fixture();
+  Object.assign(state, { openId: null, edit: action => action(), copy: value => JSON.parse(JSON.stringify(value)), useControls: () => new Element(),
+    field: (text, input) => { const node = new Element('label', text); node.append(input); return node; },
+    button: (text, action) => { const node = new Element('button', text); node.onclick = action; return node; } });
+  vm.runInNewContext(source.slice(source.indexOf('function card('), source.indexOf('\nfunction moveReference(')), state);
+  state.refresh();
+  let entry = get('reference-cards').children[0];
+  assert.equal(entry.children[0].open, false);
+  assert.deepEqual(Array.from(entry.children[1].children, node => node.textContent), ['替换图片','删除素材']);
+  assert.equal(entry.children[1].children[0].disabled, false);
+  scene.referenceLibrary.items[0].inputKey = 'actor_reference_1'; state.refresh();
+  entry = get('reference-cards').children[0];
+  assert.equal(entry.children[1].children[0].disabled, true);
+  assert.match(entry.children[1].children[0].title, /上游.*已保存版本/);
+  const id = scene.referenceLibrary.items[0].id; scene.referenceLibrary.firstReferenceId = id;
+  entry.children[1].children[1].onclick();
+  assert.equal(scene.referenceLibrary.items.length,0); assert.equal(scene.referenceLibrary.firstReferenceId,null);
 });

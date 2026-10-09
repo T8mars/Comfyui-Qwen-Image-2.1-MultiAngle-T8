@@ -144,6 +144,8 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(encoder_prompt("auto", "  raw <image9>\n", "input-full"), "  raw <image9>\n")
         self.assertEqual(encoder_prompt("auto", "", "input-full"), "")
         self.assertEqual(encoder_prompt("auto", "addition"), "auto\naddition")
+        self.assertEqual(encoder_prompt("auto", "auto"), "auto")
+        self.assertEqual(encoder_prompt("auto", "auto", "input-full"), "auto")
         self.assertEqual(encoder_prompt("auto"), "auto")
         with self.assertRaises(ValueError):
             encoder_prompt("auto", prompt_mode="guess")
