@@ -40,7 +40,7 @@ export function ensureActors(doc, create = false) {
   }
   if (!known.has(doc.activeActorId)) doc.activeActorId = doc.actors[0]?.id || null;
   doc.selectedActorIds = [...new Set(doc.selectedActorIds || [doc.activeActorId])].filter(id => known.has(id));
-  doc.version = 2;
+  if (doc.version !== 3) doc.version = 2;
   return doc.actors;
 }
 export function activeActor(doc) { return doc.actors?.find(actor => actor.id === doc.activeActorId) || null; }
@@ -77,6 +77,9 @@ export function cloneActor(doc, id = doc.activeActorId, reuseIdentity = false) {
   doc.actors.push(actor); return actor;
 }
 export function removeActor(doc, id) {
+  for (const item of doc.referenceLibrary?.items || []) for (const use of item.usages) {
+    if (use.target.kind === 'actors') use.target.ids = use.target.ids.filter(value => value !== id);
+  }
   doc.actors = doc.actors.filter(actor => actor.id !== id);
   doc.contacts = (doc.contacts || []).filter(contact => !contact.actors?.includes(id));
   doc.selectedActorIds = (doc.selectedActorIds || []).filter(value => value !== id);

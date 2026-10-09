@@ -4,6 +4,11 @@ from decimal import Decimal
 import math
 import re
 
+try:
+    from .reference_library import validate_library, library_manifest
+except ImportError:
+    from reference_library import validate_library, library_manifest
+
 
 ACTOR_KEY = re.compile(r"actor_reference_[1-9][0-9]*\Z")
 COLORS = ("#ef6262", "#599cff", "#55c989", "#f4cf60", "#bb82f3", "#f3a05c", "#50d1d5", "#ed8dc5", "#b99476")
@@ -38,7 +43,7 @@ def normalize_transform(owner):
 
 
 def canonical_scene(raw):
-    if not isinstance(raw, dict) or raw.get("version") not in (1, 2):
+    if not isinstance(raw, dict) or raw.get("version") not in (1, 2, 3):
         raise ValueError("Unsupported AnyAngle scene version")
     scene = copy.deepcopy(raw)
     if scene["version"] == 1:
@@ -165,6 +170,8 @@ def canonical_scene(raw):
         target = template.get("cameraTarget")
         if target is not None and (not isinstance(target, list) or len(target) != 3 or not all(finite(value) for value in target)):
             raise ValueError("Invalid composition cameraTarget")
+    if scene["version"] == 3:
+        validate_library(scene)
     return scene
 
 
@@ -185,6 +192,8 @@ def actor_mode(scene):
 
 
 def build_manifest(scene):
+    if scene.get("version") == 3:
+        return library_manifest(scene)
     settings = scene.get("conditioning") or {}
     order = settings.get("imageOrder", "guide-first" if actor_mode(scene) else "reference-first")
     actors = output_actors(scene) if actor_mode(scene) else []

@@ -1,0 +1,524 @@
+{
+  "date": "2026-10-09",
+  "plugin_version": "1.6.0",
+  "automated": {
+    "python": 118,
+    "javascript": 238
+  },
+  "environment": {
+    "gpu": "RTX 5090 Laptop 24 GB",
+    "comfyui": "0.36.0",
+    "frontend": "1.53.6"
+  },
+  "note": "Submission / encoding success and observed generation quality are distinct. Cold native vs warm Turbo times are not a fair speed benchmark.",
+  "records": [
+    {
+      "name": "01-native-20step",
+      "prompt_id": "315ffeef-ac45-4735-840e-2ee43932b18d",
+      "status": "success",
+      "test_kind": "diffusion-generation",
+      "seconds": 94.26,
+      "image_count": 3,
+      "width": 768,
+      "height": 768,
+      "encoding_cache_reused": false,
+      "prompt": "Create one coherent finished image using the references only for their specified purposes.\n<image1>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for the whole generated scene.\n<image2>: Use only the clothing design; do not copy the model's identity, pose or background for the whole generated scene.\n<image3>: Use the environment and background; do not add people from this reference for the whole generated scene.\nAn elegant full-length woman in a red jacket and dark trousers, her face from image1, standing in a cinematic cafe environment. One person only, natural anatomy and tasteful fashion editorial photography. Use image2 only for outfit design and image3 only for environment.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "sha256": "e094a79a49150db932b0ed84c07d1ce8d8db88abc35500d6163d7b266089de73"
+        },
+        {
+          "index": 2,
+          "sha256": "049fc0757baca0772dc4e85308894e1dfee3a63c3213e5da38ce779920b7d942"
+        },
+        {
+          "index": 3,
+          "sha256": "8f53e03bdf1f9bd613f1f6c8a41c3386ed67743714850aa7bc2f4dfb8a6b3bd8"
+        }
+      ],
+      "output_sha256": "245ac5e27665006368d00d26e70682a196a40c1aaf5e66f97dabec26265d8ac4",
+      "observation": "Approximate face and red outfit; cafe text conflicted with skyline reference."
+    },
+    {
+      "name": "02-turbo-6step",
+      "prompt_id": "4aab79aa-50c3-4c56-a9ff-da78abe57e5a",
+      "status": "success",
+      "test_kind": "diffusion-generation",
+      "seconds": 10.08,
+      "image_count": 3,
+      "width": 768,
+      "height": 768,
+      "encoding_cache_reused": true,
+      "prompt": "Create one coherent finished image using the references only for their specified purposes.\n<image1>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for the whole generated scene.\n<image2>: Use only the clothing design; do not copy the model's identity, pose or background for the whole generated scene.\n<image3>: Use the environment and background; do not add people from this reference for the whole generated scene.\nAn elegant full-length woman in a red jacket and dark trousers, her face from image1, standing in a cinematic cafe environment. One person only, natural anatomy and tasteful fashion editorial photography. Use image2 only for outfit design and image3 only for environment.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "sha256": "e094a79a49150db932b0ed84c07d1ce8d8db88abc35500d6163d7b266089de73"
+        },
+        {
+          "index": 2,
+          "sha256": "049fc0757baca0772dc4e85308894e1dfee3a63c3213e5da38ce779920b7d942"
+        },
+        {
+          "index": 3,
+          "sha256": "8f53e03bdf1f9bd613f1f6c8a41c3386ed67743714850aa7bc2f4dfb8a6b3bd8"
+        }
+      ],
+      "output_sha256": "05233aa776f17e815b44516459ef879bc7211be38b760cfae2362a316084fc79",
+      "observation": "Approximate face and red outfit; cafe instruction not fully followed. Reused native encoding cache."
+    },
+    {
+      "name": "03-empty-full-native",
+      "prompt_id": "901a6384-3b81-4dc5-b968-cbbec569be2f",
+      "status": "success",
+      "test_kind": "encoding-only",
+      "seconds": 1.34,
+      "image_count": 1,
+      "width": 256,
+      "height": 256,
+      "encoding_cache_reused": false,
+      "prompt": "",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "sha256": "e094a79a49150db932b0ed84c07d1ce8d8db88abc35500d6163d7b266089de73"
+        }
+      ],
+      "output_sha256": "05fef24d368223d9db9b748d01f22c4db50b0cb7503303287b0801167d7442ef",
+      "observation": "Empty full prompt preserved. Encoding only, no diffusion sampling."
+    },
+    {
+      "name": "04-count-10",
+      "prompt_id": "7a35c468-0873-43db-907f-909fe9c708c3",
+      "status": "success",
+      "test_kind": "encoding-only",
+      "seconds": 2.76,
+      "image_count": 10,
+      "width": 64,
+      "height": 64,
+      "encoding_cache_reused": false,
+      "prompt": "A coherent image based on the style references.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "sha256": "1cec23e4ee8b0e053340c9f1ab572a360ee7adfe4f1566e86348d5b3603fffde"
+        },
+        {
+          "index": 2,
+          "sha256": "7162186f33e4c050854a40f10f282778b3ade74e7c2ce2cff576005282d527ff"
+        },
+        {
+          "index": 3,
+          "sha256": "051bbeb816c7b360f3027d8e4b2a6aa0e26425fa3cb732fb1cdf1eea330c61e9"
+        },
+        {
+          "index": 4,
+          "sha256": "d969977f5f20cc0940b82c13036a71b80c163a6b13b10134f1ab6899ddf10515"
+        },
+        {
+          "index": 5,
+          "sha256": "47b1ef0966eaf2cf2541df465ca78e4c516f8e06ce34e51e5d68d4bdcd1558d2"
+        },
+        {
+          "index": 6,
+          "sha256": "72249f42dd37f5fc681f97f965c35308667212d0037d13441f9a9289b5451777"
+        },
+        {
+          "index": 7,
+          "sha256": "c4a537d1baf6431ecca09f541939cf5b90def0b657bdc9b487b865df073fe76c"
+        },
+        {
+          "index": 8,
+          "sha256": "bfacaeba15241d2293c8b70b13c96d9158442ce5e5f60906e63c2ba0f97c667e"
+        },
+        {
+          "index": 9,
+          "sha256": "ff59ea31b32272f148377a8597333f463b73417612dae7567a506a61c12d1a42"
+        },
+        {
+          "index": 10,
+          "sha256": "c10636d814de6686b6d500127b390caf188a66f92a3d495e2fa7e5674b137f14"
+        }
+      ],
+      "output_sha256": "28e8ff22f46d5f668483be542e4783ce2db6f3f89ff2189a3ff17e8c5cd18c63",
+      "observation": "All images reached native Qwen3-VL and VAE encoding; no generation-quality claim."
+    },
+    {
+      "name": "04-count-11",
+      "prompt_id": "3fcc40ec-bb5f-4590-a3d9-e4a7116b8d68",
+      "status": "success",
+      "test_kind": "encoding-only",
+      "seconds": 3.01,
+      "image_count": 11,
+      "width": 64,
+      "height": 64,
+      "encoding_cache_reused": false,
+      "prompt": "A coherent image based on the style references.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "sha256": "1cec23e4ee8b0e053340c9f1ab572a360ee7adfe4f1566e86348d5b3603fffde"
+        },
+        {
+          "index": 2,
+          "sha256": "7162186f33e4c050854a40f10f282778b3ade74e7c2ce2cff576005282d527ff"
+        },
+        {
+          "index": 3,
+          "sha256": "051bbeb816c7b360f3027d8e4b2a6aa0e26425fa3cb732fb1cdf1eea330c61e9"
+        },
+        {
+          "index": 4,
+          "sha256": "d969977f5f20cc0940b82c13036a71b80c163a6b13b10134f1ab6899ddf10515"
+        },
+        {
+          "index": 5,
+          "sha256": "47b1ef0966eaf2cf2541df465ca78e4c516f8e06ce34e51e5d68d4bdcd1558d2"
+        },
+        {
+          "index": 6,
+          "sha256": "72249f42dd37f5fc681f97f965c35308667212d0037d13441f9a9289b5451777"
+        },
+        {
+          "index": 7,
+          "sha256": "c4a537d1baf6431ecca09f541939cf5b90def0b657bdc9b487b865df073fe76c"
+        },
+        {
+          "index": 8,
+          "sha256": "bfacaeba15241d2293c8b70b13c96d9158442ce5e5f60906e63c2ba0f97c667e"
+        },
+        {
+          "index": 9,
+          "sha256": "ff59ea31b32272f148377a8597333f463b73417612dae7567a506a61c12d1a42"
+        },
+        {
+          "index": 10,
+          "sha256": "c10636d814de6686b6d500127b390caf188a66f92a3d495e2fa7e5674b137f14"
+        },
+        {
+          "index": 11,
+          "sha256": "61bfc91e876cffd210c89aff7e4716c165c4a28bdbb09f9ece3a3dcac4027c54"
+        }
+      ],
+      "output_sha256": "c1c00b9e1dcb9bd7a541bacf62278aaa96562bc204a89d2e6d9d0f3f5f1120ae",
+      "observation": "All images reached native Qwen3-VL and VAE encoding; no generation-quality claim."
+    },
+    {
+      "name": "04-count-17",
+      "prompt_id": "93457ff8-e1fe-4b3d-a922-fcb7251638f8",
+      "status": "success",
+      "test_kind": "encoding-only",
+      "seconds": 4.16,
+      "image_count": 17,
+      "width": 64,
+      "height": 64,
+      "encoding_cache_reused": false,
+      "prompt": "A coherent image based on the style references.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "sha256": "1cec23e4ee8b0e053340c9f1ab572a360ee7adfe4f1566e86348d5b3603fffde"
+        },
+        {
+          "index": 2,
+          "sha256": "7162186f33e4c050854a40f10f282778b3ade74e7c2ce2cff576005282d527ff"
+        },
+        {
+          "index": 3,
+          "sha256": "051bbeb816c7b360f3027d8e4b2a6aa0e26425fa3cb732fb1cdf1eea330c61e9"
+        },
+        {
+          "index": 4,
+          "sha256": "d969977f5f20cc0940b82c13036a71b80c163a6b13b10134f1ab6899ddf10515"
+        },
+        {
+          "index": 5,
+          "sha256": "47b1ef0966eaf2cf2541df465ca78e4c516f8e06ce34e51e5d68d4bdcd1558d2"
+        },
+        {
+          "index": 6,
+          "sha256": "72249f42dd37f5fc681f97f965c35308667212d0037d13441f9a9289b5451777"
+        },
+        {
+          "index": 7,
+          "sha256": "c4a537d1baf6431ecca09f541939cf5b90def0b657bdc9b487b865df073fe76c"
+        },
+        {
+          "index": 8,
+          "sha256": "bfacaeba15241d2293c8b70b13c96d9158442ce5e5f60906e63c2ba0f97c667e"
+        },
+        {
+          "index": 9,
+          "sha256": "ff59ea31b32272f148377a8597333f463b73417612dae7567a506a61c12d1a42"
+        },
+        {
+          "index": 10,
+          "sha256": "c10636d814de6686b6d500127b390caf188a66f92a3d495e2fa7e5674b137f14"
+        },
+        {
+          "index": 11,
+          "sha256": "61bfc91e876cffd210c89aff7e4716c165c4a28bdbb09f9ece3a3dcac4027c54"
+        },
+        {
+          "index": 12,
+          "sha256": "d3a7a2fa34f52ebfdd9c0225f7a2bb3897836672532a04ad5429f870d676447b"
+        },
+        {
+          "index": 13,
+          "sha256": "6f59b1983ea92bfc74e0aeb1d25a1588cf37946cea3739522a9fd885bc058dec"
+        },
+        {
+          "index": 14,
+          "sha256": "59edb7d500bb9dce014f2b9c22f47a03747244431a9fc7a8994d8a1dfad224ad"
+        },
+        {
+          "index": 15,
+          "sha256": "7e406ed2302c084977837b78c23eb94dffe46f9f82899d34534aea98b3815fd0"
+        },
+        {
+          "index": 16,
+          "sha256": "58e80715347f50b70f6424855e791d31c2d40f57f9087de80686f065e4baba11"
+        },
+        {
+          "index": 17,
+          "sha256": "4d23ea113cb17c5d208fb2b0860188cdbcde952c6738ee924a206d987946cc11"
+        }
+      ],
+      "output_sha256": "2ce95a81b7b487f59210ab4ed3393fa7d6c5b48b87513caf9e5ed00062ee69ef",
+      "observation": "All images reached native Qwen3-VL and VAE encoding; no generation-quality claim."
+    },
+    {
+      "name": "05-two-people-turbo",
+      "prompt_id": "2eb48b6d-f9cf-4068-9edf-c4ac5ad8afe0",
+      "status": "success",
+      "test_kind": "diffusion-generation",
+      "seconds": 57.51,
+      "image_count": 3,
+      "width": 960,
+      "height": 544,
+      "encoding_cache_reused": false,
+      "prompt": "Create a finished image following the camera angle, composition, poses and placement in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\nThe guide contains 2 people. Keep their identities and placements separate.\nPerson 1 (#ef6262 mannequin) in the guide is 红衣女性. vermilion-red tailored jacket, ivory top, black straight-leg trousers and white sneakers\nPerson 2 (#599cff mannequin) in the guide is 蓝衣男性. cobalt-blue casual jacket, white top, beige trousers and white sneakers\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 红衣女性. vermilion-red tailored jacket, ivory top, black straight-leg trousers and white sneakers\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 红衣女性.\n<image3>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 蓝衣男性. cobalt-blue casual jacket, white top, beige trousers and white sneakers\nExactly two people. A fashion editorial on an open rooftop at sunset. Preserve the separate identities and red jacket versus blue jacket. Natural hands and anatomy.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "kind": "guide",
+          "source_sha256": "d061a82f6d7975b183d1812c962d4b472ff5b4159d2b74259f0f6ff22f8acbad",
+          "source_hash_kind": "tensor-float32",
+          "input_width": 960,
+          "input_height": 544,
+          "channels": 3,
+          "native_width": 960,
+          "native_height": 544
+        },
+        {
+          "index": 2,
+          "kind": "reference",
+          "sha256": "e094a79a49150db932b0ed84c07d1ce8d8db88abc35500d6163d7b266089de73",
+          "source_sha256": "e094a79a49150db932b0ed84c07d1ce8d8db88abc35500d6163d7b266089de73",
+          "source_hash_kind": "png",
+          "reference_ids": [
+            "ref-dc5cc99d-1e55-4957-a760-144903810bf0",
+            "ref-e9c8ba3d-e114-47f3-a46c-224bd9e6de49"
+          ],
+          "resolution": 256,
+          "input_width": 256,
+          "input_height": 256,
+          "channels": 3,
+          "native_width": 256,
+          "native_height": 256
+        },
+        {
+          "index": 3,
+          "kind": "reference",
+          "sha256": "f6a0aa54ac168ec57538f99600dd70583dad2eccae0f6d129393e3b2c4e053f1",
+          "source_sha256": "f6a0aa54ac168ec57538f99600dd70583dad2eccae0f6d129393e3b2c4e053f1",
+          "source_hash_kind": "png",
+          "reference_ids": [
+            "ref-79bb6db8-d282-41c9-8daf-185bef688396"
+          ],
+          "resolution": 256,
+          "input_width": 192,
+          "input_height": 352,
+          "channels": 3,
+          "native_width": 192,
+          "native_height": 352
+        }
+      ],
+      "output_sha256": "405afc4331ac28029a7d384c32fff0ab1fecc72e34d38ff98b8a60bb3aa5d7e4",
+      "observation": "Two people, major poses and red / blue outfits recognizable; approximate identity."
+    },
+    {
+      "name": "06-static-pose-style-turbo",
+      "prompt_id": "fc4a562d-3cd2-4aee-8e5d-61de1cc35dec",
+      "status": "success",
+      "test_kind": "diffusion-generation",
+      "seconds": 9.79,
+      "image_count": 2,
+      "width": 960,
+      "height": 544,
+      "encoding_cache_reused": false,
+      "prompt": "Create a finished image following the body poses, limb directions, position and framing in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. vermilion-red tailored jacket, ivory top, black straight-leg trousers and white sneakers\nTwo stylish adults in the poses of image1, expressive watercolor fashion illustration, clean silhouettes and controlled warm colors.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "kind": "guide",
+          "source_sha256": "9d8040920ab4e6294cf5961c94d390ed6787206996506a9d33117acddf4e65e5",
+          "source_hash_kind": "tensor-float32",
+          "input_width": 960,
+          "input_height": 544,
+          "channels": 3,
+          "native_width": 960,
+          "native_height": 544
+        },
+        {
+          "index": 2,
+          "kind": "reference",
+          "sha256": "e094a79a49150db932b0ed84c07d1ce8d8db88abc35500d6163d7b266089de73",
+          "source_sha256": "e094a79a49150db932b0ed84c07d1ce8d8db88abc35500d6163d7b266089de73",
+          "source_hash_kind": "png",
+          "reference_ids": [
+            "ref-dc5cc99d-1e55-4957-a760-144903810bf0"
+          ],
+          "resolution": 256,
+          "input_width": 256,
+          "input_height": 256,
+          "channels": 3,
+          "native_width": 256,
+          "native_height": 256
+        }
+      ],
+      "output_sha256": "ccb7e47ba2f09372f3399d46209856f51cc39aff841e54ecf92c952c3e337062",
+      "observation": "Quality failure: three-person guide plus two-person text still produced three people."
+    },
+    {
+      "name": "08-product-source",
+      "prompt_id": "9d93b6c6-502c-418d-8fd9-79eeafb1ed0d",
+      "status": "success",
+      "test_kind": "diffusion-generation",
+      "seconds": 16.39,
+      "image_count": 0,
+      "width": 1024,
+      "height": 1024,
+      "encoding_cache_reused": false,
+      "prompt": "Luxury product photography of a single sculptural emerald green leather handbag with a curved gold handle, front three-quarter view, full bag visible, seamless warm ivory studio background, soft directional light, realistic fine leather grain. No people, no text.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [],
+      "output_sha256": "876b0cb0665bbfba8f06f5cb67af2c515f0fcde51ff2c2e3823fc6962a253d1d",
+      "observation": "Text-only with zero images generated an emerald handbag."
+    },
+    {
+      "name": "09-product-environment-turbo",
+      "prompt_id": "21c47fab-cbbc-441a-aa92-a493d71dd4a2",
+      "status": "success",
+      "test_kind": "diffusion-generation",
+      "seconds": 11.05,
+      "image_count": 2,
+      "width": 768,
+      "height": 768,
+      "encoding_cache_reused": false,
+      "prompt": "Create one coherent finished image using the references only for their specified purposes.\n<image1>: Use only the accessory or product design; do not add people from this reference for the whole generated scene.\n<image2>: Use the environment and background; do not add people from this reference for the whole generated scene.\nA single emerald handbag from image1 on a stone pedestal at sunset, luxury product photography on a rooftop. Use image2 only for the environment and sky. No people. Preserve the gold curved handle.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "kind": "reference",
+          "sha256": "d3214ab02dc78e25e16256bfaeca27b832da5f2c9f9eae4da5fc0eabd148309d",
+          "source_sha256": "d3214ab02dc78e25e16256bfaeca27b832da5f2c9f9eae4da5fc0eabd148309d",
+          "source_hash_kind": "png",
+          "reference_ids": [
+            "ref-a6fd8db7-6efc-4d64-a14a-87bc45cf8061"
+          ],
+          "resolution": 768,
+          "input_width": 768,
+          "input_height": 768,
+          "channels": 4,
+          "native_width": 768,
+          "native_height": 768
+        },
+        {
+          "index": 2,
+          "kind": "reference",
+          "sha256": "8f53e03bdf1f9bd613f1f6c8a41c3386ed67743714850aa7bc2f4dfb8a6b3bd8",
+          "source_sha256": "8f53e03bdf1f9bd613f1f6c8a41c3386ed67743714850aa7bc2f4dfb8a6b3bd8",
+          "source_hash_kind": "png",
+          "reference_ids": [
+            "ref-a340a478-2c7d-49c2-b51b-dbc6c6d0da30"
+          ],
+          "resolution": 256,
+          "input_width": 352,
+          "input_height": 192,
+          "channels": 3,
+          "native_width": 352,
+          "native_height": 192
+        }
+      ],
+      "output_sha256": "28e82bcb2b610eac63badafb8ba7a99ce1557d6b38ea10405f0f42ad289f9383",
+      "observation": "Product and environment combined without scene actors; approximate handle and material."
+    },
+    {
+      "name": "10-static-two-pose-style-turbo",
+      "prompt_id": "ab61fed9-8d85-4595-b796-7e052f3fe108",
+      "status": "success",
+      "test_kind": "diffusion-generation",
+      "seconds": 9.85,
+      "image_count": 2,
+      "width": 960,
+      "height": 544,
+      "encoding_cache_reused": false,
+      "prompt": "Create a finished image following the body poses, limb directions, position and framing in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene.\nExactly two adults in the poses of image1. Elegant watercolor fashion illustration, expressive warm colors, preserve the distinct left and right pose silhouettes.",
+      "negative_prompt": "extra people, duplicate limbs, watermark",
+      "image_sources": [
+        {
+          "index": 1,
+          "kind": "guide",
+          "source_sha256": "bea65b96a77265e0078d1e8b2f92c31e568ea80db22aeb6da75c4883c16ce444",
+          "source_hash_kind": "tensor-float32",
+          "input_width": 960,
+          "input_height": 544,
+          "channels": 3,
+          "native_width": 960,
+          "native_height": 544
+        },
+        {
+          "index": 2,
+          "kind": "reference",
+          "sha256": "049fc0757baca0772dc4e85308894e1dfee3a63c3213e5da38ce779920b7d942",
+          "source_sha256": "049fc0757baca0772dc4e85308894e1dfee3a63c3213e5da38ce779920b7d942",
+          "source_hash_kind": "png",
+          "reference_ids": [
+            "ref-f451df57-1ede-4305-89b5-aee99eea99d5"
+          ],
+          "resolution": 256,
+          "input_width": 352,
+          "input_height": 192,
+          "channels": 3,
+          "native_width": 352,
+          "native_height": 192
+        }
+      ],
+      "output_sha256": "fc9fe18c28dcff8ce1bc64d5401d459d61e7632a2479bc160e5f70201f2d9d9e",
+      "observation": "Two pose silhouettes and watercolor direction; clothing / appearance also leaked from style reference."
+    },
+    {
+      "name": "07-nullable-linked",
+      "prompt_id": "b9efb73a-2b43-4471-8ef1-ccf89a559813",
+      "status": "success",
+      "test_kind": "encoding-only",
+      "image_count": 1,
+      "width": 256,
+      "height": 256,
+      "prompt": "  explicit full <image1>\n",
+      "negative_prompt": "avoid text",
+      "observation": "Actual Studio IMAGE=None linked to optional guide input; no placeholder image."
+    }
+  ]
+}

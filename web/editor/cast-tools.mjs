@@ -1,5 +1,6 @@
-import { editableActors, bindActor } from './actors.mjs?v=20261004mp1';
-import { PRESETS } from './scene.mjs?v=20261004mp1';
+import { editableActors, bindActor } from './actors.mjs?v=20261009v160';
+import { PRESETS } from './scene.mjs?v=20261009v160';
+import { detachTargets } from './reference-library.mjs?v=20261009v160';
 
 const $ = id => document.getElementById(id);
 export function installCastTools(context) {
@@ -41,7 +42,7 @@ export function installCastTools(context) {
       const card=document.createElement('div');card.className='prop-card';const title=document.createElement('strong');title.textContent=prop.label;card.append(title);
       for(const[key,label]of [['x','X'],['y','Y'],['z','Z'],['scale','尺度'],['yaw','朝向°']]){const row=document.createElement('label'),input=document.createElement('input');input.type='number';input.step=key==='yaw'?'1':'.1';input.value=prop.transform[key];input.disabled=prop.locked;row.append(document.createTextNode(label),input);input.onchange=()=>{const n=Number(input.value);if(!Number.isFinite(n)||key==='scale'&&n<=0)return;context.begin();prop.transform[key]=n;context.studio().updateProp(prop);context.changed();};card.append(row);}
       const actions=document.createElement('div');actions.className='compact-actions';
-      for(const[text,action]of [[prop.visible?'隐藏':'显示',()=>{prop.visible=!prop.visible;context.studio().updateProp(prop);}],[prop.locked?'解锁':'锁定',()=>{prop.locked=!prop.locked;}],['删除',async()=>{context.doc().props=context.doc().props.filter(item=>item.id!==prop.id);await context.studio().restoreProps();}]]){const button=document.createElement('button');button.textContent=text;button.onclick=()=>mutate(action);actions.append(button);}
+      for(const[text,action]of [[prop.visible?'隐藏':'显示',()=>{prop.visible=!prop.visible;context.studio().updateProp(prop);}],[prop.locked?'解锁':'锁定',()=>{prop.locked=!prop.locked;}],['删除',async()=>{detachTargets(context.doc(),'props',prop.id);context.doc().props=context.doc().props.filter(item=>item.id!==prop.id);await context.studio().restoreProps();}]]){const button=document.createElement('button');button.textContent=text;button.onclick=()=>mutate(action);actions.append(button);}
       card.append(actions);$('prop-list').append(card);
     }
   }

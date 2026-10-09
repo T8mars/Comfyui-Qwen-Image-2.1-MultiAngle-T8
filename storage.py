@@ -16,8 +16,10 @@ from PIL import Image, ImageOps
 
 try:
     from .multiperson import canonical_scene, actor_mode, actor_prompt, build_manifest, asset_names
+    from .reference_library import library_prompt, guide_is_stale
 except ImportError:
     from multiperson import canonical_scene, actor_mode, actor_prompt, build_manifest, asset_names
+    from reference_library import library_prompt, guide_is_stale
 
 PROMPT = "Change the camera angle from <image2> to <image1>."
 BASE_PROMPTS = {
@@ -58,6 +60,8 @@ def conditioning_for(scene):
 
 def prompt_for(scene):
     model, guide, settings = conditioning_for(scene)
+    if scene.get("version") == 3 and model == "base":
+        return library_prompt(scene, build_manifest(scene))
     if actor_mode(scene):
         return actor_prompt(scene, build_manifest(scene))
     mode = settings.get("promptMode", "default")
@@ -86,7 +90,7 @@ ZIP_DECODE_ERRORS = (zipfile.BadZipFile, zlib.error, OSError, EOFError) + (
     (zipfile.lzma.LZMAError,) if zipfile.lzma is not None else ())
 
 
-def _png(data):
+def _png(data, preserve_alpha=False):
     try:
         opened = Image.open(io.BytesIO(data))
     except Image.DecompressionBombError as error:
@@ -96,7 +100,7 @@ def _png(data):
             raise ValueError("Image exceeds 32 megapixels")
         source = ImageOps.exif_transpose(source)
         source.load()
-        image = source.convert("RGB")
+        image = source.convert("RGBA" if preserve_alpha and ("A" in source.getbands() or "transparency" in source.info) else "RGB")
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return buffer.getvalue(), {"width": image.width, "height": image.height}
@@ -133,7 +137,7 @@ class StudioStore:
             finally:
                 temporary.unlink(missing_ok=True)
 
-    def asset(self, data, kind):
+    def asset(self, data, kind, preserve_alpha=False):
         if kind == "ply":
             end = data.find(b"end_header\n")
             if end < 0 or end > 16384 or not data.startswith(b"ply\nformat binary_little_endian 1.0\n"):
@@ -175,7 +179,7 @@ class StudioStore:
                 raise ValueError("Export this GLB without Draco, Meshopt or KTX2 compression")
             meta = {}
         elif kind == "png":
-            data, meta = _png(data)
+            data, meta = _png(data, preserve_alpha)
         else:
             raise ValueError("Only GLB, Gaussian PLY and images are supported")
         digest = hashlib.sha256(data).hexdigest()
@@ -193,7 +197,7 @@ class StudioStore:
             raise ValueError("AnyAngle asset failed its integrity check; reimport and apply it again")
         return data
 
-    def save_scene(self, scene, png):
+    def save_scene(self, scene, png=None):
         scene = canonical_scene(scene)
         width, height = scene.get("width"), scene.get("height")
         if not isinstance(scene.get("camera"), dict) or not isinstance(scene.get("source"), dict):
@@ -210,15 +214,18 @@ class StudioStore:
         if not isinstance(focal_length, (int, float)) or not math.isfinite(focal_length) or focal_length < 0:
             raise ValueError("Camera focal length must be finite and non-negative")
         model, guide_mode, conditioning = conditioning_for(scene)
+        no_guide = scene.get("version") == 3 and scene["referenceLibrary"].get("mode", "guided") != "guided"
+        if not no_guide and scene.get("version") == 3 and guide_is_stale(scene):
+            raise ValueError("来源图已改变，请重新提取结构，或明确沿用保存的结构图")
         source_kind = scene.get("source", {}).get("kind")
         if source_kind not in ("human", "glb", "splat", "empty"):
             raise ValueError("Select a reconstructed scene, human or GLB source")
-        if model == "base" and guide_mode == "depth" and not conditioning.get("map") and conditioning.get("mapOrigin") != "scene":
+        if not no_guide and model == "base" and guide_mode == "depth" and not conditioning.get("map") and conditioning.get("mapOrigin") != "scene":
             raise ValueError("Import a Depth Anything map before applying")
-        if model == "base" and guide_mode == "pose" and source_kind != "human" and not (
+        if not no_guide and model == "base" and guide_mode == "pose" and source_kind != "human" and not (
                 conditioning.get("map") and conditioning.get("mapKind") == "pose"):
             raise ValueError("OpenPose guide requires a pose image or human mannequin")
-        if source_kind == "empty" and not (model == "base" and guide_mode in ("pose", "depth", "canny") and
+        if not no_guide and source_kind == "empty" and not (model == "base" and guide_mode in ("pose", "depth", "canny") and
                                            (conditioning.get("map") or scene.get("reference"))):
             raise ValueError("Current guide requires a 3D scene or an imported image")
         guide_asset = conditioning.get("map")
@@ -235,7 +242,7 @@ class StudioStore:
             self.read_asset(source_name)
         reference = scene.get("reference")
         source_reference = scene["source"].get("reference")
-        if scene["source"]["kind"] == "splat" and (not isinstance(source_reference, dict) or not isinstance(reference, dict)
+        if not no_guide and scene["source"]["kind"] == "splat" and (not isinstance(source_reference, dict) or not isinstance(reference, dict)
                                                   or not isinstance(reference.get("name"), str)
                                                   or source_reference.get("name") != reference.get("name")):
             raise ValueError("参考图与重建主体不一致，请重新重建后应用")
@@ -244,7 +251,7 @@ class StudioStore:
             if not isinstance(name, str) or not name.endswith(".png"):
                 raise ValueError("Reference must be an image")
             self.read_asset(name)
-        if scene.get("version") == 2:
+        if scene.get("version") in (2, 3):
             scene.pop("manifest", None)
             scene.pop("resolvedPrompt", None)
             for actor in scene["actors"]:
@@ -256,22 +263,31 @@ class StudioStore:
             for name in asset_names(scene):
                 self.read_asset(name)
             scene["manifest"] = build_manifest(scene)
+            if scene["manifest"].get("missing"):
+                raise ValueError("缺少参考素材：" + ", ".join(scene["manifest"]["missing"]))
+            if no_guide and scene["referenceLibrary"]["mode"] == "references-only" and not scene["manifest"]["references"]:
+                raise ValueError("仅参考模式至少启用一张参考；不使用图片请切换纯文本模式")
             scene["resolvedPrompt"] = prompt_for(scene)
-        if not isinstance(png, str) or not png.startswith("data:image/png;base64,"):
-            raise ValueError("Guide must be a PNG capture")
-        try:
-            data = base64.b64decode(png.split(",", 1)[1], validate=True)
-        except binascii.Error as error:
-            raise ValueError("Guide must contain valid PNG data") from error
-        data, meta = _png(data)
-        if (meta["width"], meta["height"]) != (width, height):
-            raise ValueError("Guide dimensions do not match the scene; capture again")
-        guide_digest = hashlib.sha256(data).hexdigest()
-        guide = {"name": f"{guide_digest}.png", "sha256": guide_digest, **meta}
+        guide = None
+        if not no_guide:
+            if not isinstance(png, str) or not png.startswith("data:image/png;base64,"):
+                raise ValueError("Guide must be a PNG capture")
+            try:
+                data = base64.b64decode(png.split(",", 1)[1], validate=True)
+            except binascii.Error as error:
+                raise ValueError("Guide must contain valid PNG data") from error
+            data, meta = _png(data)
+            if (meta["width"], meta["height"]) != (width, height):
+                raise ValueError("Guide dimensions do not match the scene; capture again")
+            guide_digest = hashlib.sha256(data).hexdigest()
+            guide = {"name": f"{guide_digest}.png", "sha256": guide_digest, **meta}
+        elif png is not None:
+            raise ValueError("仅参考 / 纯文本模式不应保存引导图片")
         document = {"scene": scene, "guide": guide, "prompt": prompt_for(scene)}
         encoded = json.dumps(document, ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":")).encode()
         digest = hashlib.sha256(encoded).hexdigest()
-        self.write(guide["name"], data)
+        if guide is not None:
+            self.write(guide["name"], data)
         self.write(f"{digest}.json", encoded)
         return {"version": 1, "id": digest}
 
@@ -280,8 +296,16 @@ class StudioStore:
         if not isinstance(token, dict) or token.get("version") != 1 or not isinstance(token.get("id"), str) or not TOKEN.fullmatch(token["id"]):
             raise ValueError("Open AnyAngle Studio and apply a shot before running this node")
         document = json.loads(self.read_asset(f"{token['id']}.json"))
-        if not isinstance(document, dict) or not isinstance(document.get("guide"), dict) or not isinstance(document.get("scene"), dict):
+        if not isinstance(document, dict) or not isinstance(document.get("scene"), dict):
             raise ValueError("This reference is not an AnyAngle scene snapshot")
+        scene = canonical_scene(document["scene"])
+        no_guide = scene.get("version") == 3 and scene["referenceLibrary"].get("mode", "guided") != "guided"
+        if no_guide:
+            if document.get("guide") is not None:
+                raise ValueError("无引导模式的快照包含了引导图片")
+            return document, None
+        if not isinstance(document.get("guide"), dict):
+            raise ValueError("This snapshot is missing its guide image")
         guide = self.read_asset(document["guide"]["name"])
         return document, guide
 
@@ -289,6 +313,8 @@ class StudioStore:
         document, _ = self.load_scene(snapshot)
         names = sorted(asset_names(document))
         manifest = {"version": 1, "kind": "anyangle-scene", "document": document, "assets": names}
+        if document["scene"].get("version") == 3:
+            manifest["minimumPluginVersion"] = "1.6.0"
         encoded = json.dumps(manifest, ensure_ascii=False, allow_nan=False).encode()
         if len(encoded) > PORTABLE_MAX_MANIFEST:
             raise ValueError("Scene manifest exceeds 8 MB; reduce saved thumbnails or templates before exporting")
@@ -339,10 +365,16 @@ class StudioStore:
             manifest = json.loads(read_entry(manifest_info))
             if not isinstance(manifest, dict) or manifest.get("version") != 1 or manifest.get("kind") != "anyangle-scene":
                 raise ValueError("This ZIP is not an AnyAngle scene")
+            minimum = manifest.get("minimumPluginVersion", "0.0.0")
+            if not isinstance(minimum, str) or not re.fullmatch(r"\d+\.\d+\.\d+", minimum) or tuple(map(int, minimum.split("."))) > (1, 6, 0):
+                raise ValueError("该便携文件需要更新版本的 AnyAngle Studio")
             document = manifest.get("document")
-            if not isinstance(document, dict) or not isinstance(document.get("guide"), dict):
+            if not isinstance(document, dict):
                 raise ValueError("Scene ZIP is missing its document")
             scene = canonical_scene(document.get("scene"))
+            no_guide = scene.get("version") == 3 and scene["referenceLibrary"].get("mode", "guided") != "guided"
+            if not no_guide and not isinstance(document.get("guide"), dict) or no_guide and document.get("guide") is not None:
+                raise ValueError("Scene ZIP has an invalid guide document")
             names = manifest.get("assets")
             if not isinstance(names, list) or not all(isinstance(name, str) and ASSET.fullmatch(name) for name in names):
                 raise ValueError("Invalid scene ZIP asset paths")
@@ -354,14 +386,14 @@ class StudioStore:
                     raw = read_entry("assets/" + name)
                     if hashlib.sha256(raw).hexdigest() != name.split(".")[0]:
                         raise ValueError("Scene ZIP asset failed its SHA256 integrity check")
-                    staging.asset(raw, name.rsplit(".", 1)[1])
+                    staging.asset(raw, name.rsplit(".", 1)[1], preserve_alpha=scene.get("version") == 3)
                     staging.write(name, raw)
-                png = staging.read_asset(document["guide"]["name"])
-                token = staging.save_scene(scene, "data:image/png;base64," + base64.b64encode(png).decode())
+                png = None if no_guide else "data:image/png;base64," + base64.b64encode(staging.read_asset(document["guide"]["name"])).decode()
+                token = staging.save_scene(scene, png)
                 for name in names:
                     self.write(name, staging.read_asset(name))
                 saved, normalized_png = staging.load_scene(token)
-                result = self.save_scene(saved["scene"], "data:image/png;base64," + base64.b64encode(normalized_png).decode())
+                result = self.save_scene(saved["scene"], None if normalized_png is None else "data:image/png;base64," + base64.b64encode(normalized_png).decode())
                 document, _ = self.load_scene(result)
                 return {"snapshot": result, **document, "manifest": document["scene"].get("manifest")}
 
@@ -373,10 +405,22 @@ class StudioStore:
             if not isinstance(view, dict):
                 raise ValueError("Invalid batch view")
             document, _ = self.load_scene(view.get("snapshot"))
-            saved.append({"snapshot": view["snapshot"], "file": f"view-{index:04d}.png",
+            encoding_plan = view.get("encoding_plan", [])
+            if not isinstance(encoding_plan, list):
+                raise ValueError("Invalid batch encoding plan")
+            normalized_plan = []
+            for entry in encoding_plan:
+                if (not isinstance(entry, dict) or entry.get("prompt_mode") not in ("input-full", "studio-plus-input")
+                        or not isinstance(entry.get("prompt"), str) or not isinstance(entry.get("negative_prompt"), str)):
+                    raise ValueError("Invalid frozen batch text")
+                entry = entry.copy()
+                entry["prompt_sha256"] = hashlib.sha256(entry["prompt"].encode()).hexdigest()
+                entry["negative_prompt_sha256"] = hashlib.sha256(entry["negative_prompt"].encode()).hexdigest()
+                normalized_plan.append(entry)
+            saved.append({"snapshot": view["snapshot"], "file": f"view-{index:04d}.png" if document["guide"] else None,
                           "camera": document["scene"]["camera"], "width": document["scene"]["width"],
                           "height": document["scene"]["height"], "prompt": document["prompt"],
-                          "prompt_id": view.get("prompt_id")})
+                          "prompt_id": view.get("prompt_id"), "encoding_plan": normalized_plan})
         encoded = json.dumps({"version": 1, "kind": "anyangle-batch", "views": saved}, ensure_ascii=False, allow_nan=False).encode()
         digest = hashlib.sha256(encoded).hexdigest()
         self.write(f"{digest}.json", encoded)
@@ -392,7 +436,8 @@ class StudioStore:
                 output.writestr("manifest.json", json.dumps(batch, ensure_ascii=False, indent=2))
                 for index, view in enumerate(batch["views"], 1):
                     _, png = self.load_scene(view["snapshot"])
-                    output.writestr(f"view-{index:04d}.png", png)
+                    if png is not None:
+                        output.writestr(f"view-{index:04d}.png", png)
             archive.seek(0)
             return archive
         except Exception:

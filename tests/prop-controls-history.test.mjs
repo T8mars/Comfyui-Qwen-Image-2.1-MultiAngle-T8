@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { detachTargets } from '../web/editor/reference-library.mjs';
 
 const source = readFileSync(new URL('../web/editor/cast-tools.mjs', import.meta.url), 'utf8')
   .replace(/^import .*\r?\n/gm, '').replace('export function installCastTools', 'function installCastTools');
@@ -19,10 +20,10 @@ function fixture() {
   let refresh;
   const context = {
     doc: () => doc, replace: value => { doc = value; }, run: task => task(),
-    begin: () => history.push(structuredClone(doc)), changed: () => refresh(),
+    begin: () => { history.push(structuredClone(doc)); return () => history.pop(); }, changed: () => refresh(),
     studio: () => ({ updateProp: prop => updates.push(prop), restoreProps: async () => {}, restore: async () => {} }),
   };
-  const state = { document: { getElementById: element, createElement: node, createTextNode: text => text, body: node() }, structuredClone };
+  const state = { document: { getElementById: element, createElement: node, createTextNode: text => text, body: node() }, structuredClone, detachTargets };
   vm.runInNewContext(source, state);
   refresh = state.installCastTools(context);
   refresh();

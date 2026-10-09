@@ -12,7 +12,7 @@ function fixture() {
   const frame = { contentWindow: {} }, replies = [], prompts = [];
   const state = {
     location: { origin: 'http://localhost:8189' }, frame, session: 'session', node: { id: 1, outputs: [{ name: 'guide_image_2', links: [1] }] },
-    batchGraph: null, batchRequests: new Map(), referenceSignature: 'reference', structureSignature: null,
+    batchGraph: null, frozenPrompts: null, batchRequests: new Map(), referenceSignature: 'reference', structureSignature: null,
     reference: { connected: true, asset: { name: 'reference.png' } }, structure: { connected: false },
     valid: () => true, getPlan: async () => ({ signature: 'reference' }), getStructurePlan: async () => null,
     unwiredAnyAngleLoader: () => false, promptForSnapshot, close() {},
@@ -42,12 +42,33 @@ test('duplicate batch requests queue a view once, and every frame keeps its own 
   assert.ok(replies.filter(reply => reply.requestId === 'first').every(reply => reply.result.prompt_id === 'job-1'));
 });
 
+test('external positive and negative text are evaluated once, then frozen for every queued camera', async()=>{
+  const {state,receive,prompts,replies}=fixture();let reads=0;
+  const graph={output:{'1':{class_type:'AnyAngleStudioT8',inputs:{snapshot:'old'}},'7':{class_type:'AnyAngleMultiPersonEncodeT8',inputs:{scene_json:['1',2],prompt:['10',0],negative_prompt:['11',0],prompt_mode:'input-full'}},'10':{class_type:'TextSource',inputs:{text:'random'}},'11':{class_type:'TextSource',inputs:{text:'negative'}}},workflow:{nodes:[{id:1,widgets_values:['old']},{id:7,widgets_values:[],inputs:[]}],links:[]}};
+  state.app.graphToPrompt=async()=>graph;state.executeReference=async plan=>{reads++;return plan.upstream['10']?'  full <image9>\n':'avoid logos';};
+  await receive('prepare','prepare');assert.equal(reads,2);
+  await receive('a','queue',{version:1,id:'a'.repeat(64)});await receive('b','queue',{version:1,id:'b'.repeat(64)});
+  assert.equal(reads,2);assert.equal(prompts[0].output[7].inputs.prompt,'  full <image9>\n');assert.equal(prompts[1].output[7].inputs.prompt,prompts[0].output[7].inputs.prompt);
+  assert.equal(prompts[1].output[7].inputs.negative_prompt,'avoid logos');assert.equal(replies.at(-1).result.encoding_plan[0].prompt,'  full <image9>\n');
+});
+
 test('reference changes stop the batch before any final-image job is queued', async () => {
   const { state, receive, prompts, replies } = fixture();
   await receive('prepare', 'prepare');
   state.getPlan = async () => ({ signature: 'changed' });
   await receive('view', 'queue', { version: 1, id: 'a'.repeat(64) });
   assert.equal(prompts.length, 0); assert.match(replies.at(-1).error, /上游已变化/);
+});
+
+test('linked prompt mode uses a COMBO reader and is frozen once for all cameras', async () => {
+  const {state,receive,prompts}=fixture(),kinds=[];
+  state.app.graphToPrompt=async()=>({output:{'1':{class_type:'AnyAngleStudioT8',inputs:{snapshot:'old'}},
+    '7':{class_type:'AnyAngleMultiPersonEncodeT8',inputs:{scene_json:['1',2],prompt:'raw',prompt_mode:['10',0]}},
+    '10':{class_type:'ModeSource',inputs:{mode:'input-full'}}},workflow:{nodes:[{id:1,widgets_values:['old']},{id:7,widgets_values:[],inputs:[]}],links:[]}});
+  state.executeReference=async(plan,valid,kind)=>{kinds.push(kind);return 'input-full';};
+  await receive('prepare','prepare');await receive('a','queue',{version:1,id:'a'.repeat(64)});await receive('b','queue',{version:1,id:'b'.repeat(64)});
+  assert.deepEqual(kinds,['mode']);assert.equal(prompts[0].output[7].inputs.prompt_mode,'input-full');
+  assert.equal(prompts[1].output[7].inputs.prompt,'raw');
 });
 
 test('static keypoints compare graph signatures and data hashes separately and preserve explicit guide priority', async () => {

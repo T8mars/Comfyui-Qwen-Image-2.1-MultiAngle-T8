@@ -20,7 +20,7 @@ function fixture(failAt = null) {
       if (!elements.has(selector)) elements.set(selector, { value: '', addEventListener() {}, showModal() {}, close() {} });
       return elements.get(selector);
     },
-    cameraBatchPlan, runCameraBatch, AbortController, clearTimeout, previewTimer: undefined,
+    cameraBatchPlan, runCameraBatch, clone: structuredClone, AbortController, clearTimeout, previewTimer: undefined,
     captureGuide: async () => { angles.push(state.doc.camera.azimuth); return 'png'; },
     batchRequest: async action => {
       if (action === 'prepare') return {};
@@ -49,7 +49,8 @@ test('batch dialog restores the original draft, controls and Canny warning after
   state.captureGuide = async () => { state.cannyWarningRevision = 1; return capture(); };
   state.refresh = () => { assert.equal(state.cannyWarningRevision, -1); };
   await state.startCameraBatch(true);
-  assert.deepEqual(angles, [0, 10, 20]); assert.equal(state.doc, original); assert.equal(state.studio.doc, original);
+  assert.equal(angles[0], original.camera.azimuth, 'Preparation captures the current scene once to freeze external Studio text');
+  assert.deepEqual(angles.slice(1), [0, 10, 20]); assert.equal(state.doc, original); assert.equal(state.studio.doc, original);
   assert.equal(state.batchViews.length, 3); assert.equal(archives[0].length, 3);
   assert.equal(state.batchViews[2].prompt_id, 'job-3');
   assert.equal(elements.get('#batch-options').inert, false); assert.equal(elements.get('#batch-stop').disabled, true);
@@ -60,7 +61,7 @@ test('batch dialog restores the original draft, controls and Canny warning after
 test('queue failure keeps the partial ZIP available and restores the camera without retrying', async () => {
   const { state, elements, original, angles, archives, errors } = fixture(2);
   await state.startCameraBatch(true);
-  assert.deepEqual(angles, [0, 10]); assert.deepEqual(errors, ['Queue failed']);
+  assert.deepEqual(angles.slice(1), [0, 10]); assert.deepEqual(errors, ['Queue failed']);
   assert.equal(archives[0].length, 2); assert.equal(archives[0][1].prompt_id, undefined);
   assert.equal(state.doc, original); assert.equal(elements.get('#batch-manifest').disabled, false);
   assert.match(elements.get('#batch-state').textContent, /已入队 1/);

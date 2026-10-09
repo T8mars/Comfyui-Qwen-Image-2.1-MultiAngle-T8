@@ -1,0 +1,160 @@
+{
+  "1": {
+    "inputs": {
+      "snapshot": ""
+    },
+    "class_type": "AnyAngleStudioT8",
+    "_meta": {
+      "title": "Comfyui-Qwen-Image-2.1-MultiAngle-T8"
+    }
+  },
+  "3": {
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "4": {
+    "inputs": {
+      "lora_name": "QI2.1_AnyAngle.safetensors",
+      "strength_model": [
+        "1",
+        3
+      ],
+      "model": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "AnyAngleOptionalLoRAT8",
+    "_meta": {
+      "title": "AnyAngle 可选 LoRA · T8"
+    }
+  },
+  "5": {
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "6": {
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "7": {
+    "inputs": {
+      "reference_resolution": 512,
+      "prompt": [
+        "1",
+        1
+      ],
+      "negative_prompt": "",
+      "prompt_mode": "input-full",
+      "clip": [
+        "5",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ],
+      "scene_json": [
+        "1",
+        2
+      ],
+      "guide_image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "AnyAngleMultiPersonEncodeT8",
+    "_meta": {
+      "title": "AnyAngle 多图编码 · Qwen 2.1"
+    }
+  },
+  "8": {
+    "inputs": {
+      "seed": 42,
+      "steps": 20,
+      "cfg": 3,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "7",
+        1
+      ],
+      "latent_image": [
+        "7",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "9": {
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "10": {
+    "inputs": {
+      "filename_prefix": "AnyAngle-MultiPerson",
+      "images": [
+        "9",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "11": {
+    "inputs": {
+      "images": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Single guide / image_1"
+    }
+  }
+}

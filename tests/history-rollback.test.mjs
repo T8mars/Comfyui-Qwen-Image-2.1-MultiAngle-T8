@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { StudioScene, defaultScene } from '../web/editor/scene.mjs';
 import { activeActor, bindActor, createActor, saveActor } from '../web/editor/actors.mjs';
+import { sourceChanged } from '../web/editor/reference-library.mjs';
 
 const app = readFileSync(new URL('../web/editor/app.mjs', import.meta.url), 'utf8');
 function fixture() {
@@ -17,7 +18,7 @@ function fixture() {
 }
 function historyContext(doc, restore) {
   const calls = { changed: 0, shots: 0, refresh: 0 };
-  const state = { doc, clone: structuredClone, linkedReference: { connected: false },
+  const state = { doc, clone: structuredClone, linkedReference: { connected: false }, sourceChanged,
     studio: { syncPose() {}, restore }, changed: () => calls.changed++, renderShots: () => calls.shots++, refresh: () => calls.refresh++ };
   const start = app.indexOf('async function undoRedo(');
   vm.runInNewContext(app.slice(start, app.indexOf("$('#undo').onclick", start)), state);
@@ -49,6 +50,7 @@ test('redo preserves the original load error if restoring the previous scene als
 
 test('successful undo still applies the connected reference and invalidates a stale splat source', async () => {
   const doc = fixture(), snapshot = structuredClone(doc); snapshot.source = { kind: 'splat', reference: { name: 'old.png' } };
+  doc.version = snapshot.version = 2; delete doc.referenceLibrary; delete snapshot.referenceLibrary;
   const source = [snapshot], target = [], restored = [];
   const { state, calls } = historyContext(doc, async incoming => restored.push(incoming));
   state.linkedReference = { connected: true, asset: { name: 'new.png' } };

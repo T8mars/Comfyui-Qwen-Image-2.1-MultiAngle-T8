@@ -42,7 +42,11 @@ export async function importReference(url) {
 
 export async function executeReference(plan, isActive, kind = 'image') {
   const previewId = 'anyangle_reference_' + crypto.randomUUID();
-  const prompt = { ...plan.upstream, [previewId]: kind === 'keypoints'
+  const prompt = { ...plan.upstream, [previewId]: kind === 'text'
+    ? { class_type: 'AnyAngleTextReadT8', inputs: { text: plan.link } }
+    : kind === 'mode' ? { class_type: 'AnyAnglePromptModeReadT8', inputs: { mode: plan.link } }
+    : kind === 'batch' ? { class_type: 'AnyAngleReferenceReadT8', inputs: { images: plan.link } }
+    : kind === 'keypoints'
     ? { class_type: 'AnyAnglePoseReadT8', inputs: { keypoints: plan.link } }
     : { class_type: 'PreviewImage', inputs: { images: plan.link } } };
   const response = await fetch('/prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
@@ -75,6 +79,16 @@ export async function executeReference(plan, isActive, kind = 'image') {
       const people = item.outputs?.[previewId]?.anyangle_pose_people?.[0];
       if (people) return people;
       throw new Error('上游没有输出可用的 POSE_KEYPOINT 数据');
+    }
+    if (kind === 'text' || kind === 'mode') {
+      const text = item.outputs?.[previewId]?.anyangle_text?.[0];
+      if (typeof text === 'string') return text;
+      throw new Error('上游没有输出可用文本');
+    }
+    if (kind === 'batch') {
+      const batch = item.outputs?.[previewId]?.anyangle_reference_batch?.[0];
+      if (batch) return batch;
+      throw new Error('上游没有输出可用参考批次');
     }
     const image = item.outputs?.[previewId]?.images?.[0];
     if (image) return importReference(imageViewURL(image.filename, image.type, image.subfolder));

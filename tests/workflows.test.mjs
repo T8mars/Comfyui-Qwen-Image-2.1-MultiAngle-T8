@@ -34,3 +34,35 @@ test('API workflow uses the model-strength output', () => {
   const workflow = JSON.parse(readFileSync(new URL('../workflows/AnyAngle-Studio-Qwen21-API.json', import.meta.url)));
   assert.deepEqual(workflow['4'].inputs.strength_model, ['1', 3]);
 });
+
+for (const kind of ['MultiReference', 'ReferencesOnly', 'ViggleTurbo6']) {
+  test(`${kind} workflow preserves explicit full prompt wiring and valid serialized links`, () => {
+    const name = `AnyAngle-Studio-Qwen21-${kind}`;
+    const workflow = JSON.parse(readFileSync(new URL(`../workflows/${name}.json`, import.meta.url)));
+    const studio = workflow.nodes.find(node => node.type === 'AnyAngleStudioT8');
+    const encoder = workflow.nodes.find(node => node.type === 'AnyAngleMultiPersonEncodeT8');
+    const promptInputs = encoder.inputs.filter(input => input.name === 'prompt');
+    assert.equal(promptInputs.length, 1);
+    const promptLink = workflow.links.find(link => link[0] === promptInputs[0].link);
+    assert.deepEqual(promptLink.slice(1, 5), [studio.id, 1, encoder.id, encoder.inputs.indexOf(promptInputs[0])]);
+    for (const link of workflow.links) {
+      assert.equal(workflow.nodes.find(node => node.id === link[3]).inputs[link[4]].link, link[0]);
+      assert.ok(workflow.nodes.find(node => node.id === link[1]).outputs[link[2]].links.includes(link[0]));
+    }
+    const api = JSON.parse(readFileSync(new URL(`../workflows/${name}-API.json`, import.meta.url)));
+    const encoded = api[String(encoder.id)].inputs;
+    assert.deepEqual(encoded.prompt, [String(studio.id), 1]);assert.equal(encoded.prompt_mode, 'input-full');
+    assert.equal(api[String(studio.id)].inputs.snapshot, '');
+    if (kind === 'ReferencesOnly') {
+      assert.equal(encoded.guide_image, undefined);
+      assert.ok(!workflow.nodes.some(node => node.type === 'PreviewImage'));
+    }
+    if (kind === 'ViggleTurbo6') {
+      assert.ok(Object.values(api).some(node => node.class_type === 'ViggleTurboLora'));
+      assert.ok(Object.values(api).some(node => node.class_type === 'ViggleTurboSigmas'));
+      assert.ok(Object.values(api).some(node => node.class_type === 'BasicGuider'));
+      assert.ok(!Object.values(api).some(node => node.class_type === 'KSampler'));
+      assert.ok(!Object.values(api).some(node => node.class_type === 'AnyAngleOptionalLoRAT8'));
+    }
+  });
+}

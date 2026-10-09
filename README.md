@@ -1,16 +1,50 @@
 <p align="center"><img src="web/icons/aperture.svg" width="48" alt="AnyAngle Studio"></p>
 <h1 align="center">AnyAngle Studio · T8</h1>
-<p align="center"><strong>多人同场编排、独立身份参考、三维相机与结构引导图。</strong></p>
+<p align="center"><strong>多人同场编排、多用途参考素材、三维相机与结构引导。</strong></p>
 <p align="center"><strong>简体中文</strong> · <a href="README_EN.md">English</a></p>
 <p align="center">ComfyUI 自定义节点 · Qwen Image 2.1 · 可关闭的 AnyAngle LoRA · TripoSplat · MIT</p>
 
-![v1.5.7 实际 ComfyUI 三人工作台与机位收藏](docs/images/studio-multi-person-v157.png)
+![v1.6.0 实际多人工作台与通用参考素材](docs/images/studio-reference-guided-v160.png)
 
-<p align="center"><sub>v1.5.7 · 实际 ComfyUI 工作台截图 · 内置人偶，无需另装 Fisher</sub></p>
+<p align="center"><sub>v1.6.0 · 实际工作台截图 · 内置人偶，无需另装 Fisher</sub></p>
 
 **原模型：[lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [基础工作流](workflows/AnyAngle-Studio-Qwen21.json) · [进阶工作流](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [English README](README_EN.md)
 
-## 多人工作台 · 1.5.7
+## 多图创作 · 1.6.0
+
+参考图可以是**身份、服装、配饰 / 产品、场景、风格、布局**，也可以自由参考。左侧分为「参考素材」和「场景对象」：一张素材可有多个用途、用于多个人物或道具；相同图片只编码一次。右侧发送清单显示实际图号和未发送原因，切换粗图、POSE、Depth、Canny 时保留素材。
+
+| 工作流 | 用途 |
+|---|---|
+| [构图引导 + 多图参考](workflows/AnyAngle-Studio-Qwen21-MultiReference.json) | 摆放人物 / 道具，叠加任意用途的素材 |
+| [仅参考创作](workflows/AnyAngle-Studio-Qwen21-ReferencesOnly.json) | 无需人偶或 GLB；不发送灰色占位图；首张参考决定画幅 |
+| [Viggle Turbo · 6 步](workflows/AnyAngle-Studio-Qwen21-ViggleTurbo6.json) | 使用作者专用节点的加速路线，默认 Qwen 底模 |
+
+**提示词可独立编辑。** 默认工作流显式连接 `Studio.prompt → 多图编码.prompt`，设置 `input-full`。断开此线后手写，或替换为文本 / 拼接节点；`negative_prompt` 单独填写。`studio-plus-input` 用于在 Studio 自动提示词后追加描述，请勿同时接入完整 Studio 文本。全文模式保留输入原文，包括空串，不隐式追加素材用途。
+
+`reference_image` 是重建 / 提取的**场景来源图**，加入素材库后才参与新版多图参考；`actor_reference_N` 是**通用参考输入**，不限人物。`structure_image` 接已处理的骨架 / 深度 / 轮廓图，`pose_keypoints` 接原生姿势关键点。每个 IMAGE 批次默认取首张，可显式拆分；支持真实裁切、参考组合模板、仅参考和纯文本创作。
+
+![仅参考创作的实际工作台](docs/images/studio-reference-only-v160.png)
+
+| 原生 Qwen · 20 步 | Viggle Turbo · 6 步 |
+|:---:|:---:|
+| <img src="docs/images/references-native-v160.png" width="340" alt="三张参考的原生 Qwen 实际生成结果"> | <img src="docs/images/references-turbo-v160.png" width="340" alt="相同参考与 seed 的 Turbo 实际生成结果"> |
+
+上面两图均由本机 ComfyUI 实际生成，使用相同三张素材与 seed 42。用途和目标是提示词描述，不是硬遮罩或独立参考权重；衣饰细节、身份近似及复杂布局仍可能偏离。[操作与模型来源](docs/reference-library.md) · [执行与效果验收](docs/reference-library-validation.md)。
+
+Turbo 需额外安装作者的 [Viggle 专用节点与模型](https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/tree/main/comfyui)，使用 `ViggleTurboLora`、`ViggleTurboSigmas`、Euler、BasicGuider。此路线不使用负向 CFG，编码器的 negative 输出未接入采样；不要用普通 LoRA 加载器或 KSampler 的 6 步替代。普通多图功能无需新增推理权重。
+
+旧场景 v1 / v2 按原规则打开，点击「升级为多用途参考」才启用新素材库。新版便携 ZIP 包含停用素材，要求插件 1.6.0 或更新版本。仅参考首图独立处理尺寸，其余素材采用编码器参考预算，实际输出尺寸显示在 latent 端口。
+
+## 20组教学实测 · 16:9
+
+每组都结合多用途参考与双人或三人，覆盖人偶、POSE、Depth、Canny、真实高斯和仅参考创作。全部由本地 ComfyUI Turbo 6步生成，展示原图、实际引导、最终成图及素材用途。
+
+![20组多用途参考与多人实际成图](docs/images/teaching-v160/overview.jpg)
+
+[查看20组介绍图与实测说明](docs/teaching-gallery.md) · [图号、提示词与执行记录 / Records](docs/teaching-gallery-validation.json)。
+
+## 多人工作台
 
 **[多人工作流](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[含人物参考的三人场景 ZIP](examples/multi-person-photo-pose.zip)** · [实测结果与限制](docs/multi-person-validation.md)
 
@@ -185,7 +219,7 @@ Change the camera angle from <image2> to <image1>.
 
 **1.2.1 修复：**姿势预设缩略图按完整人物范围取景；编辑人偶后，POSE 输出不再沿用之前提取的原图骨架。旧版（1.0.1 及更早）还存在高 DPI 下预览放大、偏移至右上角的错误，已在 1.0.2 修复。黄框内是实际输出范围；人物超出黄框时先点击「适合画幅」。
 
-更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.5.7**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
+更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.6.0**；重新点击「应用到节点」，替换工作流中已保存的旧粗图。
 
 在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
 

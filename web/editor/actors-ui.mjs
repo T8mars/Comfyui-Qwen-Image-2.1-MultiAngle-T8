@@ -1,8 +1,9 @@
-import { createActor, activeActor, ensureActors, bindActor, cloneActor, removeActor, moveActor, editableActors, actorSeed, applySceneTemplate } from './actors.mjs?v=20261004mp1';
-import { randomPose } from './poses.mjs?v=20261004mp1';
-import { installCastTools } from './cast-tools.mjs?v=20261005audit4';
-import { poseCopyIssue, ORDER } from './openpose.mjs?v=20261004mp1';
-import { guideSource } from './guides.mjs?v=20261004mp1';
+import { createActor, activeActor, ensureActors, bindActor, cloneActor, removeActor, moveActor, editableActors, actorSeed, applySceneTemplate } from './actors.mjs?v=20261009v160';
+import { randomPose } from './poses.mjs?v=20261009v160';
+import { installCastTools } from './cast-tools.mjs?v=20261009v160';
+import { poseCopyIssue, ORDER } from './openpose.mjs?v=20261009v160';
+import { guideSource } from './guides.mjs?v=20261009v160';
+import { addReference, newUse } from './reference-library.mjs?v=20261009v160';
 
 let context, renderKey, renderedDoc, renderedRoles = [], references = [];
 let refreshCastTools;
@@ -102,7 +103,7 @@ export function installActorsUI(options) {
     atomic(async () => {
       const form = new FormData(); form.append('file', file); const response = await fetch('/anyangle-studio/import-scene', { method: 'POST', body: form });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || '导入失败');
-      context.replace(result.scene); await context.studio().restore(result.scene); await context.ensureHumanTools(); context.toast('便携场景已导入，人物和资源已恢复');
+      context.replace(result.scene); await context.studio().restore(result.scene); if (result.scene.source.kind === 'human') await context.ensureHumanTools(); context.toast('便携场景已导入，人物和资源已恢复');
     });
   };
   $('export-keypoints').onclick = () => { const json = context.studio().poseJSON(); context.downloadBlob(new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' }), 'AnyAngle-OpenPose.json'); };
@@ -133,9 +134,13 @@ export function refreshActorsUI() {
   if (!context) return;
   refreshCastTools?.();
   const doc = context.doc(), actor = activeActor(doc), human = doc.source.kind === 'human';
+  const identity = $('actor-reference').closest('.actor-identity');
+  identity.hidden = false;
+  for (const element of identity.children) element.hidden = doc.version === 3 && element !== $('actor-description').closest('label');
+  $('actor-identities').closest('label').hidden = doc.version === 3;
   const staticGuide = doc.conditioning.promptMode !== 'custom' && ['image', 'canny-image'].includes(guideSource(doc).kind);
   $('actors-panel').classList.toggle('cast-inactive', !human);
-  $('read-actor-references').hidden = !references.length;
+  $('read-actor-references').hidden = doc.version === 3 || !references.length;
   const key = JSON.stringify([human, doc.actors?.map(({ id, label, editorColor, visible, locked, identity }) => ({ id, label, editorColor, visible, locked, identity })), doc.activeActorId, doc.selectedActorIds, references]);
   if (key !== renderKey || doc !== renderedDoc || (doc.actors || []).some((role,index) => role !== renderedRoles[index])) {
     renderKey = key; renderedDoc = doc; renderedRoles = (doc.actors || []).slice(); $('actor-list').replaceChildren();
@@ -161,7 +166,7 @@ export function refreshActorsUI() {
     for (const [id, value] of [['actor-label', actor.label], ['actor-color', actor.editorColor], ...['x', 'y', 'z', 'yaw', 'scale'].map(key => [`actor-${key}`, actor.transform[key]]), ['actor-description', actor.identity.description], ['actor-source-person', typeof actor.identity.sourcePerson === 'string' ? actor.identity.sourcePerson : actor.identity.sourcePerson?.description || '']])
       if (document.activeElement !== $(id)) $(id).value = value;
     for (const key of ['x', 'y', 'z', 'yaw', 'scale']) $('actor-'+key).disabled = actor.locked;
-    const image = $('actor-reference-preview'); image.hidden = !actor.identity.asset;
+    const image = $('actor-reference-preview'); image.hidden = doc.version === 3 || !actor.identity.asset;
     if (actor.identity.asset) image.src = `/anyangle-studio/assets/${encodeURIComponent(actor.identity.asset.name)}`;
     $('actor-binding-state').textContent = staticGuide ? `${doc.reference ? '原图结构模式使用共享原图' : '没有共享原图，当前使用结构图与文字描述'}；人物绑定保留，切回三维引导后生效。`
       : actor.identity.inputKey ? `连线 ${actor.identity.inputKey} · 更新照片不会改变姿势` : actor.identity.asset ? '身份照片已绑定；多人编码节点会读取此照片' : '纯文字身份；不会引用不存在的照片';
@@ -232,6 +237,13 @@ export async function chooseDetectedPeople(people, asset, options = {}) {
     context.studio().applyOpenPose(person.points, {}, mode);
     role.poseSource = { origin: options.origin || 'dwpose', detectionId: person.id, points: clone(person.points), fullBody: person.fullBody, visibleOnly: person.visibleOnly, retargetMode: mode, rawAsset: asset };
     if ($('people-bind-photo').checked && options.reference) role.identity = { ...role.identity, asset: options.reference, inputKey: null, sourcePerson: { id: person.id, bbox: person.bbox, canvasWidth: person.canvasWidth || options.reference.width, canvasHeight: person.canvasHeight || options.reference.height, description: `person ${people.indexOf(person)+1} in the source photo` } };
+    if (doc.version === 3 && $('people-bind-photo').checked && options.reference) {
+      let material = doc.referenceLibrary.items.find(item => item.asset?.name === options.reference.name);
+      if (!material) material = addReference(doc, options.reference, { label: '合影身份参考', usages: [] });
+      const usage = newUse('identity', { kind: 'actors', ids: [role.id], text: '' });
+      usage.sourceText = `person ${people.indexOf(person)+1} in the source photo${person.bbox ? `, pixel region [${person.bbox.join(', ')}] in ${person.canvasWidth || options.reference.width} x ${person.canvasHeight || options.reference.height}` : ''}`;
+      material.usages.push(usage);
+    }
   }
   await context.studio().selectActor(previousActive); doc.conditioning.model = 'base'; doc.conditioning.guide = 'pose'; doc.conditioning.map = null; doc.conditioning.mapKind = null; doc.conditioning.mapOrigin = 'rig';
   if ($('people-bind-photo').checked || action === 'all' && doc.actors.length > 1) { doc.conditioning.identityMode = 'actors'; doc.conditioning.imageOrder = 'guide-first'; }

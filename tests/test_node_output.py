@@ -17,9 +17,64 @@ from comfy_api.latest import io as comfy_io
 from comfy_api.latest import _io
 from comfy_extras.nodes_qwen import TextEncodeQwenImage21
 from test_multiperson import scene_for
+from test_reference_library import library_scene, reference
 
 
 class NodeOutputTests(unittest.TestCase):
+    def test_batch_text_and_combo_readers_preserve_values_with_matching_socket_types(self):
+        from comfy_execution.validation import validate_node_input
+        for reader, input_type, value in ((self.module.AnyAngleTextRead, "STRING", "  raw <image3>\n"),
+                                          (self.module.AnyAnglePromptModeRead, "COMBO", "input-full")):
+            schema = reader.GET_SCHEMA()
+            self.assertTrue(schema.is_output_node)
+            self.assertTrue(schema.is_dev_only)
+            self.assertTrue(validate_node_input(input_type, schema.inputs[0].get_io_type()))
+            self.assertEqual(reader.execute(value).ui["anyangle_text"], [value])
+
+    def test_generic_encoder_preserves_full_prompt_negative_no_guide_and_first_dimensions(self):
+        scene = library_scene()
+        asset = self.module.image_asset(torch.ones((1, 79, 141, 3)))
+        scene["referenceLibrary"]["items"] = [reference(asset)]
+        token = self.module.store().save_scene(scene)
+        studio = self.module.AnyAngleStudio().render(json.dumps(token))["result"]
+        self.assertIsNone(studio[0])
+        class Clip:
+            def __init__(self): self.calls = []
+            def tokenize(self, text, **kwargs): self.calls.append((text, kwargs)); return text
+            def encode_from_tokens_scheduled(self, _): return [[torch.zeros((1, 1, 1)), {}]]
+        class Vae:
+            def __init__(self): self.images = []
+            def encode(self, image): self.images.append(image.clone()); return torch.zeros((1, 64, image.shape[1] // 16, image.shape[2] // 16))
+        for text in ("  custom <image1>\n", ""):
+            clip, vae = Clip(), Vae()
+            with patch("comfy.model_management.intermediate_device", return_value=torch.device("cpu")):
+                encoded = self.module.AnyAngleMultiPersonEncode.execute(clip, vae, studio[2], prompt=text,
+                    negative_prompt="negative user text", prompt_mode="input-full")
+            self.assertEqual(clip.calls[0][0], text)
+            self.assertEqual(clip.calls[1][0], "negative user text")
+            self.assertEqual(encoded.ui["anyangle_encoding"][0]["width"], 128)
+            self.assertEqual(encoded.ui["anyangle_encoding"][0]["height"], 64)
+            self.assertEqual(len(vae.images), 1)
+        clip, vae = Clip(), Vae()
+        with patch("comfy.model_management.intermediate_device", return_value=torch.device("cpu")):
+            self.module.AnyAngleMultiPersonEncode.execute(clip, vae, studio[2], prompt="extra")
+        self.assertEqual(clip.calls[0][0], studio[1] + "\nextra")
+
+    def test_connected_reference_batch_is_explicit_and_disconnect_requires_saved_version(self):
+        images = torch.stack([torch.zeros((64, 96, 3)), torch.ones((64, 96, 3))])
+        read = self.module.AnyAngleReferenceRead.execute(images).ui["anyangle_reference_batch"][0]
+        self.assertEqual(read["batchCount"], 2)
+        self.assertNotEqual(read["assets"][0]["name"], read["assets"][1]["name"])
+        scene = library_scene()
+        item = reference(read["assets"][1])
+        item.update(inputKey="actor_reference_1", batchIndex=1)
+        scene["referenceLibrary"]["items"] = [item]
+        token = self.module.store().save_scene(scene)
+        with self.assertRaisesRegex(ValueError, "缺少参考连线"):
+            self.module.AnyAngleStudio().render(json.dumps(token))
+        studio = self.module.AnyAngleStudio().render(json.dumps(token), actor_references={"actor_reference_1": images})["result"]
+        self.assertEqual(json.loads(studio[2])["referenceLibrary"]["items"][0]["asset"]["name"], read["assets"][1]["name"])
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

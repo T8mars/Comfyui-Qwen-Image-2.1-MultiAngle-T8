@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../web/vendor/three.module.mjs';
 import { PoseViewerCore } from '../web/vendor/vnccs_pose_studio_core.mjs';
-import { StudioScene, defaultScene } from '../web/editor/scene.mjs';
+import { StudioScene, defaultScene as currentDefaultScene } from '../web/editor/scene.mjs';
+const defaultScene = () => { const scene = currentDefaultScene(); scene.version = 2; delete scene.referenceLibrary; return scene; };
 import { createActor, ensureActors, bindActor, saveActor, cloneActor, removeActor, moveActor, editableActors, actorSeed, applySceneTemplate } from '../web/editor/actors.mjs';
 import { buildManifest, actorMode, actorPrompt, scenePrompt } from '../web/editor/manifest.mjs';
 import { promptForSnapshot } from '../web/batch-queue.mjs';
@@ -153,7 +154,9 @@ test('multi-person workflow keeps scene/guide and native conditioning links alig
   const nodes=new Map(workflow.nodes.map(node=>[node.id,node]));
   for(const[id,source,output,target,input,type]of workflow.links){const from=nodes.get(source),to=nodes.get(target);assert.equal(to.inputs[input].link,id);assert.ok(from.outputs[output].links.includes(id));assert.equal(to.inputs[input].type,type);}
   const encoder=workflow.nodes.find(node=>node.type==='AnyAngleMultiPersonEncodeT8');
-  assert.deepEqual(encoder.inputs.map(input=>input.name),['clip','vae','scene_json','guide_image']);
+  assert.deepEqual(encoder.inputs.map(input=>input.name),['clip','vae','scene_json','guide_image','prompt']);
+  const promptLink=workflow.links.find(link=>link[0]===encoder.inputs[4].link);assert.equal(promptLink[2],1);
+  assert.equal(encoder.widgets_values.at(-1),'input-full');
   const sceneLink=workflow.links.find(link=>link[0]===encoder.inputs[2].link);assert.equal(sceneLink[2],2);
   assert.ok(!workflow.nodes.some(node=>node.type==='LoadImage'),'The text-only identity route runs without placeholder photo assets');
 });

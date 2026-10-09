@@ -1,4 +1,4 @@
-import { guideSource } from './guides.mjs?v=20261004mp1';
+import { guideSource } from './guides.mjs?v=20261009v160';
 
 export function supportsCameraBatch(scene) {
   const kind = guideSource(scene).kind;
@@ -48,7 +48,11 @@ export async function runCameraBatch(plan, { capture, save, queue, signal, onPro
       if (Array.isArray(view.scene.cameraTarget)) entry.cameraTarget = structuredClone(view.scene.cameraTarget);
       result.views.push(entry);
       if (signal?.aborted) { result.stopped = true; break; }
-      if (queue) entry.prompt_id = await queue(snapshot);
+      if (queue) {
+        const queued = await queue(snapshot);
+        if (typeof queued === 'string') entry.prompt_id = queued;
+        else { entry.prompt_id = queued.prompt_id; entry.encoding_plan = queued.encoding_plan; }
+      }
       onProgress({ index: result.views.length, total: plan.count, label: view.label, phase: queue ? 'queued' : 'saved' });
     } catch (error) { result.error = error; break; }
   }

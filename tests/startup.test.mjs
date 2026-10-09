@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { defaultScene, restoreSceneDefaults } from '../web/editor/scene.mjs';
+import { defaultScene as currentDefaultScene, restoreSceneDefaults } from '../web/editor/scene.mjs';
+const defaultScene = () => { const scene = currentDefaultScene(); scene.version = 2; delete scene.referenceLibrary; return scene; };
 import { ensureActors } from '../web/editor/actors.mjs';
 import { buildManifest, actorMode, actorPrompt, scenePrompt } from '../web/editor/manifest.mjs';
 import { createActor } from '../web/editor/actors.mjs';
@@ -50,8 +51,10 @@ function fixture(response) {
     showLoadError: () => { state.$('#loading').hidden = true; },
     StudioScene: class { async init(doc) { state.initCount++; state.initializedSource = doc.source.kind; } },
     begin() {}, changed() {}, refresh() {}, schedulePreview() {}, selectRole() {},
+    sourceChanged() {},
     renderShots() {}, renderLibrary() {}, ensureHumanTools: async () => {},
     usesLocalGuide: () => false, applyStructureAsset: async () => {},
+    requiresGuide: () => state.doc.version !== 3 || state.doc.referenceLibrary.mode === 'guided',
     setBusy: value => { state.busy = value; },
     renderPreview: async () => { state.previewCount++; },
     currentGuide: () => state.doc.conditioning.guide,
@@ -158,7 +161,7 @@ test('actor and keypoint replies wait for the current edit and preserve revision
   const microtasks=[],jobs=[],references=[],notices=[];
   const state={busy:true,ready:true,pendingActors:{actorReferences:[{inputKey:'actor_reference_2',asset:{name:'b.png'}}]},pendingKeypoints:{posePeople:{asset:{name:'pose.png'},people:[{points:{},fullBody:false}],signature:'new'}},pendingReference:null,pendingStructure:null,
     doc:{conditioning:{},openpose:null},$:()=>({}),hasGuide:()=>true,linkedReference:{},linkedStructure:{},usesLocalGuide:()=>true,undo:[],redo:[],queueMicrotask:fn=>microtasks.push(fn),
-    readPendingReference(){},readPendingStructure(){},updateActorReferences:value=>references.push(value),toast:message=>notices.push(message),changed:()=>{state.changes++},changes:0,
+    readPendingReference(){},readPendingStructure(){},setReferenceConnections(){},updateActorReferences:value=>references.push(value),toast:message=>notices.push(message),changed:()=>{state.changes++},changes:0,
     applyOpenPoseAsset:async(asset)=>{state.doc.openpose={sourceName:asset.name,useRig:false};state.changes++},
   };
   state.run=task=>{if(state.busy)return;state.setBusy(true);const job=Promise.resolve().then(task).finally(()=>state.setBusy(false));jobs.push(job);return job};

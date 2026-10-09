@@ -1,0 +1,190 @@
+{
+  "2": {
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "3": {
+    "inputs": {
+      "lora_name": "Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors",
+      "strength": 1,
+      "model": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "ViggleTurboLora",
+    "_meta": {
+      "title": "Qwen-Image-2.1 Viggle Turbo LoRA (unmerged)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "5": {
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "19": {
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "conditioning": [
+        "28",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "BasicGuider (CFG off)"
+    }
+  },
+  "20": {
+    "inputs": {
+      "noise_seed": 42
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "21": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "22": {
+    "inputs": {
+      "nodes": "1.0, 0.9375, 0.875, 0.75, 0.5, 0.25",
+      "latent": [
+        "28",
+        2
+      ]
+    },
+    "class_type": "ViggleTurboSigmas",
+    "_meta": {
+      "title": "Qwen-Image-2.1 Viggle Turbo Sigmas"
+    }
+  },
+  "23": {
+    "inputs": {
+      "noise": [
+        "20",
+        0
+      ],
+      "guider": [
+        "19",
+        0
+      ],
+      "sampler": [
+        "21",
+        0
+      ],
+      "sigmas": [
+        "22",
+        0
+      ],
+      "latent_image": [
+        "28",
+        2
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器（高级）"
+    }
+  },
+  "24": {
+    "inputs": {
+      "samples": [
+        "23",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "25": {
+    "inputs": {
+      "filename_prefix": "AnyAngle-ViggleTurbo6",
+      "images": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "27": {
+    "inputs": {
+      "snapshot": ""
+    },
+    "class_type": "AnyAngleStudioT8",
+    "_meta": {
+      "title": "Comfyui-Qwen-Image-2.1-MultiAngle-T8"
+    }
+  },
+  "28": {
+    "inputs": {
+      "reference_resolution": 512,
+      "prompt": [
+        "27",
+        1
+      ],
+      "negative_prompt": "",
+      "prompt_mode": "input-full",
+      "clip": [
+        "4",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ],
+      "scene_json": [
+        "27",
+        2
+      ],
+      "guide_image": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "AnyAngleMultiPersonEncodeT8",
+    "_meta": {
+      "title": "AnyAngle 多图编码 · Qwen 2.1"
+    }
+  }
+}

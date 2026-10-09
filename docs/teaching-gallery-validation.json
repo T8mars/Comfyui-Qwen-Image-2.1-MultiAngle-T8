@@ -1,0 +1,1548 @@
+{
+  "date": "2026-10-09",
+  "version": "1.6.0",
+  "cases": [
+    {
+      "case": 1,
+      "title": "雨港双人电影",
+      "title_en": "Rain-harbor cinema",
+      "people": 2,
+      "guide": "Mannequin render",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100901,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "POSE PRIORITY: Copy the exact two body poses from image1. The woman on the left raises her right hand beside her head, open palm visible; her other arm hangs down. The man on the right bends one arm against his upper chest. Their hands must NOT both be in their pockets. The clothing references are faceless garment displays, never pose references.\nCreate a finished image following the camera angle, composition, poses and placement in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\nThe guide contains 2 people. Keep their identities and placements separate.\nPerson 1 (#f08089 mannequin) in the guide is 女主. charcoal trench coat and rust silk blouse\nPerson 2 (#628ee7 mannequin) in the guide is 男角色1. navy wool coat\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. charcoal trench coat and rust silk blouse\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1. Source content: right outfit on the dress form. navy wool coat\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. rainy harbor warehouses\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is cinematic neo-noir editorial photograph, silver blue rain and amber practical light\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. copper vintage camera\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. cinematic neo-noir editorial photograph, silver blue rain and amber practical light. The environment is rainy harbor warehouses; preserve the wardrobe designs and integrate the copper vintage camera naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "955af5a6-bf28-4478-960c-0edaef1e280a",
+      "execution_status": "success",
+      "source_sha256": "06a3b419a2143393fefd9e8d80086b9afd7e59691167ead4c3c05012c53e2dfc",
+      "guide_sha256": "2b0dbe68e40bc678d70ed84521247e74e206ae399d3dcdb45e1c5ebe9667c293",
+      "final_sha256": "f1095ce8171fa984be3c6343a642e52a9eb3443cac9217bead627fbcc630e375",
+      "poster_4k_sha256": "2281cd565814f349aa96e1e2b710863aeb8ca94fa356255df575f17b97267d5b",
+      "published_preview_sha256": "f662976d9fb39647fe434a393bce41e493230c0c6881ca2b2c8508d0e28db982",
+      "observation": "双人雨港电影画面；女性挥手、雨地反光与深色服装清晰。",
+      "known_limits": "男性采用抱臂，未完全复现人偶手臂姿势。"
+    },
+    {
+      "case": 2,
+      "title": "蔚蓝海岸三人假日",
+      "title_en": "Riviera holiday",
+      "people": 3,
+      "guide": "Mannequin render",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100902,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a complete, beautiful wide 16:9 1970s analog travel photograph, sunlit cream tones and grain in the actual environment French Riviera pink villa and turquoise sea from IMAGE4. IMAGE4 MUST replace the entire flat gray guide background with its finished, detailed real environment. Never leave a gray studio backdrop. Show exactly 3 clearly separate ADULT people, full body, shoes and gown hems completely inside the frame, natural floor beneath their feet and some environment above their heads.\nImage1 supplies only the person positions, body proportions and poses; not the gray background, bald heads or mannequin colors. The left woman uses face identity image2, the LEFT ivory linen dress and cobalt scarf outfit in image3, and cream woven travel bag from image5. The man to her right uses FACE image6 and the RIGHT sand linen suit outfit in image3. The third adult man on the far right uses FACE image7, stays separate from the center man and wears a darker variation of the same male outfit.\nImage4 supplies the entire detailed environment AND the photographic lighting and color palette. Image5 supplies the accessory AND its material style; integrate this accessory naturally with the woman, never add copies to the man. Faces, clothes, scene, accessory and poses each come from their assigned reference, in one cohesive finished image. Natural anatomy, rich material detail, subtle shadows, no extra people, picture collage, labels or guide marks.",
+      "prompt_id": "ecf65a08-14d7-4ae0-b7c9-dff1cf01de5f",
+      "execution_status": "success",
+      "source_sha256": "740edbdbd691bf8c78b1ed70b44e76414132bd1b22cb8cde2df4afd05087e6fa",
+      "guide_sha256": "b4353dd95c64957b222a701e438f97e58fea05dcf8cd25846a6699ea73f66fa9",
+      "final_sha256": "f254c004828a6bf9223e67bb222576f201813b3118c5fb69693574d35ab3f6d9",
+      "poster_4k_sha256": "ab8428ac17819731886d0de1fa4b08050e5d8ac3df7bf3884595d2b51901cf24",
+      "published_preview_sha256": "f6850213353df4178d065fc65a5409a49c526de2afd2ce1db972dcbbcac10722",
+      "observation": "三名成人完整可见；海岸、浅色服装、丝巾与草编包参与最终画面。",
+      "known_limits": "两名男性服装一致；人脸身份仍属于参考引导。"
+    },
+    {
+      "case": 3,
+      "title": "爵士双人金色晚宴",
+      "title_en": "Golden jazz evening",
+      "people": 2,
+      "guide": "Mannequin render",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100903,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a complete, beautiful wide 16:9 luxury art deco fashion photography, black gold and burgundy in the actual environment art deco jazz hotel lounge from IMAGE4. IMAGE4 MUST replace the entire flat gray guide background with its finished, detailed real environment. Never leave a gray studio backdrop. Show exactly 2 clearly separate ADULT people, full body, shoes and gown hems completely inside the frame, natural floor beneath their feet and some environment above their heads.\nImage1 supplies only the person positions, body proportions and poses; not the gray background, bald heads or mannequin colors. The left woman uses face identity image2, the LEFT black velvet gown with gold embroidery outfit in image3, and black clutch and gold pendant from image5. The man to her right uses FACE image6 and the RIGHT burgundy tuxedo outfit in image3. \nImage4 supplies the entire detailed environment AND the photographic lighting and color palette. Image5 supplies the accessory AND its material style; integrate this accessory naturally with the woman, never add copies to the man. Faces, clothes, scene, accessory and poses each come from their assigned reference, in one cohesive finished image. Natural anatomy, rich material detail, subtle shadows, no extra people, picture collage, labels or guide marks.",
+      "prompt_id": "1cb5a20f-0175-4824-9cf7-180b78d29fc6",
+      "execution_status": "success",
+      "source_sha256": "b3222096dbf6651acfc11b139a181e457558f8693af3ecc606f79b5735c188cd",
+      "guide_sha256": "3a57a4698e970afe310c9585fed5c792b264cd080a4c779e842b91bb81737bfd",
+      "final_sha256": "58fbfc2de28736fda2be19946789d92aea60b7ee3a39c6f204784f8563e67a63",
+      "poster_4k_sha256": "34d60485b6bd99488c518155d87496d5d8316e6748e47fb7699033087fd0c82e",
+      "published_preview_sha256": "13b1a797a9e7dd0f62a6c2eba6215eda6d672dd81470b9b77b2ac5ac6e7a895d",
+      "observation": "双人黑金晚宴；钢琴、金色室内、礼服和男性酒红西装完整呈现。",
+      "known_limits": "女性礼服遮盖脚部，是长裙的正常遮挡。"
+    },
+    {
+      "case": 4,
+      "title": "温室三人水彩",
+      "title_en": "Greenhouse watercolor",
+      "people": 3,
+      "guide": "POSE",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100904,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the body poses, limb directions, position and framing in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. sage chiffon dress and floral shawl\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1, 男角色2. Source content: right outfit on the dress form. moss cardigan and cream trousers\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. fern greenhouse\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is expressive refined watercolor fashion illustration with translucent pigments and paper texture\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. ivory ceramic flower brooch\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image7>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. expressive refined watercolor fashion illustration with translucent pigments and paper texture. The environment is fern greenhouse; preserve the wardrobe designs and integrate the ivory ceramic flower brooch naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "3c354d2d-ad9d-4e29-8264-82ce8d2e7924",
+      "execution_status": "success",
+      "source_sha256": "1b6ffb1dcca9b82a89766b2d4b43b48fa676049f350715211b4335aac8d6c927",
+      "guide_sha256": "67a358a045733f20b596a1996bdb475beebfcbbfde51f6f375c3051b0c00b6c1",
+      "final_sha256": "e5e99a6e8ee83e233b6f7c5d1cfdbb7636d985260045f3a0ae7f50af1d461153",
+      "poster_4k_sha256": "57da59d432afcce71c31c5868159b9ae2a6ffee81115f98c38f0aaa34230022c",
+      "published_preview_sha256": "9adcf1b00c7cb5599fb3e8a2138ce35af1a305b620fa12ef8b4a024c4428b7e9",
+      "observation": "真实三人DWPose引导转为温室水彩；色彩、服装和构图连贯。",
+      "known_limits": "花朵胸针出现在多位人物上，配饰绑定不是区域硬遮罩。"
+    },
+    {
+      "case": 5,
+      "title": "霓虹双人追光",
+      "title_en": "Neon pursuit",
+      "people": 2,
+      "guide": "POSE",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100905,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the body poses, limb directions, position and framing in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. indigo asymmetric techwear with magenta seams\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1. Source content: right outfit on the dress form. black silver techcoat\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. rainy futuristic neon street\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is cinematic cyberpunk photograph with purple cyan light and detailed wet surfaces\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. purple translucent headphones\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. cinematic cyberpunk photograph with purple cyan light and detailed wet surfaces. The environment is rainy futuristic neon street; preserve the wardrobe designs and integrate the purple translucent headphones naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "112f92a5-d40f-4e7c-ae85-d0818680e192",
+      "execution_status": "success",
+      "source_sha256": "47efec52fe7fad13425c539335e2939f491a0c0ca8d5cc032fea04c358dacfe2",
+      "guide_sha256": "cb2785f5f673f922046f64805a453dd9305302072ee6b7e74309a8073d6727b8",
+      "final_sha256": "d939a3a8cd3f635cc28b7908077d5eb63921e4c7c20f95dd038ccd3e05152190",
+      "poster_4k_sha256": "0aa93858b7181a42b733aafe1e578aa69c18174748cae353bc1f9d83236c7fae",
+      "published_preview_sha256": "e8f52fb6ffc5e70efdc936651ad68148f01dab1b78a3cc5d2b9e9d52508e2b38",
+      "observation": "双人霓虹赛博画面；实际骨骼图与成图分别保留。",
+      "known_limits": "耳机同时出现在两个人物上，配饰并未严格只施加女主。"
+    },
+    {
+      "case": 6,
+      "title": "月园三人水墨",
+      "title_en": "Moon-garden ink painting",
+      "people": 3,
+      "guide": "POSE",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100906,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "studio-plus-input",
+      "actual_prompt": "Create a finished image following the body poses, limb directions, position and framing in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\nThe guide contains 3 people. Keep their identities and placements separate.\nPerson 1 in the guide is 女主. pale jade flowing hanfu with gold embroidery\nPerson 2 in the guide is 男角色1. ivory jade scholar hanfu\nPerson 3 in the guide is 男角色2. ivory jade scholar hanfu\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. pale jade flowing hanfu with gold embroidery\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1, 男角色2. Source content: right outfit on the dress form. ivory jade scholar hanfu\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. moonlit Chinese stone garden\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is Chinese ink and watercolor painting with expressive brushwork, pale jade silk and atmospheric moonlight\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. jade lotus hair ornament\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image7>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. Chinese ink and watercolor painting with expressive brushwork, pale jade silk and atmospheric moonlight. The environment is moonlit Chinese stone garden; preserve the wardrobe designs and integrate the jade lotus hair ornament naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "e786f1ef-ce53-421a-a704-9590d6f86270",
+      "execution_status": "success",
+      "source_sha256": "32feab2a8f372d0d12543ed0fa8e7638cb9fb3a1819513c64767c54898179638",
+      "guide_sha256": "f28986b495b5677ce8b83541b15dcf75fe9d303198c23a3b967a82056a09a467",
+      "final_sha256": "aa77ae8740ff38f4567f979ca86f22d1d1638b66812bb30eba6f47abd1f8b288",
+      "poster_4k_sha256": "bb102e9f8e2d934c234f771ccf6e8355cb95056ac4eaea5f8a5c49ff88427499",
+      "published_preview_sha256": "8d9a25263657a62811d5c8140bdfe21c99812d37cab9d57077c20c74d46b6707",
+      "observation": "从原图多人骨骼复制到人偶后输出POSE；成图为三人国风月园水墨。",
+      "known_limits": "二维姿势提升到3D需要估计关节前后关系，水墨身份会有风格化。"
+    },
+    {
+      "case": 7,
+      "title": "雪林双人杂志",
+      "title_en": "Winter magazine",
+      "people": 2,
+      "guide": "POSE",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100907,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the body poses, limb directions, position and framing in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\nThe guide contains 2 people. Keep their identities and placements separate.\nPerson 1 in the guide is 女主. ivory cable-knit coat and burgundy scarf\nPerson 2 in the guide is 男角色1. navy winter wool coat\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. ivory cable-knit coat and burgundy scarf\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1. Source content: right outfit on the dress form. navy winter wool coat\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. snowy birch forest and red cabin\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is Nordic minimalist winter magazine photograph, soft whites and muted burgundy\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. burgundy gloves and leather thermos\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. Nordic minimalist winter magazine photograph, soft whites and muted burgundy. The environment is snowy birch forest and red cabin; preserve the wardrobe designs and integrate the burgundy gloves and leather thermos naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "1bfdbbe1-ce7c-403f-b533-42b06f4ad9bd",
+      "execution_status": "success",
+      "source_sha256": "4febb277ef3f4a664efa88ab3e62bca619851017140011278cdb8dd003457c2c",
+      "guide_sha256": "5df8831e619a7fade590d87b30d218924a248ab7371a319111ea6381d631b0ec",
+      "final_sha256": "039145653d1b4512f3cbceeb8d22e74282fe04efd159a24ce5b0f700f539be20",
+      "poster_4k_sha256": "f906641631921bb4fee4c9462b2df1790e55b1eaabd3a40d65f158dd9f81277c",
+      "published_preview_sha256": "690776d7880353e6ff28d43e0075d8a49c0765b423eacc9f883ccf948ea26e8f",
+      "observation": "双人冬日杂志画面；大衣、围巾、雪林小屋和地面保温瓶可见。",
+      "known_limits": "物件落在地面，未完全保持参考指令中的持物方式。"
+    },
+    {
+      "case": 8,
+      "title": "草原三人纪实",
+      "title_en": "Savanna documentary",
+      "people": 3,
+      "guide": "Depth",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100908,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the spatial depth, layout and occlusion in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\nThe guide contains 3 people. Keep their identities and placements separate.\nPerson 1 in the guide is 女主. terracotta field jacket and cream trousers\nPerson 2 in the guide is 男角色1. olive safari jacket and tan trousers\nPerson 3 in the guide is 男角色2. olive safari jacket and tan trousers\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. terracotta field jacket and cream trousers\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1, 男角色2. Source content: right outfit on the dress form. olive safari jacket and tan trousers\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. golden savanna and acacia trees\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is natural wildlife documentary photograph, warm dust and luminous backlight\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. canvas safari bag and binoculars\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image7>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. natural wildlife documentary photograph, warm dust and luminous backlight. The environment is golden savanna and acacia trees; preserve the wardrobe designs and integrate the canvas safari bag and binoculars naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "4e2e1368-2666-4a5a-92ce-e76cadbcb10a",
+      "execution_status": "success",
+      "source_sha256": "f11b6dece1bfbe38734b4165fc8e07642fbd50ca391ec680b0f6ebc7afb2dc96",
+      "guide_sha256": "227cb31592acdbbc77bdc5f1e93c8c3d8abc0ede8435273c4a5f2415ae3e937b",
+      "final_sha256": "fcc7713702df52fc199ee91c82defbb99165750cbee30f1a1aac7c3e2713a95c",
+      "poster_4k_sha256": "e7d56018079188452b010c12bbdf428a8fb3ceaba28ee23b8b80eee8b3b511c0",
+      "published_preview_sha256": "1d88f0e6fd8164a8e11b185669813156acb8af4ef6fde100f027c73e5e2b8212",
+      "observation": "三人草原纪实；场景深度图、服装、环境与物件参考共同参与。",
+      "known_limits": "后排男性因距离较远显著较小；不应把透视大小解释为年龄绑定。"
+    },
+    {
+      "case": 9,
+      "title": "剧院双人舞者",
+      "title_en": "Theater dancers",
+      "people": 2,
+      "guide": "Depth",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100909,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a refined photographic 16:9 ballet editorial with exactly TWO adult performers on a broad rosewood THEATER STAGE. Red velvet curtains and warm stage lights from image4 fill the entire real background; never reproduce the flat gray or black depth-map background.\nImage1 supplies only the two poses, leg spacing, body placement and spatial depth. Both performers have two separate visible legs and BOTH feet touching the stage floor. The man's feet are apart with a visible gap between both trouser legs. He stands stably, never jumps or hovers.\nThe woman on the left uses FACE image2, the blush-pink flowing dance dress from the LEFT outfit in image3, and the pearl hair ornament from image5. The man on the right uses FACE image6 and the cream embroidered jacket and dark tailored trousers from the RIGHT outfit in image3, with two separate black dance shoes. Image4 supplies the theater environment AND soft romantic photographic lighting. Image5 supplies the accessory design AND pearl material palette. Both performers open their arms gracefully, full body head-to-toe, ample floor beneath all four shoes. Natural anatomy, beautiful fabrics, coherent scale, distinct fingers. No depth-map colors, mannequins, missing feet, fused legs, crowd, collage or text.",
+      "prompt_id": "97750de1-847d-4644-a387-dc397f0eaaea",
+      "execution_status": "success",
+      "source_sha256": "ddff90295ae9bac0a48cab783a9a21f2cb67a30efb6b640bfaaf2ac84f965ec6",
+      "guide_sha256": "5a6e9f7055e83eeb25063fb006ae5c77f9c2a04e43b0196e7c676836044abbe0",
+      "final_sha256": "3d285f1fd481dc01be993f6dcd42e7bcaa916e88a6341fce12eefeb7561214b6",
+      "poster_4k_sha256": "1ffaedd0503502a8324c3d00528d18e5591b73a362c18c6761bb1f117c4da2c8",
+      "published_preview_sha256": "850c38917040971e84aa9413d307b6edb278d8807648e9a703c6516b9b8c54af",
+      "observation": "人工分开人偶男性膝踝后重新捕获真实深度，最终双腿分开、剧院场景完整。",
+      "known_limits": "修订前骨骼点过近导致腿部融合，人工校正有单独记录；女性裙装仍遮挡腿部。"
+    },
+    {
+      "case": 10,
+      "title": "滑板三人青春",
+      "title_en": "Skatepark youth",
+      "people": 3,
+      "guide": "Depth",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100910,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "studio-plus-input",
+      "actual_prompt": "Create a finished image following the spatial depth, layout and occlusion in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. lemon varsity jacket and navy skirt\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1, 男角色2. Source content: right outfit on the dress form. teal sports jacket and dark trousers\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. pastel concrete skatepark\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is energetic sports campaign photograph, low viewpoint and crisp afternoon sun\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. red skateboard\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image7>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. energetic sports campaign photograph, low viewpoint and crisp afternoon sun. The environment is pastel concrete skatepark; preserve the wardrobe designs and integrate the red skateboard naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "9f494cac-a149-4ee0-8947-e709e0a302bb",
+      "execution_status": "success",
+      "source_sha256": "3f1947722e1417814b8290220b7bed95ff0d3777e6b6be578773f571f145ea8c",
+      "guide_sha256": "57e60a89676011810913afb02241e2849d74553b753d0f5f9256e032ec5e5b6a",
+      "final_sha256": "2ac7f022187f883e2f8daee1a6a89aa962506704afe1dde6e6f5093e32b0c8f4",
+      "poster_4k_sha256": "e539dd4a06678c3df2c370855064429f85a9fa99fe358afaff86f8530c350bab",
+      "published_preview_sha256": "cf5c23343a8d82e26123a60387f4aadf6c6aef24086bb719d5bf68183edf933b",
+      "observation": "原图真实DA3深度与三人滑板成图；服装、场景和滑板均可见。",
+      "known_limits": "后排第三人部分遮挡；原始检测重复头框经实图复核筛选，未伪造完整骨骼。"
+    },
+    {
+      "case": 11,
+      "title": "星轨双人歌剧",
+      "title_en": "Orbital opera",
+      "people": 2,
+      "guide": "Depth",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100911,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the spatial depth, layout and occlusion in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. pearl white and rose-gold technical suit\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1. Source content: right outfit on the dress form. graphite navy expedition suit\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. orbital observatory and blue planet\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is grand space-opera cinematic photograph, realistic fabric and radiant planetary light\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. silver wrist communicator\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. grand space-opera cinematic photograph, realistic fabric and radiant planetary light. The environment is orbital observatory and blue planet; preserve the wardrobe designs and integrate the silver wrist communicator naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "27de6bea-8e23-40aa-8a84-db3f8e4d493c",
+      "execution_status": "success",
+      "source_sha256": "91bdcb38d77efbb6295299ad1297c86765ae64ace9df592f91aaa8af7cac288c",
+      "guide_sha256": "c858da0468babadf0375d85c55e2c73f5219a1e983a037b2ff0566e78f497b18",
+      "final_sha256": "7380bfbb6f8f4441c7fda547a70e5451f602b7814c9a018e4a396bb3ff88ffbb",
+      "poster_4k_sha256": "27a3f512606aeed98a14d4f1d37070126925f7cde7257c39c69a96469c53f7a9",
+      "published_preview_sha256": "3c73625a6249bb2a5cdd708676f595e27d89ee54210429523c5966c08d672be4",
+      "observation": "原图真实DA3深度、双人星际歌剧画面；服装与舱内地球场景完整。",
+      "known_limits": "背景雕塑可能被识别成人，原始检测与主体筛选理由均保留。"
+    },
+    {
+      "case": 12,
+      "title": "陶土海港三人",
+      "title_en": "Clay harbor",
+      "people": 3,
+      "guide": "Canny",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100912,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "GROUND CONTACT AND SCALE PRIORITY: three adult clay puppets stand with all six shoes clearly touching the SAME broad terracotta paved waterfront plaza. The floor is continuous solid cobblestone across the entire foreground. The harbor sea and boats are distant BEHIND the people, never underneath their feet. Nobody floats or stands on water or boats. Keep coherent human-to-building scale and real contact shadows. The two men have visibly different hairstyles and facial features. Refined handmade clay stop-motion art, no giant people towering over a miniature town.\nCreate a finished image following the silhouettes, contours and major edges in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\nThe guide contains 3 people. Keep their identities and placements separate.\nPerson 1 in the guide is 女主. coral fisherman knit and teal trousers\nPerson 2 in the guide is 男角色1. cream stripe sweater and rust trousers\nPerson 3 in the guide is 男角色2. cream stripe sweater and rust trousers\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. coral fisherman knit and teal trousers\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1, 男角色2. Source content: right outfit on the dress form. cream stripe sweater and rust trousers\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. pastel handmade seaside harbor\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is handcrafted clay stop-motion miniature aesthetic, tactile sculpted faces and soft studio lighting\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. terracotta fish-shaped satchel\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image7>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. handcrafted clay stop-motion miniature aesthetic, tactile sculpted faces and soft studio lighting. The environment is pastel handmade seaside harbor; preserve the wardrobe designs and integrate the terracotta fish-shaped satchel naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "99858ba3-61b9-4b03-b6a7-e2560ae8dc8b",
+      "execution_status": "success",
+      "source_sha256": "d9a0ba2cd5600409f7239980fd7bc3c5c8de31eda88a7fefb5cedcc36465067d",
+      "guide_sha256": "011b0995869caedbaa8be44863b67154c28a1f3b485f7a05d312bb4d2180bba7",
+      "final_sha256": "92ae0f8c9115a2a40c674d4e03fc73c485b41f947d03331840196491decdb189",
+      "poster_4k_sha256": "e6d936c43a7f7b923d746adb2349f51d603f5604d7ef1904827721b37b0e2c99",
+      "published_preview_sha256": "cd8068173229f54d185426cdd32ffdd79132e99b6e96695beb8616e54f1d2682",
+      "observation": "三名陶土人物已修订为站在海港广场地面，保持定格动画质感。",
+      "known_limits": "两名男性陶土化面孔相近；风格化并不保证细微人脸差异。"
+    },
+    {
+      "case": 13,
+      "title": "古堡双人油画",
+      "title_en": "Castle oil painting",
+      "people": 2,
+      "guide": "Canny",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100913,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the silhouettes, contours and major edges in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\nThe guide contains 2 people. Keep their identities and placements separate.\nPerson 1 in the guide is 女主. wine-red velvet gown and cream lace\nPerson 2 in the guide is 男角色1. forest green waistcoat and brown trousers\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. wine-red velvet gown and cream lace\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1. Source content: right outfit on the dress form. forest green waistcoat and brown trousers\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. ivy castle conservatory\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is museum-quality romantic oil painting with visible brush strokes, glowing amber light and velvet texture\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. gold pocket watch\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. museum-quality romantic oil painting with visible brush strokes, glowing amber light and velvet texture. The environment is ivy castle conservatory; preserve the wardrobe designs and integrate the gold pocket watch naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "07a58888-5b49-4ef9-a0ad-d744ff510e71",
+      "execution_status": "success",
+      "source_sha256": "fa0bc8d634dad882d3f51df0423c65c3f35e47f4cf1f6970cdc3419c971ea93e",
+      "guide_sha256": "3bec7770ff20334f256fa9164593bdf934df34e0ab84d70bf05e72f4c7386a28",
+      "final_sha256": "f8fb16b7d5d6f4cbe4e1c6c8ecbfbca7f503106a25b73aec364b4cd0af550e9b",
+      "poster_4k_sha256": "5ca20e6d45734fcd9aa774355fb356f4ec05f0c9900c23350abb8b44c85cbdfa",
+      "published_preview_sha256": "3aaa52dde30d700647251ba7dcb6af9e4b266ef2c9ee6d47bd85d0bf230fa8fa",
+      "observation": "双人古典油画；实际场景Canny、男女服装及古堡环境组合。",
+      "known_limits": "画风改变了面部细节；雕像检测误报已有主体筛选记录。"
+    },
+    {
+      "case": 14,
+      "title": "曲线美术馆三人",
+      "title_en": "Curved-gallery fashion",
+      "people": 3,
+      "guide": "Canny",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100914,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the silhouettes, contours and major edges in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. sculptural ivory asymmetrical dress\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1, 男角色2. Source content: right outfit on the dress form. black collarless tailored suit\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. white concrete museum with sweeping curves\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is architectural high-fashion photograph, sculptural negative space and restrained black-white palette\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. silver geometric bracelet\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image7>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. architectural high-fashion photograph, sculptural negative space and restrained black-white palette. The environment is white concrete museum with sweeping curves; preserve the wardrobe designs and integrate the silver geometric bracelet naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "e248a3c0-4a4b-415e-bcd9-9e074f8b08af",
+      "execution_status": "success",
+      "source_sha256": "87342ac74009cec040329045931931fffcee814f39762f2ae8cbb6af2827d524",
+      "guide_sha256": "bbfb2159054670f7b33715318a022eb334542acc3732ab69c6d2e3a1d8dbc232",
+      "final_sha256": "acb0f97b92f0449bc743ae691ea93eda849eb0f8d614876252a0a8f2a20dd11b",
+      "poster_4k_sha256": "27df2ae95d71f28a6ba8fc02eaff7045641d8b581870b91e47c68f8e396c47e4",
+      "published_preview_sha256": "56572251a8fc2698dab88553fe666bfd8de7de93bd33f9efbb6a05ce921267d5",
+      "observation": "三名人物完整可见；原图真实Canny与曲线建筑时装场景相匹配。",
+      "known_limits": "深色服装的细小配饰不明显，不能声称所有物件细节均精确复现。"
+    },
+    {
+      "case": 15,
+      "title": "花园双人童话",
+      "title_en": "Garden fairytale",
+      "people": 2,
+      "guide": "Canny",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100915,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the silhouettes, contours and major edges in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. lavender linen gown and moss cloak\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1. Source content: right outfit on the dress form. oatmeal rustic jacket and brown trousers\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. storybook wildflower cottage and oak tree\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is luminous storybook gouache illustration with delicate outlines and rich organic textures\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主. lavender basket\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. luminous storybook gouache illustration with delicate outlines and rich organic textures. The environment is storybook wildflower cottage and oak tree; preserve the wardrobe designs and integrate the lavender basket naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the actual guide, including separate body silhouettes and left-right order.",
+      "prompt_id": "fb9c606e-5f80-4c46-bea3-40ba019f9328",
+      "execution_status": "success",
+      "source_sha256": "e003b376d06f902e909a5262ba3202871b4dd1e8ca4d34a095cbb3106eeef88e",
+      "guide_sha256": "ca5376bd0748975a2d056e668badf56dcaca28a5ee14fb4f463d62b0b6133311",
+      "final_sha256": "1fa6c07d5ce3906c3870fd7b136d6d722059fe02a918a50243a7b4f48d878faa",
+      "poster_4k_sha256": "7ad6547458789fa8078fe69f5446cedb253253a1fc223ad5607df1a5b009348b",
+      "published_preview_sha256": "9fe3d6bce3a34b9c8c6e437468ea2b9862eb0d20930e2f3848724c28f2d85fc1",
+      "observation": "双人童话绘本；原图Canny、女主紫色裙装、男主服装与花园共同参与。",
+      "known_limits": "童话绘画保留人物方向但会重绘轮廓和脸部。"
+    },
+    {
+      "case": 16,
+      "title": "樱光三人高斯",
+      "title_en": "Cherry-blossom splats",
+      "people": 3,
+      "guide": "Actual TripoSplat camera view",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100916,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the camera angle, composition, poses and placement in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主 in the reconstructed scene. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主 in the reconstructed scene. Source content: left outfit on the dress form. lilac translucent cape and silver violet dress\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1 / 男角色2 in the reconstructed scene. Source content: right outfit on the dress form. midnight blue futuristic tunic\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. holographic cherry-blossom city at twilight\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is beautiful cinematic anime illustration, luminous soft cel shading and intricate atmospheric backgrounds\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主 in the reconstructed scene. crystal star pendant\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1 in the reconstructed scene. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image7>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2 in the reconstructed scene. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. beautiful cinematic anime illustration, luminous soft cel shading and intricate atmospheric backgrounds. The environment is holographic cherry-blossom city at twilight; preserve the wardrobe designs and integrate the crystal star pendant naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the changed reconstructed camera composition and retain both people and the room.",
+      "prompt_id": "1f6b1348-73f2-4c57-95ca-84103c91b23f",
+      "execution_status": "success",
+      "source_sha256": "be722e0c396eb7c359b309f1f2b292d425998ec63acbe7dd2c5c43240a419e36",
+      "guide_sha256": "bda92f4455bf4aa11b1e173b2122e549a9063b00529324bb806569fbf96f6d22",
+      "final_sha256": "998a5269da14c3df9e6958e77c2a391632eb0ad5de79a499309347e1dcc39816",
+      "poster_4k_sha256": "1437743db2e64d3836245c0f1fe81a1ebc3814a425cb4066d9b634a77da8124f",
+      "published_preview_sha256": "da265adb94415a13549130d4d5133f8db9b5760560e788a2be09a1cedc23795f",
+      "observation": "真实三人高斯机位粗图补全为樱光动画画面；原始重建文件和瑕疵均保留。",
+      "known_limits": "高斯仍有脸部及场景估计缺陷；动画成图中两名男性面孔相似。"
+    },
+    {
+      "case": 17,
+      "title": "沙漠双人高斯",
+      "title_en": "Desert film splats",
+      "people": 2,
+      "guide": "Actual TripoSplat camera view",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100917,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create a finished image following the camera angle, composition, poses and placement in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主 in the reconstructed scene. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主 in the reconstructed scene. Source content: left outfit on the dress form. rust flowing dress and ivory embroidered jacket\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1 in the reconstructed scene. Source content: right outfit on the dress form. blue denim shirt and sand linen trousers\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. southwestern desert road and motel\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is 35mm bohemian roadtrip fashion photograph, grain and warm golden sunset\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主 in the reconstructed scene. acoustic guitar and cognac case\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1 in the reconstructed scene. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. 35mm bohemian roadtrip fashion photograph, grain and warm golden sunset. The environment is southwestern desert road and motel; preserve the wardrobe designs and integrate the acoustic guitar and cognac case naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the changed reconstructed camera composition and retain both people and the room.",
+      "prompt_id": "2ca5abf4-6f69-4f66-8661-98e380863dee",
+      "execution_status": "success",
+      "source_sha256": "434f3a228f87f87b37e262ce333db0dab0f3796ecb5f2b5af2142491edac03c8",
+      "guide_sha256": "57c7f7a36d6c318833b517ba08bb07dce4d63178e95e656249cae78889edb0f9",
+      "final_sha256": "5d2baaf881c2bc28a3d0b6f6048748fc15c1195c808cbc0f962f8beeb119b563",
+      "poster_4k_sha256": "e0461985d14a342b26cc043fe75ae88109f23d3bf999a2fe2dae1dbfcef0173a",
+      "published_preview_sha256": "319a2bfdb474cbca118334063938d3235d5d429d98063636f26df33c649a624f",
+      "observation": "双人真实高斯新机位转沙漠胶片；吉他和公路场景可见。",
+      "known_limits": "吉他放在地面；高斯背景与背面不能当作完整三维扫描。"
+    },
+    {
+      "case": 18,
+      "title": "海岸婚礼双人高斯",
+      "title_en": "Coastal wedding splats",
+      "people": 2,
+      "guide": "Actual TripoSplat camera view",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100918,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "studio-plus-input",
+      "actual_prompt": "Create a finished image following the camera angle, composition, poses and placement in <image1>. Do not render guide marks, mannequin colors or skeleton lines.\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主 in the reconstructed scene. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主 in the reconstructed scene. Source content: left outfit on the dress form. refined white lace wedding dress\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1 in the reconstructed scene. Source content: right outfit on the dress form. pale gray linen suit\n<image4>: Use the environment and background; do not add people from this reference for the whole generated scene. coastal wedding terrace at sunset\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is fine-art wedding photograph with pearly film tones, soft rim light and natural intimacy\n<image5>: Use only the accessory or product design; do not add people from this reference for 女主 in the reconstructed scene. white bouquet and pearl earrings\n<image5>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1 in the reconstructed scene. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 2 separate adult people. fine-art wedding photograph with pearly film tones, soft rim light and natural intimacy. The environment is coastal wedding terrace at sunset; preserve the wardrobe designs and integrate the white bouquet and pearl earrings naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. Follow the changed reconstructed camera composition and retain both people and the room.",
+      "prompt_id": "99783a9b-9c40-4251-96ca-c5f8304ee100",
+      "execution_status": "success",
+      "source_sha256": "882760aaea549744f21d6fa4a49b6a84a5f35fac9333b465ff92c5bc0af05343",
+      "guide_sha256": "5ffd65defed3bdf1a10c3a3bd2d515b793dff55d09a04244f23a91d8b899ead5",
+      "final_sha256": "a55973581935c2cb8df2f11a00e878f1c1255004d58c2cbd086e8bd5a05cf5be",
+      "poster_4k_sha256": "f60dc2e7d4ac9ac1703b77420677e7977d902094ceb1aaec0f77d04c7bc68749",
+      "published_preview_sha256": "a39639d44173dcf26dfd4064ca4c2a22e570adfd76dd3207a8ee74594a37e4ad",
+      "observation": "双人真实高斯新机位转海岸婚礼；花拱、服装和人物可见。",
+      "known_limits": "粗图中可能有背景形变，最终照片由Qwen重绘补全。"
+    },
+    {
+      "case": 19,
+      "title": "月祭三人多图创作",
+      "title_en": "Moon-festival multi-reference",
+      "people": 3,
+      "guide": "References only",
+      "actual_image_count": 6,
+      "references": [
+        {
+          "index": 1,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        }
+      ],
+      "seed": 2026100919,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "Create one coherent finished image using the references only for their specified purposes.\n<image1>: Use the environment and background; do not add people from this reference for the whole generated scene. wooden bridge and moonlit Japanese river\n<image1>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Use the environment palette and atmosphere; final medium is elegant ukiyo-e woodblock illustration with printed ink outlines and textured handmade paper\n<image2>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 女主. Only facial identity; do not copy the source clothing or blue background.\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 女主. Source content: left outfit on the dress form. indigo kimono with crimson obi\n<image3>: Use only the clothing design; do not copy the model's identity, pose or background for 男角色1, 男角色2. Source content: right outfit on the dress form. ivory kimono with black hakama\n<image4>: Use only the accessory or product design; do not add people from this reference for 女主. crimson lantern and folding fan\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene. Preserve the accessory material and palette, not the product-only composition.\n<image5>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色1. Keep this male identity and hairstyle; do not copy the pose or environment.\n<image6>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for 男角色2. Keep this male identity and hairstyle; do not copy the pose or environment.\nCreate exactly 3 separate adult people. elegant ukiyo-e woodblock illustration with printed ink outlines and textured handmade paper. The environment is wooden bridge and moonlit Japanese river; preserve the wardrobe designs and integrate the crimson lantern and folding fan naturally. All women use the supplied female face identity. Male identities stay assigned to their own source reference. Every person must be recognizable and fully visible in the 16:9 frame; no extra people, merged bodies, guide artifacts or text. three figures in graceful festival poses with clear left-right separation. Use the scene reference for the complete environment, without requiring any 3D model or guide.",
+      "prompt_id": "0e26d132-c557-4280-90b4-d806c9fae382",
+      "execution_status": "success",
+      "source_sha256": "443c6449b0410aebc65b3e3694af06e00d2f85a919bec45bf2894bdc1f3450b9",
+      "guide_sha256": null,
+      "final_sha256": "ffa320c2a65e883dece9f7533e78c99403ea2c9586ac0d299dd42eec1bdfcb30",
+      "poster_4k_sha256": "b8d09c3f1d71de4244d36f846c4a6acde4b31485c28a001c237be879cd0e37e2",
+      "published_preview_sha256": "e2f8a7d039b6ed67c12406d988fc341a36d131fbab682eca656cf697eb3c1aef",
+      "observation": "无引导图三人浮世绘创作；环境作为第一图，多用途参考直接参与编码。",
+      "known_limits": "左侧男性服装也吸收了女装图案，人物服装绑定属于软约束。"
+    },
+    {
+      "case": 20,
+      "title": "山湖三人多图创作",
+      "title_en": "Alpine-lake layout",
+      "people": 3,
+      "guide": "References only",
+      "actual_image_count": 7,
+      "references": [
+        {
+          "index": 1,
+          "labels": [
+            "场景 · 光色参考"
+          ],
+          "purposes": [
+            "scene",
+            "style"
+          ]
+        },
+        {
+          "index": 2,
+          "labels": [
+            "女性身份 · 10.jpg"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 3,
+          "labels": [
+            "服装设计 · 男女分用"
+          ],
+          "purposes": [
+            "clothing"
+          ]
+        },
+        {
+          "index": 4,
+          "labels": [
+            "配饰 · 材质参考"
+          ],
+          "purposes": [
+            "accessory",
+            "style"
+          ]
+        },
+        {
+          "index": 5,
+          "labels": [
+            "男角色1 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 6,
+          "labels": [
+            "男角色2 · 原图身份"
+          ],
+          "purposes": [
+            "identity"
+          ]
+        },
+        {
+          "index": 7,
+          "labels": [
+            "布局 · 三人站位"
+          ],
+          "purposes": [
+            "layout",
+            "style"
+          ]
+        }
+      ],
+      "seed": 2026100920,
+      "steps": 6,
+      "sampler": "euler",
+      "guider": "BasicGuider",
+      "prompt_mode": "input-full",
+      "actual_prompt": "A single polished 16:9 expedition advertising photograph of exactly THREE separate adult explorers, one woman and two men, three complete heads and bodies, all visible head to toe.\nImage1 supplies the mountain-lake environment AND cool natural lighting. Image2 supplies only the woman's face identity. Image3 supplies only the outfits: the woman wears the left forest-green puffer and beige hiking trousers, both men wear the right mustard shell outfit with a darker variation for the second man. Image4 supplies the brass compass and leather travel pouch AND the warm brass material palette, integrated naturally near the woman. Image5 is the first male FACE only; image6 is the second male FACE only. Keep those two men separate and different. Image7 is ONLY the three-person layout and expedition photographic mood: keep exactly its three-person spacing, not its clothes or faces.\nPlace the woman at left, the first man center, and the second man right, with visible gaps between all three. They stand on a broad rocky lakeshore, same ground, distant snow peaks and clear turquoise lake. Beautiful restrained travel campaign photography, tactile fabrics, crisp outdoor light. This is a full scene, no collage. Do not combine the two men into one, omit anyone, add a fourth person, crop feet or render labels.",
+      "prompt_id": "b454e050-ea96-403c-98ed-efce38353e97",
+      "execution_status": "success",
+      "source_sha256": "25e2e9f0a27c4304c72a0c7f37c11651e75b77fa466a8700b4d66c43a240ea10",
+      "guide_sha256": null,
+      "final_sha256": "832a8738729c11ef94d1cb717bb397b6a726a965098b834f431ff0c8c51f4bbf",
+      "poster_4k_sha256": "79744f08305847f9635b25a1b5ba5bc506245b65294f15cade17512218890dee",
+      "published_preview_sha256": "9ce0f2d18817820f5c398581db2c4c3588c66c5c56f01f07022ba80bebfb41d0",
+      "observation": "无引导图加入第7张三人布局参考；最终三人在湖岸地面分立、服装与配饰完整。",
+      "known_limits": "首轮没有布局图时合并成双人，已保留候选；布局参考不提供可旋转3D场景。"
+    }
+  ],
+  "gui_compiled": 20,
+  "portable_imported": 20
+}

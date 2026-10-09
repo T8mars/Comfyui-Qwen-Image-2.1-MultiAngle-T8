@@ -1,12 +1,14 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261005audit14';
-import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261004mp1';
-import { readSkeletonImage } from './openpose.mjs?v=20261004mp1';
-import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261005audit14';
-import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261004mp1';
-import { randomPose } from './poses.mjs?v=20261004mp1';
-import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261005audit4';
-import { activeActor, saveActor } from './actors.mjs?v=20261004mp1';
-import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261004mp3';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261009v160';
+import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261009v160';
+import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261009v160';
+import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261009v160';
+import { readSkeletonImage } from './openpose.mjs?v=20261009v160';
+import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261009v160';
+import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261009v160';
+import { randomPose } from './poses.mjs?v=20261009v160';
+import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261009v160';
+import { activeActor, saveActor } from './actors.mjs?v=20261009v160';
+import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261009v160';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);
@@ -61,7 +63,10 @@ function usesLocalGuide(guide = currentGuide()) {
     || guide === 'depth' && ['da3', 'scene'].includes(doc.conditioning.mapOrigin)
     || guide === 'canny' && ['auto', 'reference'].includes(doc.conditioning.mapOrigin);
 }
+function requiresGuide() { return doc.version !== 3 || doc.referenceLibrary?.mode === 'guided'; }
 function hasGuide() {
+  if (!requiresGuide()) { const plan = buildManifest(doc); return !plan.missing.length && (plan.mode === 'text' || plan.references.length > 0); }
+  if (doc.version === 3 && (staleGuide(doc) || doc.sourceStale && currentGuide() === 'coarse')) return false;
   const guide = currentGuide();
   if (linkedStructure.connected && doc.conditioning.model === 'base' && ['pose', 'depth', 'canny'].includes(guide)
       && !usesLocalGuide(guide)
@@ -132,6 +137,7 @@ async function imageCanvas(source, width, height) {
   return canvas;
 }
 async function captureGuide(width = doc.width, height = doc.height) {
+  if (!requiresGuide()) return null;
   const input = guideSource(doc), captureRevision = revision;
   if (input.kind === 'pose') return studio.captureOpenPose(width, height);
   if (input.kind === 'image') return (await imageCanvas(assetURL(input.asset.name), width, height)).toDataURL('image/png');
@@ -153,6 +159,7 @@ async function captureGuide(width = doc.width, height = doc.height) {
   return (await imageCanvas(work.toDataURL('image/png'), width, height)).toDataURL('image/png');
 }
 async function renderPreview() {
+  if (!requiresGuide()) { refresh(); return; }
   if (!ready || !hasGuide() || busy) return;
   if (previewRunning) { schedulePreview(); return; }
   previewRunning = true;
@@ -174,7 +181,7 @@ function refresh() {
   const guide = currentGuide(), base = doc.conditioning.model === 'base', input = guideSource(doc);
   const manifest = buildManifest(doc), multi = actorMode(doc);
   const castMapping = doc.source.kind === 'human' && doc.conditioning.identityMode === 'actors' && base;
-  const imageIndex = castMapping ? manifest.guide.index : guideImageIndex(doc.conditioning), promptMode = doc.conditioning.promptMode || 'default';
+  const imageIndex = doc.version === 3 || castMapping ? manifest.guide?.index || 1 : guideImageIndex(doc.conditioning), promptMode = doc.conditioning.promptMode || 'default';
   const referenceIndex = castMapping ? manifest.references.find(reference => reference.asset.name === doc.reference?.name)?.index
     : promptMode === 'single' ? null : 3 - imageIndex;
   $('#reference-heading').innerHTML = `原图 <small>· ${referenceIndex ? `image_${referenceIndex}` : '姿势 / 重建来源'}</small>`;
@@ -324,7 +331,7 @@ function refresh() {
     $('#image-wiring').textContent = '当前结构图 → image_1；没有共享原图，使用引导图与附加描述生成。人物绑定保留。';
     $('#prompt-mode-hint').textContent = '当前静态结构图使用单图模板；切回三维引导后恢复人物身份映射。';
   }
-  if (multi) {
+  if (multi && doc.version !== 3) {
     $('#image-wiring').textContent = `引导图 → image_${manifest.guide.index}；${manifest.references.map(ref => `人物照片 → image_${ref.index} (${ref.actorIds.length} 人共用)`).join('；') || '人物使用文字身份'}。连接“多人编码 · T8”读取实际映射。`;
     $('#prompt-mode-hint').textContent = `${manifest.guide.index === 1 ? `首张引导图按 32 对齐编码；请求 ${doc.width} × ${doc.height}。` : '首张人物照片及编码节点的参考预算决定画幅。'}实际尺寸在多人编码节点的 latent 输出旁显示。${doc.width % 32 || doc.height % 32 ? '推荐把输出宽高设为 32 的整数倍。' : ''}`;
     $('#prompt-mode-hint').textContent += ` ${manifest.warnings.join(' ') || `${manifest.imageCount} 张参考 · 官方参考预算为 10 张。角色绑定与实际图片编号自动同步。`}`;
@@ -378,6 +385,7 @@ function refresh() {
   $('#bone-select').value = selectedBone;
   for (const axis of ['x', 'y', 'z']) controls.get(`bone-${axis}`)?.refresh();
   refreshActorsUI();
+  refreshReferencesUI();
 }
 
 function makeControl(container, { id, label, min, max, step = 1, unit = '', read, write, commit }) {
@@ -487,7 +495,7 @@ $('#prompt-mode').onchange = event => {
   begin();
   if (event.target.value === 'custom' && doc.conditioning.customPrompt === undefined) {
     const customDoc = { ...doc, conditioning: { ...doc.conditioning, promptMode: 'custom' } };
-    doc.conditioning.customPrompt = actorMode(customDoc) ? actorPrompt(doc, buildManifest(customDoc)) : scenePrompt(doc);
+    doc.conditioning.customPrompt = doc.version !== 3 && actorMode(customDoc) ? actorPrompt(doc, buildManifest(customDoc)) : scenePrompt(doc);
   }
   doc.conditioning.promptMode = event.target.value;
   if (event.target.value === 'single') doc.conditioning.model = 'base';
@@ -524,8 +532,8 @@ async function undoRedo(source, target) {
   const previous = doc, previousSource = source.slice(), previousTarget = target.slice();
   try {
     studio.syncPose(); target.push(clone(doc)); doc = clone(source.pop());
-    if (linkedReference.connected) doc.reference = linkedReference.asset || null;
-    if (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name) doc.source = { kind: 'empty' };
+    if (linkedReference.connected) { const previous = doc.reference; doc.reference = linkedReference.asset || null; sourceChanged(doc, previous); }
+    if (doc.version !== 3 && doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name) doc.source = { kind: 'empty' };
     await studio.restore(doc); changed(); renderShots(); refresh();
   } catch (error) {
     doc = previous;
@@ -549,18 +557,20 @@ document.addEventListener('keydown', event => {
   }
 });
 
-async function upload(file) {
+async function upload(file, preserveAlpha = false) {
   const form = new FormData(); form.append('file', file);
-  const response = await fetch('/anyangle-studio/assets', { method: 'POST', body: form });
+  const response = await fetch(`/anyangle-studio/assets${preserveAlpha ? '?alpha=preserve' : ''}`, { method: 'POST', body: form });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || '导入失败'); return result;
 }
 async function applyOpenPoseAsset(asset, detectedPoints = null, fullBody = null, visibleOnly = false) {
   begin();
   doc.openpose = { name: asset.label || 'OpenPose 骨架', sourceName: asset.name, rawAsset: asset,
     origin: detectedPoints ? 'dwpose' : 'import', points: detectedPoints, fullBody, visibleOnly,
+    referenceName: detectedPoints ? doc.reference?.name : null, acceptStoredSource: false,
     retargetMode: detectedPoints ? 'conservative' : 'estimated', flips: {} };
   doc.conditioning.model = 'base'; doc.conditioning.guide = 'pose';
   doc.conditioning.map = asset; doc.conditioning.mapKind = 'pose'; doc.conditioning.mapOrigin = doc.openpose.origin;
+  doc.derivedGuideStale = false;
   previewGuide = 'pose'; previewVisible = true; changed();
 }
 async function retargetPose() {
@@ -663,7 +673,8 @@ $('#extract-depth').onclick = () => run(async () => {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || '深度估计失败');
     begin(); doc.conditioning.map = result.asset; doc.conditioning.mapKind = 'depth';
-    doc.conditioning.mapOrigin = 'da3'; previewVisible = true; changed();
+    doc.conditioning.mapOrigin = 'da3'; doc.conditioning.mapReference = doc.reference.name; doc.conditioning.acceptStoredSource = false;
+    doc.derivedGuideStale = false; previewVisible = true; changed();
   } finally { $('#loading').hidden = true; }
 });
 async function generateCanny(origin) {
@@ -723,10 +734,10 @@ $('#read-reference').onclick = () => {
 };
 $('#reference-file').onchange = event => run(async () => {
   const file = event.target.files[0]; event.target.value = ''; if (!file) return; const asset = await upload(file);
-  begin(); doc.reference = asset;
-  if (doc.source.kind === 'splat') doc.source = { kind: 'empty' };
+  begin(); const previous = doc.reference; doc.reference = asset; sourceChanged(doc, previous);
+  if (doc.version !== 3 && doc.source.kind === 'splat') doc.source = { kind: 'empty' };
   await studio.restore(doc); changed();
-  if (doc.source.kind === 'empty' && currentGuide() === 'coarse') await reconstructPhoto();
+  if (requiresGuide() && doc.source.kind === 'empty' && currentGuide() === 'coarse') await reconstructPhoto();
 });
 const referenceCamera = () => ({ azimuth: 0, elevation: 0, zoom: 1, offsetX: 0, offsetY: 0, offsetZ: 0 });
 const reconstructionModelLabels = {
@@ -803,6 +814,7 @@ async function reconstructPhoto() {
     $('#loading-text').textContent = '载入三维主体和参考机位';
     await studio.restore(doc);
     doc.conditioning.guide = 'coarse';
+    doc.sourceStale = false; doc.derivedGuideStale = false;
     previewGuide = 'coarse'; previewVisible = false; studio.setMode('camera');
     changed(); renderShots();
     $('#status').textContent = '原图三维重建已载入 · 拖动调整机位后应用';
@@ -1021,24 +1033,36 @@ $('#batch-stop').onclick = () => batchController?.abort();
 $('#batch-zip').onclick = () => { if (batchId) download(`/anyangle-studio/batch-guides/${batchId}`, 'anyangle-guides.zip'); };
 $('#batch-manifest').onclick = () => download(new Blob([JSON.stringify({ version: 1, kind: 'anyangle-batch', views: batchViews }, null, 2)],
   { type: 'application/json' }), 'anyangle-batch.json');
+function freezeReferenceInputs(scene) {
+  for (const item of scene.referenceLibrary?.items || []) if (item.inputKey) { item.frozenInputKey = item.inputKey; item.inputKey = null; }
+  return scene;
+}
 async function startCameraBatch(queueFinal) {
   clearTimeout(previewTimer); studio.syncPose();
-  const plan = cameraBatchPlan(doc, batchSettings()), original = doc, originalCannyWarning = cannyWarningRevision;
+  const plan = cameraBatchPlan(freezeReferenceInputs(clone(doc)), batchSettings()), original = doc, originalCannyWarning = cannyWarningRevision;
   batchRunning = true; batchController = new AbortController(); batchViews = []; batchId = null;
   $('#batch-options').inert = true; $('#batch-stop').disabled = false; $('#batch-close').textContent = '停止后续机位';
   $('#batch-zip').disabled = $('#batch-manifest').disabled = true;
   $('#batch-state').textContent = queueFinal ? '正在准备当前生成工作流…' : '正在准备批量粗图…';
   try {
-    if (queueFinal) await batchRequest('prepare');
+    if (queueFinal) {
+      const response = await fetch('/anyangle-studio/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scene: freezeReferenceInputs(clone(doc)), png: await captureGuide() }) });
+      const snapshot = await response.json(); if (!response.ok) throw new Error(snapshot.error || '无法冻结当前场景');
+      await batchRequest('prepare', { snapshot });
+      $('#batch-state').textContent = '素材与正负提示词已冻结；全文模式各机位复用原文，补充模式追加各机位 Studio 文本。';
+    }
     const result = await runCameraBatch(plan, {
       signal: batchController.signal,
-      capture: async scene => { doc = scene; studio.doc = doc; studio.updateShot(); return captureGuide(); },
+      capture: async scene => {
+        doc = scene; studio.doc = doc; studio.updateShot(); return captureGuide();
+      },
       save: async (scene, png) => {
         const response = await fetch('/anyangle-studio/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ scene, png }) });
         const saved = await response.json(); if (!response.ok) throw new Error(saved.error || '批量粗图保存失败'); return saved;
       },
-      queue: queueFinal ? async snapshot => (await batchRequest('queue', { snapshot })).prompt_id : null,
+      queue: queueFinal ? async snapshot => await batchRequest('queue', { snapshot }) : null,
       onProgress: ({ index, total, label, phase }) => {
         $('#batch-state').textContent = phase === 'capture' ? `渲染 ${index + 1} / ${total} · ${label}`
           : `${phase === 'queued' ? '已入队' : '已保存'} ${index} / ${total} · ${label}`;
@@ -1115,7 +1139,7 @@ async function ensureHumanTools() {
   humanToolsReady = true;
 }
 
-async function start(token, reference = { connected: false }, structure = { connected: false }, needsWiring = false) {
+async function start(token, reference = { connected: false }, structure = { connected: false }, needsWiring = false, initialSettings = null) {
   try {
     if (token?.id) {
       const response = await fetch(`/anyangle-studio/snapshots/${encodeURIComponent(token.id)}`);
@@ -1125,12 +1149,16 @@ async function start(token, reference = { connected: false }, structure = { conn
       else throw new Error(saved.error || `读取快照失败（HTTP ${response.status}）`);
     }
     restoreSceneDefaults(doc);
+    if (!snapshot && doc.version === 3 && initialSettings?.model === 'base') {
+      doc.conditioning.model = 'base'; doc.conditioning.imageOrder = 'guide-first';
+      if (['guided','references-only','text'].includes(initialSettings.mode)) doc.referenceLibrary.mode = initialSettings.mode;
+    }
     linkedReference = reference;
     linkedStructure = structure;
     unwiredAnyAngle = needsWiring;
     const referenceChanged = reference.connected && !!reference.asset && reference.asset.name !== doc.reference?.name;
-    if (reference.connected) doc.reference = reference.asset || null;
-    if (doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name) doc.source = { kind: 'empty' };
+    if (reference.connected) { const previous = doc.reference; doc.reference = reference.asset || null; sourceChanged(doc, previous); }
+    if (doc.version !== 3 && doc.source.kind === 'splat' && doc.source.reference?.name !== doc.reference?.name) doc.source = { kind: 'empty' };
     studio = new StudioScene($('#viewport'), { begin, change: changed, camera: () => { revision++; refresh(); schedulePreview(); $('#status').textContent = '机位草稿 · 尚未应用'; $('#status').dataset.state = 'dirty'; }, pick: selectRole, select: (name, updateControls = true) => { selectedBone = name || ''; if (updateControls) refresh(); }, error });
     await studio.init(doc);
     if (doc.source.kind === 'human') await ensureHumanTools();
@@ -1144,7 +1172,7 @@ async function start(token, reference = { connected: false }, structure = { conn
     $('#status').dataset.state = snapshot ? 'saved' : 'dirty';
     if (referenceChanged) { $('#status').textContent = '连线原图已更新 · 应用后保存到场景'; $('#status').dataset.state = 'dirty'; }
     setBusy(false); await renderPreview();
-    if (doc.reference && doc.source.kind === 'empty' && currentGuide() === 'coarse') await run(reconstructPhoto);
+    if (requiresGuide() && doc.reference && doc.source.kind === 'empty' && currentGuide() === 'coarse') await run(reconstructPhoto);
   } catch (e) { showLoadError(e); error(e); }
 }
 function readPendingReference() {
@@ -1155,10 +1183,10 @@ function readPendingReference() {
     linkedReference = reference;
     if (reference.error) toast(reference.error);
     if (sameAsset) { refresh(); return; }
-    begin(); doc.reference = reference.asset || null;
-    if (doc.source.kind === 'splat') doc.source = { kind: 'empty' };
+    begin(); const previous = doc.reference; doc.reference = reference.asset || null; sourceChanged(doc, previous);
+    if (doc.version !== 3 && doc.source.kind === 'splat') doc.source = { kind: 'empty' };
     await studio.restore(doc); changed();
-    if (doc.reference && doc.source.kind === 'empty' && currentGuide() === 'coarse') await reconstructPhoto();
+    if (requiresGuide() && doc.reference && doc.source.kind === 'empty' && currentGuide() === 'coarse') await reconstructPhoto();
   });
 }
 function readPendingStructure() {
@@ -1182,7 +1210,9 @@ function readPendingActors() {
   if (busy || !ready || !pendingActors) return;
   const message = pendingActors; pendingActors = null;
   run(async () => {
-    updateActorReferences(message.actorReferences);
+    setReferenceConnections(message.actorReferences);
+    if (doc.version === 3) { begin(); updateReferences(doc, message.actorReferences || []); changed(false); }
+    else updateActorReferences(message.actorReferences);
     if (message.error) toast(message.error);
   });
 }
@@ -1200,12 +1230,14 @@ function readPendingKeypoints() {
 installActorsUI({ doc: () => doc, replace: value => { doc = value; }, studio: () => studio, run, begin, changed, refresh,
   ensureHumanTools, askName, upload, captureGuide, toast, send, downloadURL: download, downloadBlob: download,
   showScene: () => { previewVisible = false; setMode('camera'); } });
+installReferencesUI({ doc: () => doc, run, begin, changed, askName, upload, send, toast,
+  sourceChanged: previous => sourceChanged(doc, previous) });
 if (embedded) {
   let started = false;
   window.addEventListener('message', async event => {
     if (event.source !== parent || event.origin !== location.origin || event.data?.session !== session) return;
     if (event.data.type === 'anyangle-load' && !started) {
-      started = true; await start(event.data.snapshot, event.data.reference, event.data.structure, event.data.unwiredAnyAngle);
+      started = true; await start(event.data.snapshot, event.data.reference, event.data.structure, event.data.unwiredAnyAngle, event.data.initialSettings);
       pendingActors = { actorReferences: event.data.actorReferences, error: event.data.inputError }; readPendingActors();
       $('#read-pose-keypoints').hidden = !event.data.keypointsConnected;
     } else if (event.data.type === 'anyangle-actors' && ready) {

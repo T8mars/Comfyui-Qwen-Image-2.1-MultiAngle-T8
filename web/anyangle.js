@@ -1,12 +1,12 @@
 import { app } from '../../scripts/app.js';
 import { api } from '../../scripts/api.js';
-import { referencePlan, executeReference } from './reference.mjs?v=20261004mp1';
-import { promptForSnapshot } from './batch-queue.mjs?v=20261004mp1';
+import { referencePlan, executeReference } from './reference.mjs?v=20261009v160';
+import { promptForSnapshot } from './batch-queue.mjs?v=20261009v160';
 
 let graphRevision = 0;
 let closeActive = null;
 const extensionURL = new URL('./editor/index.html', import.meta.url);
-extensionURL.searchParams.set('v', '20261004mp1');
+extensionURL.searchParams.set('v', '20261009v160');
 
 function openEditor(node, widget) {
   closeActive?.();
@@ -21,7 +21,7 @@ function openEditor(node, widget) {
   let active = true;
   let reference = { connected: false }, referenceSignature = null, readingReference = false;
   let structure = { connected: false }, structureSignature = null, readingStructure = false;
-  let batchGraph = null;
+  let batchGraph = null, frozenPrompts = null;
   let actorReferences = [], actorSignatures = new Map(), posePeople = null, poseSignature = null;
   const batchRequests = new Map();
   const unwiredAnyAngleLoader = () => {
@@ -111,11 +111,11 @@ function openEditor(node, widget) {
     const result = [];
     for (const { inputKey, plan } of plans) {
       let asset = actorSignatures.get(inputKey) === plan.signature ? previous.get(inputKey)?.asset : null;
-      let readError = null;
-      try { if (!asset && (plan.filename || execute)) asset = await executeReference(plan, valid); }
-      catch (error) { readError = error.message; }
+      let batch = asset ? previous.get(inputKey) : null, readError = null;
+      try { if ((!asset || execute) && (plan.filename || execute)) { batch = await executeReference(plan, valid, 'batch'); asset = batch?.asset; } }
+      catch (error) { readError = error.message; asset = null; batch = null; }
       if (!valid()) return;
-      result.push({ inputKey, asset, error: readError, message: readError || (asset ? '来自 IMAGE 连线 · 首张图像' : '点击读取人物照片，执行上游节点') });
+      result.push({ inputKey, asset, assets: batch?.assets, batchCount: batch?.batchCount || 1, error: readError, message: readError || (asset ? '来自 IMAGE 连线 · 首张图像' : '点击读取参考素材，执行上游节点') });
     }
     const current = await actorPlans();
     if (JSON.stringify(current.map(item => [item.inputKey,item.plan.signature])) !== JSON.stringify(plans.map(item => [item.inputKey,item.plan.signature]))) throw new Error('人物照片上游已变化，请重新读取');
@@ -144,14 +144,21 @@ function openEditor(node, widget) {
     const saved = await response.json(), scene = saved.scene, settings = scene.conditioning || {};
     const plans = await actorPlans();
     if (JSON.stringify(plans.map(item => [item.inputKey,item.plan.signature])) !== JSON.stringify([...actorSignatures])) throw new Error('人物照片连线已变化，请重新读取');
-    for (const actor of scene.actors || []) if (actor.identity?.inputKey) {
+    for (const actor of scene.version === 3 ? [] : scene.actors || []) if (actor.identity?.inputKey) {
       const reference = actorReferences.find(item => item.inputKey === actor.identity.inputKey);
       if (reference && (!reference.asset || actor.identity.asset?.name !== reference.asset.name)) throw new Error(`请重新读取 ${actor.identity.inputKey} 并应用身份绑定`);
+    }
+    const sentReferences = new Set(scene.manifest?.references?.flatMap(reference => reference.referenceIds || []) || []);
+    for (const item of scene.referenceLibrary?.items || []) if (item.inputKey && sentReferences.has(item.id)) {
+      const current = actorReferences.find(value => value.inputKey === item.inputKey);
+      const asset = current?.assets?.[item.batchIndex || 0] || (!item.batchIndex ? current?.asset : null);
+      if (!asset || item.asset?.name !== asset.name) throw new Error(`请重新读取 ${item.label} 并应用参考用途`);
     }
     if (settings.model === 'base' && unwiredAnyAngleLoader())
       throw new Error('当前工作流的 AnyAngle LoRA 强度仍固定。请连接 Studio 的 anyangle_lora_strength，或移除该加载器。');
     if (reference.connected && scene.reference?.name !== reference.asset?.name) throw new Error('参考图已变化，请重新读取并重建主体');
-    if (settings.model === 'base' && settings.guide === 'pose' && scene.openpose?.origin === 'keypoints' && !scene.openpose.useRig) {
+    const noGuide = scene.version === 3 && scene.referenceLibrary.mode !== 'guided';
+    if (!noGuide && settings.model === 'base' && settings.guide === 'pose' && scene.openpose?.origin === 'keypoints' && !scene.openpose.useRig) {
       const current = referencePlan((await app.graphToPrompt()).output, node.id, 'pose_keypoints');
       if (current?.signature !== poseSignature || scene.openpose.inputPlanSignature && current?.signature !== scene.openpose.inputPlanSignature
           || posePeople && scene.openpose.inputSignature !== posePeople.signature) throw new Error('姿势关键点上游已变化，请重新读取并应用');
@@ -160,13 +167,13 @@ function openEditor(node, widget) {
       || settings.guide === 'pose' && (scene.openpose?.useRig || settings.mapOrigin === 'rig')
       || settings.guide === 'depth' && ['da3', 'scene'].includes(settings.mapOrigin)
       || settings.guide === 'canny' && ['auto', 'reference'].includes(settings.mapOrigin);
-    if (structure.connected && settings.model === 'base' && !photoGuide) {
+    if (!noGuide && structure.connected && settings.model === 'base' && !photoGuide) {
       const name = settings.guide === 'pose' ? scene.openpose?.sourceName : settings.map?.name;
       if (['pose', 'depth', 'canny'].includes(settings.guide) && name !== structure.asset?.name)
         throw new Error('结构图已变化，请先在工作台重新读取并应用');
     }
     if (!valid()) throw new Error('工作流已改变，请重新打开工作台');
-    return scene;
+    return { ...scene, resolvedPrompt: saved.prompt };
   };
   const receive = async event => {
     if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.session !== session) return;
@@ -178,7 +185,7 @@ function openEditor(node, widget) {
       const inputErrors = [];
       try { await readActors(); } catch (error) { inputErrors.push(error.message); }
       try { await readKeypoints(); } catch (error) { inputErrors.push(error.message); }
-      send('anyangle-load', { snapshot, reference, structure, actorReferences, inputError: inputErrors.join('\n'), keypointsConnected: !!poseSignature, unwiredAnyAngle: unwiredAnyAngleLoader() });
+      send('anyangle-load', { snapshot, reference, structure, actorReferences, inputError: inputErrors.join('\n'), keypointsConnected: !!poseSignature, unwiredAnyAngle: unwiredAnyAngleLoader(), initialSettings: node.properties?.anyangleStart });
     } else if (event.data.type === 'anyangle-read-reference') {
       await readReference(true); send('anyangle-reference', { reference });
     } else if (event.data.type === 'anyangle-read-structure') {
@@ -198,13 +205,32 @@ function openEditor(node, widget) {
           batchGraph = await app.graphToPrompt();
           if (!batchGraph.output[String(node.id)] || !node.outputs?.find(output => output.name === 'guide_image_2')?.links?.length)
             throw new Error('请将 Studio 的 guide_image_2 连入当前生成工作流');
+          frozenPrompts = {};
+          if (event.data.snapshot) {
+            const frozenScene = await validateSnapshot(event.data.snapshot);
+            batchGraph = promptForSnapshot(batchGraph, node.id, event.data.snapshot, frozenScene);
+          }
+          for (const [encoderId, encoder] of Object.entries(batchGraph.output)) {
+            if (encoder.class_type !== 'AnyAngleMultiPersonEncodeT8' || encoder.inputs.scene_json?.[0] !== String(node.id)) continue;
+            const frozen = { prompt_mode: encoder.inputs.prompt_mode || 'studio-plus-input' };
+            for (const key of ['prompt','negative_prompt']) {
+              const value = encoder.inputs[key];
+              frozen[key] = Array.isArray(value) ? await executeReference(referencePlan(batchGraph.output, encoderId, key), valid, 'text') : value ?? '';
+            }
+            if (Array.isArray(encoder.inputs.prompt_mode)) frozen.prompt_mode = await executeReference(referencePlan(batchGraph.output, encoderId, 'prompt_mode'), valid, 'mode');
+            frozenPrompts[encoderId] = frozen;
+          }
           return {};
         }
         if (event.data.action !== 'queue' || !batchGraph) throw new Error('请先准备批量工作流');
         const frozenScene = await validateSnapshot(event.data.snapshot);
-        const result = await api.queuePrompt(0, promptForSnapshot(batchGraph, node.id, event.data.snapshot, frozenScene));
+        const result = await api.queuePrompt(0, promptForSnapshot(batchGraph, node.id, event.data.snapshot, frozenScene, frozenPrompts));
         if (!result.prompt_id) throw new Error('提交未返回任务编号，请检查 ComfyUI 队列');
-        return { prompt_id: result.prompt_id };
+        const encoding_plan = Object.entries(frozenPrompts || {}).map(([encoder_id, inputs]) => ({ encoder_id,
+          prompt_mode: inputs.prompt_mode, prompt: inputs.prompt_mode === 'input-full' ? inputs.prompt
+            : [frozenScene.resolvedPrompt, inputs.prompt].filter(Boolean).join('\n'), negative_prompt: inputs.negative_prompt,
+          images: frozenScene.manifest?.references?.map(reference => ({ index: reference.index, sha256: reference.asset.name.split('.')[0] })) || [] }));
+        return { prompt_id: result.prompt_id, encoding_plan };
       })());
       try { send('anyangle-batch-reply', { requestId, result: await batchRequests.get(requestId) }); }
       catch (error) { send('anyangle-batch-reply', { requestId, error: error.message }); }
@@ -226,6 +252,20 @@ function openEditor(node, widget) {
   closeActive = close; dialog.showModal();
 }
 
+function labelStudioSockets(node) {
+  for (const input of node.inputs || []) {
+    const match = input.name.match(/^(?:actor_references\.)?actor_reference_(\d+)$/);
+    if (match) input.label = `参考图 ${match[1]}（通用）`;
+    else if (input.name === 'reference_image') input.label = '场景来源图（可选）';
+    else if (input.name === 'structure_image') input.label = '外部引导图（可选）';
+    else if (input.name === 'pose_keypoints') input.label = '姿势关键点（高级）';
+  }
+  for (const output of node.outputs || []) {
+    if (output.name === 'guide_image_2') output.label = '当前构图引导';
+    if (output.name === 'scene_json') output.label = '场景与参考设置';
+  }
+}
+
 app.registerExtension({
   name: 'T8.AnyAngleStudio',
   afterConfigureGraph() {
@@ -235,6 +275,7 @@ app.registerExtension({
         if (!node.inputs?.some(input => input.name === 'reference_image')) node.addInput('reference_image', 'IMAGE');
         if (!node.inputs?.some(input => input.name === 'structure_image')) node.addInput('structure_image', 'IMAGE');
         if (!node.outputs?.some(output => output.name === 'anyangle_lora_strength')) node.addOutput('anyangle_lora_strength', 'FLOAT');
+        labelStudioSockets(node);
       }
     }
   },
@@ -260,6 +301,9 @@ app.registerExtension({
       if (widget.inputEl) widget.inputEl.style.display = 'none';
       this.addWidget('button', '打开 AnyAngle Studio', null, () => openEditor(this, widget));
       this.color = '#173847'; this.bgcolor = '#111e28'; this.size = [345, 130];
+      labelStudioSockets(this);
+      const connectionsChanged = this.onConnectionsChange;
+      this.onConnectionsChange = function () { const result = connectionsChanged?.apply(this, arguments); queueMicrotask(() => labelStudioSockets(this)); return result; };
       const removed = this.onRemoved;
       this.onRemoved = function () { closeActive?.(); removed?.apply(this, arguments); };
     };

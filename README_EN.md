@@ -1,16 +1,50 @@
 <p align="center"><img src="web/icons/aperture.svg" width="48" alt="AnyAngle Studio"></p>
 <h1 align="center">AnyAngle Studio · T8</h1>
-<p align="center"><strong>Compose multiple actors with independent references, a 3D camera and structure guides.</strong></p>
+<p align="center"><strong>Compose multiple actors and combine creative references with a 3D camera and structure guides.</strong></p>
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 <p align="center">ComfyUI custom node · Qwen Image 2.1 · optional AnyAngle LoRA · TripoSplat · MIT</p>
 
-![v1.5.7 actual ComfyUI three-person workbench and camera bookmarks](docs/images/studio-multi-person-v157.png)
+![v1.6.0 actual multi-person workbench and reference library](docs/images/studio-reference-guided-v160.png)
 
-<p align="center"><sub>v1.5.7 · Actual ComfyUI workbench screenshot · Bundled mannequin; Fisher is not required</sub></p>
+<p align="center"><sub>v1.6.0 · Actual workbench screenshot · Bundled mannequin; Fisher is not required</sub></p>
 
 **Original model: [lilylilith / QI_2.1_AnyAngle](https://huggingface.co/lilylilith/QI_2.1_AnyAngle)** · [Basic workflow](workflows/AnyAngle-Studio-Qwen21.json) · [Advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) · [中文说明](README.md)
 
-## Multi-person workbench · 1.5.7
+## Multi-reference creation · 1.6.0
+
+References can supply **identity, clothing, accessories / products, environments, style or layout**, with a free-reference option. The left panel separates reference materials from scene objects. One image can serve several purposes and targets; identical assets are encoded once. The send list shows actual image numbers and exclusions. Changing 3D, POSE, Depth or Canny guides preserves the library.
+
+| Workflow | Purpose |
+|---|---|
+| [Guide + references](workflows/AnyAngle-Studio-Qwen21-MultiReference.json) | Pose people or place props and combine materials |
+| [References only](workflows/AnyAngle-Studio-Qwen21-ReferencesOnly.json) | No mannequin or GLB required; no placeholder guide; first reference sets the frame |
+| [Viggle Turbo · 6 steps](workflows/AnyAngle-Studio-Qwen21-ViggleTurbo6.json) | Accelerated route using the author's custom nodes and Qwen base model |
+
+**Edit prompts independently.** Examples explicitly wire `Studio.prompt → encoder.prompt` with `input-full`. Disconnect to type your own text, or connect another text / concatenation node. Enter `negative_prompt` separately. `studio-plus-input` appends a description to Studio's generated prompt; do not connect the complete Studio prompt in this mode. Full-input mode preserves raw text, including an empty string, without silently appending material rules.
+
+`reference_image` is the optional source for reconstruction / extraction; add it to the library to send it as a reference. `actor_reference_N` accepts general materials, not only portraits. `structure_image` accepts processed pose / depth / edge images; `pose_keypoints` accepts native keypoints. IMAGE batches use the first frame unless explicitly split. Actual crops, reference-combination templates, reference-only and text-only creation are supported.
+
+![Actual references-only workbench](docs/images/studio-reference-only-v160.png)
+
+| Native Qwen · 20 steps | Viggle Turbo · 6 steps |
+|:---:|:---:|
+| <img src="docs/images/references-native-v160.png" width="340" alt="Actual native Qwen result from three references"> | <img src="docs/images/references-turbo-v160.png" width="340" alt="Actual Turbo result from the same references and seed"> |
+
+Both images were generated in local ComfyUI with the same three materials and seed 42. Uses and targets are text instructions, not hard masks or per-reference weights. Identity, clothing details and complex layouts can drift. [Usage and model sources](docs/reference-library.md#english) · [Execution and quality validation](docs/reference-library-validation.md#english).
+
+Turbo additionally needs the author's [custom nodes and weights](https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/tree/main/comfyui). Use `ViggleTurboLora`, `ViggleTurboSigmas`, Euler and BasicGuider. This route uses no negative CFG; the encoder's negative output is disconnected. An ordinary LoRA loader or a six-step KSampler is not an equivalent setup. General references need no additional inference weights.
+
+Legacy v1 / v2 scenes retain their original rules until explicitly upgraded. New portable ZIPs include disabled materials and require plugin 1.6.0 or newer. References-only mode handles its first image independently from the other references' budget; the latent socket displays actual output dimensions.
+
+## 20 teaching cases · 16:9
+
+Every case combines multiple reference purposes with two or three people: mannequins, POSE, Depth, Canny, actual splats and references-only creation. Sources, guides and finals are actual local ComfyUI tests using Turbo six steps.
+
+![20组多用途参考与多人实际成图](docs/images/teaching-v160/overview.jpg)
+
+[Browse all 20 teaching composites and test notes](docs/teaching-gallery_EN.md) · [图号、提示词与执行记录 / Records](docs/teaching-gallery-validation.json)。
+
+## Multi-person workbench
 
 **[Multi-person workflow](workflows/AnyAngle-Studio-Qwen21-MultiPerson.json)** · **[Three-person scene ZIP with reference images](examples/multi-person-photo-pose.zip)** · [Measured results and limitations](docs/multi-person-validation.md#english)
 
@@ -185,7 +219,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.5.7**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.0**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

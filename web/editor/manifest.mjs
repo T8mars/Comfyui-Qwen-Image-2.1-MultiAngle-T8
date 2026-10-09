@@ -1,11 +1,13 @@
-import { visibleActors } from './actors.mjs?v=20261004mp1';
-import { guideSource, guidePrompt } from './guides.mjs?v=20261004mp1';
+import { visibleActors } from './actors.mjs?v=20261009v160';
+import { guideSource, guidePrompt } from './guides.mjs?v=20261009v160';
+import { libraryManifest, libraryPrompt } from './reference-library.mjs?v=20261009v160';
 
 export function actorMode(scene) {
   return scene.source?.kind === 'human' && scene.conditioning?.identityMode === 'actors' && scene.conditioning?.model === 'base'
     && (scene.conditioning.promptMode === 'custom' || !['image', 'canny-image'].includes(guideSource(scene).kind));
 }
 export function scenePrompt(scene, manifest = buildManifest(scene)) {
+  if (scene.version === 3 && scene.conditioning?.model === 'base') return libraryPrompt(scene, manifest);
   if (actorMode(scene)) return actorPrompt(scene, manifest);
   const settings = scene.conditioning || {};
   const singleStructure = settings.model === 'base' && settings.identityMode === 'actors'
@@ -13,6 +15,7 @@ export function scenePrompt(scene, manifest = buildManifest(scene)) {
   return guidePrompt(singleStructure ? { ...settings, promptMode: 'single' } : settings, scene.source);
 }
 export function buildManifest(scene) {
+  if (scene.version === 3) return libraryManifest(scene);
   const settings = scene.conditioning || {}, multi = actorMode(scene);
   const order = settings.imageOrder || (multi ? 'guide-first' : 'reference-first');
   let references = []; const byName = new Map(), actors = [];

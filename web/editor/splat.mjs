@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.mjs';
 import { DropInViewer, SceneFormat, SceneRevealMode } from '../vendor/gaussian-splats-3d.mjs';
-import { lensSettings } from './lens.mjs?v=20261004mp1';
+import { lensSettings } from './lens.mjs?v=20261009v160';
 
 const radians = THREE.MathUtils.degToRad;
 
