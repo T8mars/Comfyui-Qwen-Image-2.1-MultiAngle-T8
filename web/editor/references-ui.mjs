@@ -1,4 +1,4 @@
-import { USES, newUse, addReference, upgradeReferences, libraryManifest, libraryPrompt, staleGuide } from './reference-library.mjs?v=20261009v160';
+import { USES, newUse, addReference, upgradeReferences, libraryManifest, libraryPrompt, staleGuide } from './reference-library.mjs?v=20261009v165r2';
 const $ = id => document.getElementById(id);
 const copy = value => JSON.parse(JSON.stringify(value));
 const imageURL = asset => `/anyangle-studio/assets/${encodeURIComponent(asset.name)}`;
@@ -189,18 +189,22 @@ export function refreshReferencesUI(force = false) {
   $('reference-source-warning-text').textContent = scene.sourceStale ? '来源图已改变，当前3D仍来自旧图。请重新重建；参考素材与相机设置保留。' : '来源图已改变，已提取的骨架 / 深度仍来自旧图。请重新提取，或明确沿用保存结构。';
   $('keep-derived-guide').hidden = !scene.derivedGuideStale && !staleGuide(scene);
   $('library-source-image').hidden = !source; if (source) $('library-source-image').src = imageURL(source);
-  $('library-source-state').textContent = source ? '用于提取 / 重建；加入参考库后才参与多图创作。' : '可选。无图也可摆放人偶或纯文本创作。';
   const noGuide = modern && library.mode !== 'guided'; $('stage').classList.toggle('reference-only', noGuide); $('reference-stage-preview').hidden = !noGuide;
   if (noGuide) $('mouse-pitch').closest('.studio-options').hidden = true;
   $('image-order-row').hidden = noGuide || scene.conditioning.promptMode === 'single';
+  const anyangle = scene.conditioning.model === 'anyangle';
+  $('library-source-state').textContent = source ? anyangle && !noGuide
+    ? '用于提取 / 重建；AnyAngle 换机位自动发送原图，可加入参考库设置额外用途。'
+    : '用于提取 / 重建；加入参考库后才参与多图创作。' : '可选。无图也可摆放人偶或纯文本创作。';
   for (const option of $('image-order').options) option.textContent = option.value === 'guide-first'
-    ? (modern ? '引导在前 / 参考在后' : '引导图 1 / 原图 2')
-    : (modern ? '参考在前 / 引导在后' : '原图 1 / 引导图 2');
+    ? (modern && anyangle && source ? '粗图 1 / 原图 2 / 素材 3+' : modern ? '引导在前 / 参考在后' : '引导图 1 / 原图 2')
+    : (modern && anyangle && source ? '原图 1 / 粗图 2 / 素材 3+' : modern ? '参考在前 / 引导在后' : '原图 1 / 引导图 2');
   if (modern) $('reference-heading').textContent = '场景来源图 · 提取 / 重建';
   document.querySelector('.guide-choice-grid').hidden = noGuide;
   document.querySelector('.guide-label').hidden = noGuide;
   document.querySelector('.output-section').hidden = noGuide;
-  for (const id of ['coarse-inputs','openpose-panel','map-inputs','canny-options','guide-explanation','stage-help']) if (noGuide) $(id).hidden = true;
+  $('guide-explanation').hidden = noGuide;
+  for (const id of ['coarse-inputs','openpose-panel','map-inputs','canny-options','stage-help']) if (noGuide) $(id).hidden = true;
   if (!noGuide) $('stage-help').hidden = false;
   $('ratio').disabled = noGuide;
   $('reference-first-settings').hidden = !modern || library.mode !== 'references-only';
@@ -236,11 +240,7 @@ export function refreshReferencesUI(force = false) {
     for (const reference of manifest.references) rows.push(el('p', `image_${reference.index} · ${reference.labels.join(' / ')} · ${reference.usages.map(use => `${USES[use.kind]} → ${use.targetText}`).join('；')}`));
     for (const entry of manifest.excluded) rows.push(el('p', `${entry.label} · ${entry.reason}`, 'hint'));
     $('reference-send-images').replaceChildren(...rows); $('reference-send-warning').textContent = [mappingWarning, ...manifest.warnings].filter(Boolean).join(' ') || 'Qwen 官方建议范围：10 图。相同素材多用途只编码一次。';
-    if (scene.conditioning.model === 'base') {
-      $('image-wiring').textContent = 'Studio 当前构图引导 / 场景与参考设置 → 多图编码；Studio prompt → 编码 prompt（使用输入全文）。';
-      $('prompt-preview').textContent = libraryPrompt(scene, manifest);
-      $('prompt-mode-hint').textContent = '编码器可断线手写或接入其他文本节点；补充模式追加一次，全文模式使用原文。用途是描述性提示，不是硬遮罩。';
-    }
+    $('prompt-preview').textContent = libraryPrompt(scene, manifest);
   }
   if (noGuide) {
     const selected = library.items.find(item => item.id === previewId) || library.items.find(item => item.id === selectedId) || library.items.find(item => item.asset);
@@ -255,13 +255,13 @@ export function refreshReferencesUI(force = false) {
   if (noGuide) { $('download-guide').disabled = true; $('open-batch').disabled = true; }
   document.querySelector('.guide-section').hidden = noGuide;
   $('model-anyangle').disabled ||= noGuide;
-  if (scene.conditioning.model === 'base') {
-    $('image-wiring').textContent = 'Studio 当前构图引导 / 场景与参考设置 → 多图编码；Studio prompt → 编码 prompt（使用输入全文）。';
-    $('prompt-mode-hint').textContent = '编码器可断线手写或接入其他文本节点；补充模式追加一次，全文模式使用原文。用途是描述性提示，不是硬遮罩。';
-    const select = $('prompt-mode');
-    for (const option of select.options) { if (option.value === 'default') option.textContent = modern ? '按素材用途自动生成' : '默认模板'; if (option.value === 'single') option.hidden = modern; }
-    if (modern && scene.conditioning.promptMode === 'single') $('prompt-mode-hint').textContent += ' 旧单图选项已保留；新版发送内容以素材清单为准，关闭素材可只发引导。';
-  }
+  $('image-wiring').textContent = 'Studio 当前构图引导 / 场景与参考设置 → 多图编码；Studio prompt → 编码 prompt（使用输入全文）。';
+  $('prompt-mode-hint').textContent = '编码器可断线手写或接入其他文本节点；补充模式追加一次，全文模式使用原文。用途是描述性提示，不是硬遮罩。';
+  if (anyangle) $('prompt-mode-hint').textContent += ' AnyAngle 保留换机位触发词，并追加已启用素材用途；原图保持输入尺寸，其他素材使用编码器参考预算。';
+  if (scene.source?.kind === 'splat') $('prompt-mode-hint').textContent += ' 原图人物绑定按名称描述目标，不会拆分重建骨架；可用文字目标明确“原图左侧女性”等位置。';
+  const select = $('prompt-mode');
+  for (const option of select.options) { if (option.value === 'default') option.textContent = '按素材用途自动生成'; if (option.value === 'single') option.hidden = true; }
+  if (scene.conditioning.promptMode === 'single') $('prompt-mode-hint').textContent += ' 旧单图选项已保留；新版发送内容以素材清单为准，关闭素材可只发引导。';
 }
 function installCropDrag() {
   const surface = $('reference-crop-surface'), image = $('reference-crop-image'); let start;

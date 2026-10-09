@@ -102,6 +102,7 @@ try{
   // Exercise the actual editor DOM on this static fixture; no ComfyUI routes exist.
   await page.setViewportSize({width:1660,height:1000});await page.goto(`http://127.0.0.1:${server.address().port}/tests/editor.html`);
   await page.waitForFunction(()=>document.querySelector('#loading').hidden&&!document.querySelector('#workspace').inert,{timeout:120000});
+  await page.locator('#tab-objects').click();
   for(let i=0;i<2;i++){await page.locator('#add-actor').click();await page.waitForFunction(()=>!document.querySelector('#workspace').inert,{timeout:120000});}
   assert.equal(await page.locator('.actor-card').count(),2);
   await page.locator('.actor-name').first().click();await page.waitForFunction(()=>!document.querySelector('#workspace').inert);

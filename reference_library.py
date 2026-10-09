@@ -85,16 +85,22 @@ def target_text(scene, target):
     if kind == "text":
         return target.get("text", "").strip() or None
     objects = scene.get("actors" if kind == "actors" else "props", [])
-    if kind == "actors" and scene.get("source", {}).get("kind") != "human":
+    source_kind = scene.get("source", {}).get("kind")
+    if kind == "actors" and source_kind not in ("human", "splat"):
         return None
-    labels = [obj.get("label", obj["id"]) for obj in objects if obj["id"] in target.get("ids", []) and obj.get("visible", True)]
+    labels = [obj.get("label") or obj["id"] for obj in objects if obj["id"] in target.get("ids", []) and obj.get("visible", True)]
     return ", ".join(labels) or None
 
 
 def library_manifest(scene):
     library = scene["referenceLibrary"]
     mode, settings = library.get("mode", "guided"), scene.get("conditioning", {})
+    anyangle = settings.get("model", "anyangle") == "anyangle"
     references, excluded, by_name = [], [], {}
+    actor_ids = {actor["id"] for actor in scene.get("actors", []) if actor.get("visible", True)}
+    if anyangle and mode == "guided" and scene.get("reference"):
+        references.append({"asset": scene["reference"], "referenceIds": ["scene-source"], "labels": ["场景来源图"], "usages": [], "actorIds": []})
+        by_name[scene["reference"]["name"]] = 0
     for item in library["items"]:
         reason = None
         uses = [{**use, "targetText": target_text(scene, use["target"])} for use in item["usages"] if use.get("enabled", True)]
@@ -103,14 +109,12 @@ def library_manifest(scene):
             reason = "素材已停用"
         elif mode == "text":
             reason = "纯文本模式不发送图片"
-        elif settings.get("model", "anyangle") == "anyangle":
-            reason = "当前 AnyAngle 双图模式未发送；切换 Qwen 多图创作可使用"
         elif not uses:
             reason = "用途已停用或目标待重新分配"
         elif not item.get("asset") or item.get("missing"):
             reason = "连线或素材缺失，请重新读取或明确使用保存版本"
         if reason:
-            excluded.append({"id": item["id"], "label": item.get("label", item["id"]), "reason": reason})
+            excluded.append({"id": item["id"], "label": item.get("label") or item["id"], "reason": reason})
             continue
         name = item["asset"]["name"]
         if name not in by_name:
@@ -118,30 +122,35 @@ def library_manifest(scene):
             references.append({"asset": item["asset"], "referenceIds": [], "labels": [], "usages": [], "actorIds": []})
         entry = references[by_name[name]]
         entry["referenceIds"].append(item["id"])
-        entry["labels"].append(item.get("label", item["id"]))
+        entry["labels"].append(item.get("label") or item["id"])
         entry["usages"].extend(uses)
-        entry["actorIds"] = list(dict.fromkeys(entry["actorIds"] + [value for use in uses if use["target"]["kind"] == "actors" for value in use["target"].get("ids", [])]))
-    if settings.get("model", "anyangle") == "anyangle" and scene.get("reference"):
-        references = [{"asset": scene["reference"], "referenceIds": ["scene-source"], "labels": ["场景来源图"], "usages": [], "actorIds": []}]
+        entry["actorIds"] = list(dict.fromkeys(entry["actorIds"] + [value for use in uses if use["target"]["kind"] == "actors" for value in use["target"].get("ids", []) if value in actor_ids]))
     first = library.get("firstReferenceId")
     if mode == "references-only" and first:
         selected = next((entry for entry in references if first in entry["referenceIds"]), None)
         if selected:
             references.remove(selected)
             references.insert(0, selected)
-    order = settings.get("imageOrder", "guide-first")
-    guide = None if mode != "guided" else {"index": 1 if order == "guide-first" or not references else len(references) + 1, "width": scene["width"], "height": scene["height"]}
+    order = settings.get("imageOrder", "reference-first" if anyangle else "guide-first")
+    guide_index = 1 if order == "guide-first" or not references else len(references) + 1
+    if anyangle:
+        guide_index = 2 if order == "reference-first" and scene.get("reference") else 1
+    guide = None if mode != "guided" else {"index": guide_index, "width": scene["width"], "height": scene["height"]}
+    image_index = 1
     for index, reference in enumerate(references):
-        reference["index"] = index + (2 if guide and guide["index"] == 1 else 1)
-        reference["resolution"] = library.get("firstResolution", 0) if mode == "references-only" and index == 0 else "reference"
+        if guide and image_index == guide["index"]:
+            image_index += 1
+        reference["index"] = image_index
+        image_index += 1
+        reference["resolution"] = 0 if anyangle and "scene-source" in reference["referenceIds"] else library.get("firstResolution", 0) if mode == "references-only" and index == 0 else "reference"
     count = len(references) + (1 if guide else 0)
     warnings = ["超过 Qwen Image 2.1 官方建议的 10 图范围，图片仍完整发送；请留意效果和显存。"] if count > 10 else []
     missing = [entry["label"] for entry in excluded if entry["reason"].startswith("连线")]
-    kind = settings.get("guide", "coarse")
+    kind = "coarse" if anyangle else settings.get("guide", "coarse")
     static = kind != "coarse" and (settings.get("map") and settings.get("mapKind", kind) == kind
               or kind == "canny" and scene.get("reference") and settings.get("mapOrigin") != "auto")
     return {"version": 2, "mode": mode, "imageOrder": order, "guide": guide, "references": references,
-            "actors": [{"id": actor["id"], "label": actor.get("label", actor["id"]), "transform": actor.get("transform", {}), "editorColor": actor.get("editorColor"),
+            "actors": [{"id": actor["id"], "label": actor.get("label") or actor["id"], "transform": actor.get("transform", {}), "editorColor": actor.get("editorColor"),
                         "description": actor.get("identity", {}).get("description", "")}
                        for actor in scene.get("actors", []) if not static and scene.get("source", {}).get("kind") == "human" and actor.get("visible", True)],
             "imageCount": count, "excluded": excluded, "missing": missing, "warnings": warnings}
@@ -153,10 +162,14 @@ def library_prompt(scene, manifest):
         return settings.get("customPrompt", "")
     guide = manifest["guide"]
     lines = []
-    if guide:
+    original = next((reference for reference in manifest["references"] if "scene-source" in reference.get("referenceIds", [])), None)
+    anyangle = settings.get("model", "anyangle") == "anyangle"
+    if guide and anyangle and original:
+        lines.append(f"Change the camera angle from <image{guide['index']}> to <image{original['index']}>.")
+    elif guide:
         instructions = {"coarse": "camera angle, composition, poses and placement", "pose": "body poses, limb directions, position and framing",
                         "depth": "spatial depth, layout and occlusion", "canny": "silhouettes, contours and major edges"}
-        kind = settings.get("guide", "coarse")
+        kind = "coarse" if anyangle else settings.get("guide", "coarse")
         lines.append(f"Create a finished image following the {instructions[kind]} in <image{guide['index']}>. Do not render guide marks, mannequin colors or skeleton lines.")
         actors = manifest["actors"]
         if actors:

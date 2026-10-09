@@ -60,6 +60,42 @@ class NodeOutputTests(unittest.TestCase):
             self.module.AnyAngleMultiPersonEncode.execute(clip, vae, studio[2], prompt="extra")
         self.assertEqual(clip.calls[0][0], studio[1] + "\nextra")
 
+    def test_anyangle_native_encoder_keeps_original_full_size_and_budgets_only_extra_materials(self):
+        scene = library_scene("guided")
+        scene.update(source={"kind": "human"}, width=160, height=96)
+        scene["conditioning"].update(model="anyangle", imageOrder="reference-first")
+        original = self.module.image_asset(torch.zeros((1, 96, 160, 3)))
+        clothing = self.module.image_asset(torch.ones((1, 80, 48, 3)))
+        rgba = torch.zeros((1, 80, 48, 4)); rgba[..., 0] = 1; rgba[..., 3] = .5
+        accessory = self.module.image_asset(rgba, preserve_alpha=True)
+        scene["reference"] = original
+        scene["referenceLibrary"]["items"] = [reference(clothing, 0, "clothing"), reference(accessory, 1, "accessory")]
+        guide = torch.full((1, 96, 160, 3), .5)
+        class Clip:
+            def __init__(self): self.calls = []
+            def tokenize(self, prompt, **kwargs): self.calls.append((prompt, kwargs)); return prompt
+            def encode_from_tokens_scheduled(self, _): return [[torch.zeros((1, 1, 1)), {}]]
+        class Vae:
+            def __init__(self): self.images = []
+            def encode(self, image):
+                self.images.append(image.clone()); return torch.zeros((1, 64, image.shape[1] // 16, image.shape[2] // 16))
+        clip, vae = Clip(), Vae()
+        with patch("comfy.model_management.intermediate_device", return_value=torch.device("cpu")):
+            encoded = self.module.AnyAngleMultiPersonEncode.execute(clip, vae, json.dumps(scene), guide, 32)
+        self.assertEqual(tuple(encoded.result[2]["samples"].shape), (1, 64, 6, 10))
+        self.assertEqual([tuple(image.shape) for image in vae.images], [(1, 96, 160, 3), (1, 96, 160, 3), (1, 32, 32, 3), (1, 32, 32, 4)])
+        self.assertEqual([float(image.mean()) for image in vae.images[:3]], [0, .5, 1])
+        self.assertEqual(len(encoded.result[0][0][1]["reference_latents"]), 4)
+        self.assertTrue(clip.calls[0][0].startswith("Change the camera angle from <image2> to <image1>."))
+        self.assertIn("<image3>: Use only the clothing", clip.calls[0][0])
+        self.assertIn("<image4>: Use only the accessory", clip.calls[0][0])
+        self.assertEqual(clip.calls[0][1]["images"][3].shape[-1], 3)
+        self.assertGreater(float(clip.calls[0][1]["images"][3][..., 1].mean()), .49)
+        metadata = encoded.ui["anyangle_encoding"][0]
+        self.assertEqual([entry["index"] for entry in metadata["images"]], [1, 2, 3, 4])
+        self.assertEqual((metadata["width"], metadata["height"]), (160, 96))
+        self.assertEqual([entry.get("resolution") for entry in metadata["images"]], [0, None, 32, 32])
+
     def test_connected_reference_batch_is_explicit_and_disconnect_requires_saved_version(self):
         images = torch.stack([torch.zeros((64, 96, 3)), torch.ones((64, 96, 3))])
         read = self.module.AnyAngleReferenceRead.execute(images).ui["anyangle_reference_batch"][0]
@@ -74,6 +110,45 @@ class NodeOutputTests(unittest.TestCase):
             self.module.AnyAngleStudio().render(json.dumps(token))
         studio = self.module.AnyAngleStudio().render(json.dumps(token), actor_references={"actor_reference_1": images})["result"]
         self.assertEqual(json.loads(studio[2])["referenceLibrary"]["items"][0]["asset"]["name"], read["assets"][1]["name"])
+
+    def test_explicit_library_batch_does_not_warn_that_only_first_image_is_used(self):
+        images = torch.stack([torch.zeros((64, 96, 3)), torch.ones((64, 96, 3))])
+        assets = self.module.AnyAngleReferenceRead.execute(images).ui["anyangle_reference_batch"][0]["assets"]
+        scene = library_scene()
+        scene["referenceLibrary"]["items"] = [reference(asset, index) for index, asset in enumerate(assets)]
+        for index, item in enumerate(scene["referenceLibrary"]["items"]):
+            item.update(inputKey="actor_reference_1", batchIndex=index)
+        token = self.module.store().save_scene(scene)
+        output = self.module.AnyAngleStudio().render(json.dumps(token), actor_references={"actor_reference_1": images})
+        self.assertEqual(json.loads(output["result"][2])["manifest"]["imageCount"], 2)
+        self.assertNotIn("anyangle_warnings", output["ui"])
+        legacy = scene_for(1)
+        token = self.module.store().save_scene(legacy, self.png)
+        output = self.module.AnyAngleStudio().render(json.dumps(token), actor_references={"actor_reference_1": images})
+        self.assertIn("第一张", output["ui"]["anyangle_warnings"][0])
+
+    def test_changed_connected_source_cannot_reuse_an_unaccepted_extracted_guide(self):
+        original = torch.zeros((1, 64, 96, 3))
+        replacement = torch.ones((1, 64, 96, 3))
+        asset = self.module.image_asset(original)
+        for guide in ("depth", "pose"):
+            with self.subTest(guide=guide):
+                scene = library_scene("guided")
+                scene["reference"] = asset
+                scene["conditioning"].update(guide=guide, map=asset, mapKind=guide,
+                    mapOrigin="da3" if guide == "depth" else "dwpose", mapReference=asset["name"])
+                scene["openpose"] = {"origin": "dwpose", "referenceName": asset["name"]}
+                token = self.module.store().save_scene(scene, self.png)
+                self.module.AnyAngleStudio().render(json.dumps(token), reference_image=original)
+                with self.assertRaisesRegex(ValueError, "来源图已改变"):
+                    self.module.AnyAngleStudio().render(json.dumps(token), reference_image=replacement)
+                scene["conditioning"]["acceptStoredSource"] = True
+                scene["openpose"]["acceptStoredSource"] = True
+                token = self.module.store().save_scene(scene, self.png)
+                self.module.AnyAngleStudio().render(json.dumps(token), reference_image=replacement)
+                scene["referenceLibrary"]["mode"] = "text"
+                token = self.module.store().save_scene(scene)
+                self.module.AnyAngleStudio().render(json.dumps(token), reference_image=replacement)
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

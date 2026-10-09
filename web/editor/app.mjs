@@ -1,6 +1,6 @@
 import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261009v160';
-import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261009v160';
-import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261009v163';
+import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261009v165r2';
+import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261009v165r2';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261009v163';
 import { readSkeletonImage } from './openpose.mjs?v=20261009v160';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261009v160';
@@ -8,7 +8,7 @@ import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mj
 import { randomPose } from './poses.mjs?v=20261009v160';
 import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261009v162';
 import { activeActor, saveActor } from './actors.mjs?v=20261009v160';
-import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261009v160';
+import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261009v165r2';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);

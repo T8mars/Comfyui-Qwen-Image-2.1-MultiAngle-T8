@@ -60,7 +60,7 @@ def conditioning_for(scene):
 
 def prompt_for(scene):
     model, guide, settings = conditioning_for(scene)
-    if scene.get("version") == 3 and model == "base":
+    if scene.get("version") == 3:
         return library_prompt(scene, build_manifest(scene))
     if actor_mode(scene):
         return actor_prompt(scene, build_manifest(scene))

@@ -467,7 +467,7 @@
         "Node name for S&R": "PreviewImage"
       },
       "widgets_values": [],
-      "title": "Single guide / image_1"
+      "title": "当前构图引导 / Current guide"
     },
     {
       "id": 12,
@@ -489,7 +489,7 @@
         "Node name for S&R": "Note"
       },
       "widgets_values": [
-        "多图创作 / Multi-reference creation\n1. 打开 Studio，选择 Qwen 底模。参考素材支持身份、服装、配饰、场景、风格与自由用途。\n2. 场景对象页添加人物；右侧选择三维、POSE、深度或 Canny 引导。\n3. 参考图 N 是通用素材；场景来源图用于重建 / 提取，需加入参考库才参与多图创作。\n4. 默认 Studio prompt 显式连接编码 prompt，模式 input-full。可断开手写或接其他文本。studio-plus-input 用于只追加描述；不要在此模式接完整 Studio prompt。\n5. 负向提示词独立填写；编码节点 latent 旁显示实际画幅。\n6. AnyAngle LoRA 由强度输出控制；多人 / 泛参考推荐 Qwen 底模。"
+        "多图创作 / Multi-reference creation\n1. 打开 Studio，选择 Qwen 底模多图创作，或 AnyAngle LoRA 换机位；两条路线均支持身份、服装、配饰、场景、风格与自由用途。\n2. 场景对象页添加人物；Qwen 可选择三维、POSE、深度或 Canny 引导，AnyAngle 使用三维粗图。\n3. Qwen 的场景来源图用于重建 / 提取，加入参考库后参与生成；AnyAngle 默认原图1 / 粗图2，额外用途素材从3开始，可手动反向图序。\n4. 默认 Studio prompt 显式连接编码 prompt，模式 input-full。可断开手写或接其他文本。studio-plus-input 用于追加描述。\n5. AnyAngle 保留原图输入尺寸；其他参考图预算只调整新增素材。编码节点 latent 旁显示实际画幅；负向提示词独立填写。\n6. AnyAngle LoRA 由强度输出控制。原图重建角色绑定按名称 / 来源区域描述生效，不会自动拆分人物骨骼。"
       ],
       "title": "多人工作流 / Multi-person workflow"
     }

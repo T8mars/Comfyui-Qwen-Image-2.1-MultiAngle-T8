@@ -1122,7 +1122,7 @@
         "Node name for S&R": "Note"
       },
       "widgets_values": [
-        "Viggle Turbo v0.3 · 6-step accelerated workflow\n使用 ViggleTurboLora（strength=1）、ViggleTurboSigmas、Euler、BasicGuider 和 SamplerCustomAdvanced。\n不叠加 AnyAngle LoRA。Studio 选择 Qwen 底模，可用多人物及通用参考。\nTurbo 使用无 CFG 的 BasicGuider；编码器的 negative 输出在此工作流不参与采样。\n默认 Studio prompt → 编码 prompt（input-full）；可断开手写，或改 studio-plus-input 补充。\n官方标准验证主要是1–3参考；复杂多人 / 多参考的质量需单独检查。\n约1MP起步。安装专用节点与模型来源：https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo"
+        "Viggle Turbo v0.3 · 6-step accelerated workflow\n使用 ViggleTurboLora（strength=1）、ViggleTurboSigmas、Euler、BasicGuider 和 SamplerCustomAdvanced。\n此加速模板不加载 AnyAngle LoRA。Studio 选择 Qwen 底模，可用多人物及通用参考；AnyAngle 换机位 + 额外用途素材请使用 MultiReference 标准模板。\nTurbo 使用无 CFG 的 BasicGuider；编码器的 negative 输出在此工作流不参与采样。\n默认 Studio prompt → 编码 prompt（input-full）；可断开手写，或改 studio-plus-input 补充。\n官方标准验证主要是1–3参考；复杂多人 / 多参考的质量需单独检查。\n约1MP起步。安装专用节点与模型来源：https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo"
       ],
       "title": "多人工作流 / Multi-person workflow"
     }

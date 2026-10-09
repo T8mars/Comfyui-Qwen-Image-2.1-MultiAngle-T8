@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnyAngle Studio · T8</title><link rel="stylesheet" href="./style.css?v=20261009v162b"><link rel="stylesheet" href="./references.css?v=20261009v163"></head>
 <body>
 <header class="topbar">
-  <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small title="工作台版本">T8 · v1.6.4</small></div>
+  <div class="brand"><img src="../icons/aperture.svg" alt=""><strong>ANYANGLE</strong><span>STUDIO</span><small title="工作台版本">T8 · v1.6.5</small></div>
   <span class="product-label">相机工作台</span>
   <div class="top-actions"><button id="undo" class="icon-button" title="撤销 Ctrl+Z" aria-label="撤销"><img src="../icons/arrow-back-up.svg" alt=""></button><button id="redo" class="icon-button" title="重做 Ctrl+Shift+Z" aria-label="重做"><img src="../icons/arrow-forward-up.svg" alt=""></button><button id="cancel" class="quiet">取消</button><button id="apply" class="primary" disabled><img src="../icons/check.svg" alt="">应用到节点</button></div>
 </header>
@@ -77,5 +77,5 @@
 <input type="file" id="reference-file" accept="image/*" hidden><input type="file" id="glb-file" accept=".glb" hidden><input type="file" id="pose-file" accept=".json,application/json" hidden><input type="file" id="openpose-file" accept="image/png,image/jpeg,image/webp,.json,application/json" hidden><input type="file" id="map-file" accept="image/*" hidden>
 <input type="file" id="scene-file" accept=".zip,application/zip" hidden>
 <dialog id="people-dialog" class="people-dialog"><form method="dialog"><div class="section-heading"><h2>从照片复制多人姿势</h2><button value="cancel" formnovalidate>取消</button></div><p id="people-count" class="hint"></p><div class="people-picker"><div class="people-image"><img id="people-photo" alt="姿势来源原图"><div id="people-overlay"></div></div><div id="people-choices"></div></div><label class="option-toggle"><input id="people-match-layout" type="checkbox" checked><span>新建人物时匹配原图左右站位并适合全场</span></label><label class="option-toggle"><input id="people-bind-photo" type="checkbox"><span>同时将此照片绑定为身份参考<small>仅复制动作时可保持关闭</small></span></label><div class="compact-actions"><button value="current">复制单人到当前人物</button><button value="all" class="primary">新建所选人物</button></div></form></dialog>
-<script type="module" src="./app.mjs?v=20261009v163"></script>
+<script type="module" src="./app.mjs?v=20261009v165r2"></script>
 </body></html>

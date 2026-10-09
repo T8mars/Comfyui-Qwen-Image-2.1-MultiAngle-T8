@@ -10,7 +10,7 @@ from comfy_api.latest import io as comfy_io
 
 from .storage import StudioStore, conditioning_for, prompt_for
 from .multiperson import canonical_scene, build_manifest
-from .reference_library import encoder_prompt
+from .reference_library import encoder_prompt, guide_is_stale
 from .dwpose import people_from_keypoints, keypoints_signature
 from .routes import register_routes
 from .reconstruction import AnyAngleReconstructionOutput
@@ -72,6 +72,8 @@ class AnyAngleStudio(comfy_io.ComfyNode):
             reference["label"] = "IMAGE input"
             document["scene"]["reference"] = reference
             ui["anyangle_reference"] = [reference]
+        if not no_guide and document["scene"].get("version") == 3 and guide_is_stale(document["scene"]):
+            raise ValueError("来源图已改变，请重新提取结构，或明确沿用保存的结构图")
         pose_source = document["scene"].get("openpose") or {}
         local_guide = (guide_mode == "pose" and (pose_source.get("origin") in ("dwpose", "json", "keypoints") or pose_source.get("useRig") or conditioning.get("mapOrigin") == "rig")
                        or guide_mode == "depth" and conditioning.get("mapOrigin") in ("da3", "scene")
@@ -92,7 +94,7 @@ class AnyAngleStudio(comfy_io.ComfyNode):
             for key, image in (actor_references or {}).items():
                 if image is not None:
                     connected_refs[key] = image_asset(image)
-                    if image.shape[0] > 1:
+                    if scene["version"] == 2 and image.shape[0] > 1:
                         reference_warnings.append(f"{key} 图片批次使用第一张；请将人物照片拆分为独立输入。")
             for actor in scene["actors"]:
                 identity = actor["identity"]
@@ -144,7 +146,7 @@ class AnyAngleMultiPersonEncode(comfy_io.ComfyNode):
         return comfy_io.Schema(node_id="AnyAngleMultiPersonEncodeT8", display_name="AnyAngle 多图编码 · Qwen 2.1", category="T8/AnyAngle",
             inputs=[comfy_io.Clip.Input("clip"), comfy_io.Vae.Input("vae"), comfy_io.String.Input("scene_json", force_input=True),
                     comfy_io.Image.Input("guide_image", optional=True, display_name="当前构图引导（可选）"), comfy_io.Int.Input("reference_resolution", display_name="其他参考图预算", default=512, min=0, max=4096, step=32,
-                        tooltip="一般参考图像素面积预算，0保留原尺寸。AnyAngle双图换机位推荐0保留清晰原图；引导图及仅参考模式的首图单独处理。"),
+                        tooltip="新增参考素材的像素面积预算，0保留这些素材原尺寸。AnyAngle场景来源图保持输入尺寸；引导图及仅参考模式的首图单独处理。"),
                     comfy_io.String.Input("prompt", display_name="正向提示词", default="", multiline=True, optional=True, tooltip="可手写或转为输入接线。全文模式原样使用，补充模式追加到 Studio 文本。"),
                     comfy_io.String.Input("negative_prompt", display_name="负向提示词", default="", multiline=True, optional=True),
                     comfy_io.Combo.Input("prompt_mode", display_name="提示词方式", options=["studio-plus-input", "input-full"], default="studio-plus-input", optional=True,

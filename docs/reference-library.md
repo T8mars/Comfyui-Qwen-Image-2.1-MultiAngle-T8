@@ -16,6 +16,10 @@
 
 场景来源图用于重建 / 提取，普通风格素材不会移动相机或重建人物。换来源图后旧重建与提取结果会提示重新生成，或明确沿用保存结构。断开启用素材的连线会阻止应用；「使用已保存版本」可明确解除连线依赖。IMAGE 批次显示总帧数，点击拆分后才作为多张素材发送。
 
+**AnyAngle 换机位 + 多用途参考（1.6.5）：**使用构图引导多图工作流，选择 AnyAngle。原图1 / 粗图2保留作者触发词，启用素材继续作为3+发送；原图自动入选，普通 Qwen 则仍需将来源图加入素材库。人脸用途选「身份 / 脸型」并指定人物，服装和配饰另加用途。高斯原图人物的名字是描述目标，不是分离模型或硬遮罩；可补充原图位置描述。切换 AnyAngle / Qwen 时这些目标用途保留，图号以当前发送清单为准。原图保持输入尺寸，其他素材使用编码器预算，默认512。自定义全文需自行包含需要的触发词及用途说明。
+
+多图显存紧张时先降低额外参考预算。安装版本若有原生 `QwenImage21Cache`，可在模型加载器与采样器之间试用CPU/int8缓存；本机8图20步案例用额外384完成采样，见[实际记录与限制](audit-v165-ui.md#多图真实采样与显存检查)。首图决定原生latent尺寸；调整粗图像素尺寸不能保证成图像素尺寸随之改变。附加描述应和素材用途一致，避免一处要求白裙、另一处要求蓝裙。
+
 参考组合模板保存素材和用途；套用时生成独立 ID，目标需核对。场景 ZIP 包含全部素材，包括停用项。批量机位冻结素材与外部正负词：全文原样复用，补充模式按每个机位生成 Studio 文本再追加。批量 JSON / ZIP 中的 `encoding_plan` 是提交计划；成功出图及实际编码信息以 ComfyUI history 为准。
 
 ## 模型与节点
@@ -37,5 +41,9 @@ Import a guide + references or references-only workflow and open Studio in Qwen 
 Apply after checking the send list. In references-only mode, choose the first reference and its separate area budget; native dimensions round to multiples of 32. `input-full` preserves the complete input, even an empty string. `studio-plus-input` appends a description to Studio's text. Examples wire Studio's complete prompt using full-input mode. Disconnect to type or connect another text node. Negative text is independent; Turbo's BasicGuider does not consume it.
 
 Sources for reconstruction / extraction are separate from creative references. Changing the source marks old derived content for regeneration or explicit reuse. Missing enabled connections require rereading or explicitly choosing the saved version. IMAGE batches use frame one until split. Templates preserve materials and purposes with fresh IDs when applied; verify targets. ZIPs include disabled materials. Camera batches freeze references and external text once. Full text is reused; append mode adds frozen text to each view's Studio prompt. `encoding_plan` describes submission; check ComfyUI history for execution and actual encoding results.
+
+**AnyAngle with extra references (1.6.5):** guided mode keeps original1 / coarse2 and the author's trigger, then sends enabled materials as images3+. The original is included automatically; Qwen base still requires adding the source to the library. Bind an identity use to a person and add separate clothing or accessory uses. Targets in a splat describe original people; they do not create separate models or masks. Specify the original person's position when helpful. These uses survive switching between AnyAngle and Qwen; consult the current send list for image numbers. The original retains input dimensions, while extra materials use the encoder's budget, default512. Custom full prompts must contain the desired trigger and use instructions themselves.
+
+If many references strain memory, lower the extra-reference budget first. If your ComfyUI includes the native `QwenImage21Cache`, CPU/int8 cache between the model loader and sampler is another option; the local eight-image,20-step case completed with384 extras. See the [measured record and limits](audit-v165-ui.md#多图真实采样与显存检查). The first image determines native latent dimensions; shrinking the coarse guide alone does not ensure a smaller output. Keep extra text consistent with material uses to avoid conflicting clothing or color instructions.
 
 Model sources and paths are listed above. General references need no additional weights. Turbo requires the author's `viggle_turbo.py` and r128 adapter, using runtime LoRA, dynamic sigmas, Euler and BasicGuider. Its negative output is unused, and the author's reference tests focus on 1–3 images. Keep AnyAngle off. The 10-image recommendation is a quality / memory guideline: images are not silently truncated. Seventeen images passed native encoding here; this does not establish multi-image generation quality.

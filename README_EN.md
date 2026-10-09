@@ -12,7 +12,11 @@
 
 ## Multi-reference creation · 1.6.0
 
-**1.6.4 AnyAngle fix:** selecting AnyAngle LoRA restores the author's original-first / coarse-second order for the default template. A controlled comparison showed weaker camera adherence with reversed inputs even when prompt image tags were swapped. Custom prompts and manual ordering remain available. Set the encoder's other-reference budget to **0** for this two-image route to retain a clear original and help repair coarse facial defects. [Comparison record](docs/validation-v164.md).
+**1.6.5 AnyAngle references:** fixes discarded extra materials and missing use instructions in AnyAngle mode. The default keeps original1 / coarse2 and the author's trigger, then sends enabled face, clothing, environment, accessory and style materials as images3+. The original retains its input dimensions independently; the encoder's other-reference budget only resizes extra materials, default **512**. Setting it to0 keeps every extra at full size and can substantially increase memory use. Custom full prompts remain verbatim. [UI audit](docs/audit-v165-ui.md) · [Backend audit](docs/audit-v165-backend.md).
+
+**Using a face reference:** import the [guide + references workflow](workflows/AnyAngle-Studio-Qwen21-MultiReference.json), add a photo, select **Identity / face**, bind it to a person, check the send list, Apply and run. Add separate uses for clothes or accessories. A reconstructed splat is one model: names and descriptions identify people semantically, without creating separate rigs or region masks. Specify positions such as “the woman on the left”. Identity and purpose adherence can still drift.
+
+Includes the **1.6.4** author-order fix. Reversed inputs showed weaker camera adherence even with swapped prompt tags. [Original comparison](docs/validation-v164.md).
 
 **1.6.3 fixes:** bind reconstruction provenance to the actual source image in the executed job, fixing false source mismatches after RGBA-to-RGB export. Camera and framing remain freely adjustable. Material cards show **Replace image** and **Delete material** without expanding. Replacement retains names, uses, targets and order; both actions support undo. Change wired images upstream, or first expand the card and select **Use saved version**.
 
@@ -32,7 +36,7 @@ References can supply **identity, clothing, accessories / products, environments
 
 **Edit prompts independently.** Examples explicitly wire `Studio.prompt → encoder.prompt` with `input-full`. Disconnect to type your own text, or connect another text / concatenation node. Enter `negative_prompt` separately. `studio-plus-input` appends a description to Studio's generated prompt; do not connect the complete Studio prompt in this mode. Full-input mode preserves raw text, including an empty string, without silently appending material rules.
 
-`reference_image` is the optional source for reconstruction / extraction; add it to the library to send it as a reference. `actor_reference_N` accepts general materials, not only portraits. `structure_image` accepts processed pose / depth / edge images; `pose_keypoints` accepts native keypoints. IMAGE batches use the first frame unless explicitly split. Actual crops, reference-combination templates, reference-only and text-only creation are supported.
+`reference_image` is the optional reconstruction / extraction source: Qwen creation sends it only after adding it to the library; guided AnyAngle automatically includes it as the original. `actor_reference_N` accepts general materials, not only portraits. `structure_image` accepts processed pose / depth / edge images; `pose_keypoints` accepts native keypoints. IMAGE batches use the first frame unless explicitly selected or split. Actual crops, reference-combination templates, reference-only and text-only creation are supported.
 
 ![Actual references-only workbench](docs/images/studio-reference-only-v160.png)
 
@@ -229,7 +233,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.4**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.5**. **Apply to node** again to replace previously saved guide images and send plans.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

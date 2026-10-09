@@ -29,7 +29,7 @@ export async function editorActions(page, origin, out, glb) {
   const save=async()=>{const before=sequence;await click('#apply');await page.waitForFunction(()=>document.querySelector('#status').dataset.state==='saved');assert.equal(sequence,before+1);return structuredClone(latest.scene);};
   const field=async(selector,value)=>{await page.locator(selector).fill(String(value));await page.locator(selector).blur();await idle();};
   const openDetails=selector=>page.locator(selector).evaluate(el=>{el.closest('details').open=true;});
-  await page.goto(`${origin}/tests/editor.html`);await idle();
+  await page.goto(`${origin}/tests/editor.html`);await idle();await click('#tab-objects');
   for(let i=0;i<3;i++) await click('#add-actor');
   for(let i=0;i<3;i++){
     await click(`.actor-card:nth-child(${i+1}) .actor-name`);
@@ -122,9 +122,15 @@ export async function editorActions(page, origin, out, glb) {
   const single=await save();assert.equal(single.actors.length,3);assert.deepEqual(single.camera,beforeCopy.camera);assert.deepEqual(single.cameraTarget,beforeCopy.cameraTarget);assert.equal(single.actors.find(a=>a.id===single.activeActorId).poseSource.detectionId,'detection-0');
   await page.locator('#copy-photo-pose').click();await page.locator('#people-dialog').waitFor({state:'visible'});await page.locator('#people-bind-photo').check();await page.locator('#people-dialog button[value="all"]').click();await idle();
   const multi=await save();assert.equal(multi.actors.length,5);assert.equal(multi.conditioning.identityMode,'actors');assert.ok(multi.actors.slice(3).every(a=>a.identity.asset.name==='fixture-photo.png'));assert.ok(multi.actors[3].transform.x<multi.actors[4].transform.x);
-  await field('#actor-source-person','selected person on the left');const describedRegion=await save();
+  // v3 edits source descriptions in the material library; legacy actor fields are hidden.
+  await click('#tab-materials');await page.locator('.reference-card>summary').first().click();
+  const regionField=page.locator('.reference-use label:has-text("来源内容 / 区域") textarea').first();
+  const sourceRegion=await regionField.inputValue();await regionField.fill(`${sourceRegion}; selected person on the left`);await regionField.blur();await idle();
+  const describedRegion=await save();
   assert.deepEqual(describedRegion.actors[3].identity.sourcePerson.bbox,multi.actors[3].identity.sourcePerson.bbox);
-  assert.equal(describedRegion.actors[3].identity.sourcePerson.description,'selected person on the left');
+  assert.equal(describedRegion.referenceLibrary.items[0].usages[0].sourceText,`${sourceRegion}; selected person on the left`);
+  assert.ok(describedRegion.referenceLibrary.items[0].usages[0].target.ids.includes(multi.actors[3].id));
+  await click('#tab-objects');
   await page.screenshot({path:resolve(out,'studio-photo-copy.png')});
   await click('[data-guide="depth"]');await click('#generate-scene-depth');const depth=await save();assert.equal(depth.conditioning.mapOrigin,'scene');
   await click('[data-guide="canny"]');await click('#generate-scene-canny');const canny=await save();assert.equal(canny.conditioning.mapOrigin,'auto');

@@ -1,0 +1,175 @@
+{
+  "scene": {
+    "version": 3,
+    "width": 160,
+    "height": 96,
+    "source": {
+      "kind": "splat"
+    },
+    "reference": {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png",
+      "width": 160,
+      "height": 96,
+      "label": "a"
+    },
+    "actors": [
+      {
+        "id": "woman",
+        "label": "woman on the left",
+        "visible": true
+      },
+      {
+        "id": "man",
+        "label": "man on the right",
+        "visible": false
+      }
+    ],
+    "conditioning": {
+      "model": "anyangle",
+      "imageOrder": "reference-first",
+      "guide": "pose",
+      "promptMode": "default",
+      "promptExtra": ""
+    },
+    "referenceLibrary": {
+      "version": 1,
+      "mode": "guided",
+      "firstResolution": 0,
+      "firstReferenceId": null,
+      "templates": [],
+      "items": [
+        {
+          "id": "face",
+          "label": "Face",
+          "asset": {
+            "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png",
+            "width": 160,
+            "height": 96,
+            "label": "b"
+          },
+          "enabled": true,
+          "usages": [
+            {
+              "id": "face-use",
+              "kind": "identity",
+              "target": {
+                "kind": "actors",
+                "ids": [
+                  "woman",
+                  "man",
+                  "deleted"
+                ],
+                "text": ""
+              },
+              "enabled": true,
+              "sourceText": "",
+              "instruction": ""
+            }
+          ]
+        },
+        {
+          "id": "clothes",
+          "label": "Clothes",
+          "asset": {
+            "name": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.png",
+            "width": 160,
+            "height": 96,
+            "label": "c"
+          },
+          "enabled": true,
+          "usages": [
+            {
+              "id": "clothes-use",
+              "kind": "clothing",
+              "target": {
+                "kind": "scene",
+                "ids": [],
+                "text": ""
+              },
+              "enabled": true,
+              "sourceText": "",
+              "instruction": ""
+            }
+          ]
+        },
+        {
+          "id": "light",
+          "label": "Light",
+          "asset": {
+            "name": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.png",
+            "width": 160,
+            "height": 96,
+            "label": "c"
+          },
+          "enabled": true,
+          "usages": [
+            {
+              "id": "light-use",
+              "kind": "style",
+              "target": {
+                "kind": "scene",
+                "ids": [],
+                "text": ""
+              },
+              "enabled": true,
+              "sourceText": "",
+              "instruction": ""
+            }
+          ]
+        },
+        {
+          "id": "off",
+          "label": "Disabled",
+          "asset": {
+            "name": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.png",
+            "width": 160,
+            "height": 96,
+            "label": "d"
+          },
+          "enabled": false,
+          "usages": [
+            {
+              "id": "off-use",
+              "kind": "free",
+              "target": {
+                "kind": "scene",
+                "ids": [],
+                "text": ""
+              },
+              "enabled": true,
+              "sourceText": "",
+              "instruction": ""
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expected": {
+    "imageCount": 4,
+    "guideIndex": 2,
+    "references": [
+      {
+        "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png",
+        "index": 1,
+        "resolution": 0,
+        "actorIds": []
+      },
+      {
+        "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png",
+        "index": 3,
+        "resolution": "reference",
+        "actorIds": [
+          "woman"
+        ]
+      },
+      {
+        "name": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.png",
+        "index": 4,
+        "resolution": "reference",
+        "actorIds": []
+      }
+    ],
+    "prompt": "Change the camera angle from <image2> to <image1>.\n<image3>: Use only the face identity and hairstyle; do not copy the clothing, pose or background for woman on the left.\n<image4>: Use only the clothing design; do not copy the model's identity, pose or background for the whole generated scene.\n<image4>: Use the visual style, lighting and color palette; do not copy the subject or pose for the whole generated scene."
+  }
+}

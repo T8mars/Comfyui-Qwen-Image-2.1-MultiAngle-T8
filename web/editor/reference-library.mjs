@@ -66,7 +66,7 @@ export function staleGuide(scene) {
 export function targetText(scene, target) {
   if (target.kind === 'scene') return 'the whole generated scene';
   if (target.kind === 'text') return target.text?.trim() || null;
-  if (target.kind === 'actors' && scene.source?.kind !== 'human') return null;
+  if (target.kind === 'actors' && !['human', 'splat'].includes(scene.source?.kind)) return null;
   const objects = scene[target.kind === 'actors' ? 'actors' : 'props'] || [];
   return objects.filter(obj => target.ids?.includes(obj.id) && obj.visible !== false).map(obj => obj.label || obj.id).join(', ') || null;
 }
@@ -76,25 +76,36 @@ export function libraryManifest(scene) {
   for (const item of library.items) {
     const uses = item.usages.filter(use => use.enabled !== false).map(use => ({ ...use, targetText: targetText(scene, use.target) })).filter(use => use.targetText);
     const reason = item.enabled === false ? '素材已停用' : mode === 'text' ? '纯文本模式不发送图片'
-      : (settings.model || 'anyangle') === 'anyangle' ? '当前 AnyAngle 双图模式未发送；切换 Qwen 多图创作可使用'
-        : !uses.length ? '用途已停用或目标待重新分配' : !item.asset || item.missing ? '连线或素材缺失，请重新读取或明确使用保存版本' : null;
+      : !uses.length ? '用途已停用或目标待重新分配' : !item.asset || item.missing ? '连线或素材缺失，请重新读取或明确使用保存版本' : null;
     if (reason) { excluded.push({ id: item.id, label: item.label || item.id, reason }); continue; }
     const name = item.asset.name;
     if (!byName.has(name)) { byName.set(name, references.length); references.push({ asset: item.asset, referenceIds: [], labels: [], usages: [], actorIds: [] }); }
     const entry = references[byName.get(name)]; entry.referenceIds.push(item.id); entry.labels.push(item.label || item.id); entry.usages.push(...uses);
-    entry.actorIds = [...new Set([...entry.actorIds, ...uses.filter(use => use.target.kind === 'actors').flatMap(use => use.target.ids || [])])];
+    entry.actorIds = [...new Set([...entry.actorIds, ...uses.filter(use => use.target.kind === 'actors').flatMap(use => use.target.ids || [])
+      .filter(id => scene.actors?.some(actor => actor.id === id && actor.visible !== false))])];
   }
-  if ((settings.model || 'anyangle') === 'anyangle' && scene.reference) references = [{ asset: scene.reference, referenceIds: ['scene-source'], labels: ['场景来源图'], usages: [], actorIds: [] }];
+  const anyangle = (settings.model || 'anyangle') === 'anyangle', pair = anyangle && mode === 'guided' && !!scene.reference;
+  if (pair) {
+    const source = references.find(reference => reference.asset.name === scene.reference.name)
+      || { asset: scene.reference, referenceIds: [], labels: [], usages: [], actorIds: [] };
+    source.asset = scene.reference;
+    source.referenceIds.unshift('scene-source'); source.labels.unshift('场景来源图');
+    references = [source, ...references.filter(reference => reference !== source)];
+  }
   const first = library.firstReferenceId;
   if (mode === 'references-only' && first) {
     const selected = references.find(entry => entry.referenceIds.includes(first));
     if (selected) references = [selected, ...references.filter(entry => entry !== selected)];
   }
-  const order = settings.imageOrder || 'guide-first';
-  const guide = mode === 'guided' ? { index: order === 'guide-first' || !references.length ? 1 : references.length + 1, width: scene.width, height: scene.height } : null;
-  references.forEach((reference, i) => { reference.index = i + (guide?.index === 1 ? 2 : 1); reference.resolution = mode === 'references-only' && !i ? library.firstResolution || 0 : 'reference'; });
+  const order = settings.imageOrder || (anyangle ? 'reference-first' : 'guide-first');
+  const guide = mode === 'guided' ? { index: anyangle ? pair && order === 'reference-first' ? 2 : 1
+    : order === 'guide-first' || !references.length ? 1 : references.length + 1, width: scene.width, height: scene.height } : null;
+  references.forEach((reference, i) => {
+    reference.index = pair && guide.index === 2 ? i ? i + 2 : 1 : i + (guide?.index === 1 ? 2 : 1);
+    reference.resolution = pair && !i ? 0 : mode === 'references-only' && !i ? library.firstResolution || 0 : 'reference';
+  });
   const imageCount = references.length + (guide ? 1 : 0);
-  const kind = settings.guide || 'coarse', staticGuide = kind !== 'coarse' && (settings.map && (settings.mapKind || kind) === kind || kind === 'canny' && scene.reference && settings.mapOrigin !== 'auto');
+  const kind = anyangle ? 'coarse' : settings.guide || 'coarse', staticGuide = kind !== 'coarse' && (settings.map && (settings.mapKind || kind) === kind || kind === 'canny' && scene.reference && settings.mapOrigin !== 'auto');
   return { version: 2, mode, imageOrder: order, guide, references,
     actors: (scene.actors || []).filter(actor => !staticGuide && scene.source?.kind === 'human' && actor.visible !== false).map(actor => ({ id: actor.id, label: actor.label || actor.id, transform: actor.transform || {}, editorColor: actor.editorColor ?? null, description: actor.identity?.description || '' })),
     imageCount, excluded, missing: excluded.filter(entry => entry.reason.startsWith('连线')).map(entry => entry.label),
@@ -104,9 +115,13 @@ export function libraryPrompt(scene, manifest) {
   const settings = scene.conditioning || {};
   if (settings.promptMode === 'custom') return settings.customPrompt ?? '';
   const lines = [], guide = manifest.guide;
-  if (guide) {
+  const anyangle = (settings.model || 'anyangle') === 'anyangle';
+  const original = manifest.references.find(reference => reference.referenceIds.includes('scene-source'));
+  if (guide && anyangle && original) {
+    lines.push(`Change the camera angle from <image${guide.index}> to <image${original.index}>.`);
+  } else if (guide) {
     const instructions = { coarse: 'camera angle, composition, poses and placement', pose: 'body poses, limb directions, position and framing', depth: 'spatial depth, layout and occlusion', canny: 'silhouettes, contours and major edges' };
-    const kind = settings.guide || 'coarse';
+    const kind = anyangle ? 'coarse' : settings.guide || 'coarse';
     lines.push(`Create a finished image following the ${instructions[kind]} in <image${guide.index}>. Do not render guide marks, mannequin colors or skeleton lines.`);
     if (manifest.actors.length) {
       lines.push(`The guide contains ${manifest.actors.length} people. Keep their identities and placements separate.`);

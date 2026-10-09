@@ -150,7 +150,7 @@ export async function gestureEditor(browser, origin, { baseline = false } = {}) 
     const camera = () => page.evaluate(() => structuredClone(window.auditStudio.doc.camera));
     let point;
     try {
-      await page.goto(`${origin}/tests/gestures.html`); await idle(); await click('#add-actor'); await click('#view-scene');
+      await page.goto(`${origin}/tests/gestures.html`); await idle(); await click('#tab-objects'); await click('#add-actor'); await click('#view-scene');
       const rect = await page.locator('#viewport').boundingBox(); point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
       const initial = await camera();
       const context = { page, idle, click, field, point, initial, camera,

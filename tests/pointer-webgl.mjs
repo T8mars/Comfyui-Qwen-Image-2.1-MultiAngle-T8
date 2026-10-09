@@ -113,7 +113,7 @@ export async function pointerEditor(browser, origin, out) {
       latest = route.request().postDataJSON(); saved.push(structuredClone(latest));
       await route.fulfill({ json: { id: String(saved.length).padStart(64, '0'), version: 1 } });
     });
-    await page.goto(`${origin}/tests/editor.html`); await idle(); await click('#add-actor'); await click('#view-scene');
+    await page.goto(`${origin}/tests/editor.html`); await idle(); await click('#tab-objects'); await click('#add-actor'); await click('#view-scene');
     await page.locator('#mouse-pitch').uncheck(); await field('#azimuth-number', .1); await field('#azimuth-number', 20); await click('#undo');
     assert.equal(await page.locator('#redo').isEnabled(), true);
     const point = await center(); await page.mouse.click(point.x, point.y);

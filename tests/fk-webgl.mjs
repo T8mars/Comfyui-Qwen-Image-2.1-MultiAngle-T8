@@ -91,7 +91,7 @@ export async function fkProbe(browser, origin, {baseline = false} = {}) {
     const click = async selector => { await page.locator(selector).click(); await idle(); };
     const c = {page, idle, click, point: null, move: (dx, dy) => page.mouse.move(c.point.x + dx, c.point.y + dy, {steps: 3})};
     try {
-      await page.goto(`${origin}/tests/gestures.html`); await idle(); await click('#add-actor'); await click('#view-scene');
+      await page.goto(`${origin}/tests/gestures.html`); await idle(); await click('#tab-objects'); await click('#add-actor'); await click('#view-scene');
       await check(c); assert.deepEqual(errors, []); results.push({name, passed: true});
     } catch (e) { results.push({name, passed: false, error: e.message}); if (!baseline) throw e; }
     finally {await page.close();}

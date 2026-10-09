@@ -5,6 +5,50 @@ export async function guideEditor(browser, origin, { baseline = false } = {}) {
   const results = [];
   const pose = page => page.evaluate(() => structuredClone(window.auditStudio.viewer.getPose()));
   const cases = [
+    ['returning-to-guided-mode-restores-guide-controls-and-help', async c => {
+      await c.reference('flat'); await c.click('#tab-materials'); await c.click('#source-to-library');
+      const original = await c.save();
+      for (const mode of ['references-only','text']) {
+        await c.page.locator('#reference-workflow').selectOption(mode); await c.idle();
+        for (const selector of ['#guide-explanation','#open-batch']) assert.equal(await c.page.locator(selector).isVisible(),false,selector);
+        await c.page.locator('#reference-workflow').selectOption('guided'); await c.idle();
+        assert.equal(await c.page.locator('#guide-explanation').isVisible(),true);
+        assert.equal(await c.page.locator('#open-batch').isVisible(),true);
+        assert.equal(await c.page.locator('#open-batch').isEnabled(),true);
+        assert.equal(await c.page.locator('#download-guide').isEnabled(),true);
+        const returned = await c.save();
+        assert.deepEqual(returned.scene.camera,original.scene.camera);
+        assert.deepEqual(returned.scene.actors,original.scene.actors);
+        assert.deepEqual(returned.scene.referenceLibrary.items,original.scene.referenceLibrary.items);
+      }
+    }],
+    ['anyangle-extra-reference-use-disable-undo-and-order', async c => {
+      await c.reference('flat'); await c.click('#tab-materials'); await c.uploadLibrary('#add-reference','step');
+      await c.page.locator('.reference-card>summary').click();
+      const use = c.page.locator('.reference-use');
+      await use.locator('select').first().selectOption('identity');
+      await use.locator('select').nth(1).selectOption('text');
+      await c.field('.reference-use label:has-text("目标说明") textarea','the woman on the left');
+      await c.click('#model-anyangle');
+      assert.match(await c.page.locator('#library-source-state').textContent(),/自动发送原图/);
+      const saved = await c.save(), preview = await c.page.locator('#prompt-preview').textContent();
+      assert.ok(preview.startsWith('Change the camera angle from <image2> to <image1>.'));
+      assert.match(preview,/<image3>: Use only the face identity.*the woman on the left/);
+      assert.equal(await c.page.locator('#reference-send-summary').textContent(),'本次 3 图 · 1 引导 + 2 参考');
+      await c.page.getByLabel('发送此素材',{exact:true}).uncheck(); await c.idle();
+      assert.ok(!(await c.page.locator('#prompt-preview').textContent()).includes('<image3>'));
+      assert.equal(await c.page.locator('#reference-send-summary').textContent(),'本次 2 图 · 1 引导 + 1 参考');
+      await c.click('#undo');
+      assert.match(await c.page.locator('#prompt-preview').textContent(),/<image3>: Use only the face identity/);
+      await c.page.locator('#image-order').selectOption('guide-first'); await c.idle();
+      assert.ok((await c.page.locator('#prompt-preview').textContent()).startsWith('Change the camera angle from <image1> to <image2>.'));
+      assert.match(await c.page.locator('#prompt-preview').textContent(),/<image3>: Use only the face identity/);
+      await c.page.locator('#image-order').selectOption('reference-first'); await c.idle();
+      const restored = await c.save(); assert.deepEqual(restored.scene.camera,saved.scene.camera);
+      assert.deepEqual(restored.scene.actors,saved.scene.actors);
+      await c.page.goto(`${origin}/tests/gestures.html?snapshot=${c.token().id}`); await c.idle();
+      assert.match(await c.page.locator('#prompt-preview').textContent(),/<image3>: Use only the face identity.*the woman on the left/);
+    }],
     ['collapsed-materials-replace-delete-undo-and-reopen', async c => {
       await c.reference('flat'); await c.click('#tab-materials'); await c.click('#source-to-library');
       await c.page.locator('.reference-card>summary').click();
