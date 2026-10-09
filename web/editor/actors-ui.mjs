@@ -177,7 +177,9 @@ export function refreshActorsUI() {
   for (const id of ['random-pose', 'repeat-pose']) $(id).disabled = !human || !editableActors(doc, doc.randomScope || 'current').length;
   const templateKey = JSON.stringify(doc.compositionTemplates?.map(item => [item.id, item.name]));
   if ($('composition-list').dataset.key !== templateKey) { $('composition-list').dataset.key = templateKey; $('composition-list').replaceChildren(new Option('选择全场模板', '')); for (const template of doc.compositionTemplates || []) $('composition-list').append(new Option(template.name, template.id)); }
-  $('export-keypoints').disabled = !human;
+  const staticOutput = ['image', 'canny-image'].includes(guideSource(doc).kind);
+  $('export-keypoints').disabled = !human || staticOutput;
+  $('export-keypoints').title = staticOutput ? '当前输出原图骨架；切换三维人偶骨架后可导出对应 JSON' : '导出当前机位的三维场景骨架';
 }
 export async function randomRoles(seed, category) {
   return editTransaction(async () => {

@@ -7,17 +7,27 @@ function button(text, action, className = '') { const node = el('button', text, 
 function select(options, value, change) { const node = el('select'); for (const [key, title] of options) node.append(new Option(title, key)); node.value = value; node.onchange = () => change(node.value); return node; }
 function field(title, input) { const node = el('label', title); node.append(input); return node; }
 let context, key, previewId, connected = [], tab = 'materials', openId, lastMapping = '', mappingWarning = '';
+let renderedScene, renderedItems = [];
 function edit(action) { context.begin(); action(); context.changed(false); }
-function chooseTab(value) { tab = value; refreshReferencesUI(true); }
+function chooseTab(value) { tab = value; refreshReferencesUI(true); $(`tab-${value}`).focus(); }
 
 export function installReferencesUI(value) {
   context = value;
   const left = document.querySelector('.left-panel'), objects = el('div', '', 'reference-objects'); objects.id = 'reference-objects';
+  objects.setAttribute('role', 'tabpanel'); objects.setAttribute('aria-labelledby', 'tab-objects');
   objects.append(...left.children); left.append(objects);
-  const tabs = el('div', '', 'reference-tabs'); tabs.setAttribute('role', 'tablist');
-  for (const [id, title] of [['materials', '参考素材'], ['objects', '场景对象']]) { const node = button(title, () => chooseTab(id)); node.id = `tab-${id}`; node.setAttribute('role', 'tab'); tabs.append(node); }
+  const tabs = el('div', '', 'reference-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', '侧栏内容');
+  for (const [id, title] of [['materials', '参考素材'], ['objects', '场景对象']]) {
+    const node = button(title, () => chooseTab(id)); node.id = `tab-${id}`; node.setAttribute('role', 'tab'); node.setAttribute('aria-controls', `reference-${id}`);
+    node.onkeydown = event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault(); chooseTab(event.key === 'Home' ? 'materials' : event.key === 'End' ? 'objects' : tab === 'materials' ? 'objects' : 'materials');
+    };
+    tabs.append(node);
+  }
   left.prepend(tabs);
   const materials = el('section', '', 'reference-materials'); materials.id = 'reference-materials';
+  materials.setAttribute('role', 'tabpanel'); materials.setAttribute('aria-labelledby', 'tab-materials');
   materials.innerHTML = `<div class="section-heading"><h2>参考素材 <small>REFERENCE LIBRARY</small></h2><span id="reference-count"></span></div>
     <p class="hint">图片可以是人物、衣饰、产品、场景或风格；展开素材设置用途和目标。</p>
     <div class="reference-source"><img id="library-source-image" alt="场景来源图" hidden><div><strong>场景来源图</strong><p id="library-source-state" class="hint"></p><button id="source-tools">重建 / 提取 / 换图</button><button id="source-to-library">加入参考库</button></div></div>
@@ -72,7 +82,7 @@ export function installReferencesUI(value) {
   preview.innerHTML = '<div class="reference-preview-title"><strong>参考预览</strong><span>保留3D场景 · 无引导图输出</span></div><img id="reference-stage-image" alt="当前参考素材预览"><p id="reference-stage-empty" class="empty-note">输入提示词，或添加参考素材。</p><div id="reference-stage-thumbs"></div>';
   $('stage').append(preview);
   const crop = el('dialog', '', 'reference-crop-dialog'); crop.id = 'reference-crop-dialog';
-  crop.innerHTML = `<form method="dialog"><div class="section-heading"><h2>裁切为独立参考</h2><button value="cancel" formnovalidate>取消</button></div><p class="hint">在图上拖出矩形。裁切会生成新素材和新图号；原图保留。</p><div id="reference-crop-surface"><img id="reference-crop-image" alt="裁切来源"><div id="reference-crop-box"></div></div><div class="crop-fields">${['x','y','width','height'].map(name => `<label>${name}<input id="crop-${name}" type="number" min="0" required></label>`).join('')}</div><button value="ok" class="primary">保存裁切素材</button></form>`;
+  crop.innerHTML = `<form method="dialog"><div class="section-heading"><h2>裁切为独立参考</h2><button value="cancel" formnovalidate>取消</button></div><p class="hint">在图上拖出矩形。裁切会生成新素材和新图号；原图保留。</p><div id="reference-crop-surface"><img id="reference-crop-image" alt="裁切来源"><div id="reference-crop-box"></div></div><div class="crop-fields">${['x','y','width','height'].map(name => `<label>${name}<input id="crop-${name}" type="number" min="${name === 'width' || name === 'height' ? 1 : 0}" required></label>`).join('')}</div><button value="ok" class="primary">保存裁切素材</button></form>`;
   document.body.append(crop); installCropDrag();
 }
 
@@ -118,9 +128,12 @@ function card(scene, item, manifest) {
   if (item.reviewSource) details.append(el('p', '连线图片已更新，请核对来源区域及用途描述。', 'reference-review'));
   for (const use of item.usages) details.append(useControls(scene, item, use));
   const actions = el('div', '', 'reference-card-actions');
+  const source = button('作为来源图', () => edit(() => { const previous = scene.reference; scene.reference = copy(item.asset); context.sourceChanged(previous); }));
+  source.disabled = !item.asset || context.sourceConnected();
+  source.title = context.sourceConnected() ? '来源图由节点连线提供，请更换上游图片或断开来源图连线' : !item.asset ? '请先读取或导入此素材' : '将此素材用于姿势提取或三维重建';
+  const crop = button('裁切素材', () => cropReference(item)); crop.disabled = !item.asset;
   actions.append(button('＋ 添加用途', () => edit(() => { item.usages.push(newUse('identity', { kind: 'scene', ids: [], text: '' })); })),
-    button('作为来源图', () => edit(() => { const previous = scene.reference; scene.reference = copy(item.asset); context.sourceChanged(previous); })),
-    button('裁切素材', () => cropReference(item)), button('↑', () => moveReference(scene, item, -1)), button('↓', () => moveReference(scene, item, 1)),
+    source, crop, button('↑', () => moveReference(scene, item, -1)), button('↓', () => moveReference(scene, item, 1)),
     button('删除素材', () => edit(() => { scene.referenceLibrary.items = scene.referenceLibrary.items.filter(value => value.id !== item.id); if (scene.referenceLibrary.firstReferenceId === item.id) scene.referenceLibrary.firstReferenceId = null; })));
   if (item.inputKey) actions.append(button('使用已保存版本', () => edit(() => { item.inputKey = null; item.missing = false; })));
   if (item.inputKey && item.batchCount > 1) actions.append(button('拆分批次为多素材', () => splitBatch(scene, item)));
@@ -144,7 +157,7 @@ export function refreshReferencesUI(force = false) {
   if (!context) return;
   const scene = context.doc(), library = scene.referenceLibrary, modern = scene.version === 3 && !!library;
   $('reference-materials').hidden = tab !== 'materials'; $('reference-objects').hidden = tab !== 'objects';
-  for (const value of ['materials', 'objects']) { $(`tab-${value}`).classList.toggle('active', tab === value); $(`tab-${value}`).setAttribute('aria-selected', String(tab === value)); }
+  for (const value of ['materials', 'objects']) { $(`tab-${value}`).classList.toggle('active', tab === value); $(`tab-${value}`).setAttribute('aria-selected', String(tab === value)); $(`tab-${value}`).tabIndex = tab === value ? 0 : -1; }
   $('legacy-references').hidden = modern; $('reference-workflow').value = modern ? library.mode : 'guided';
   const source = scene.reference; $('source-to-library').disabled = !source;
   $('reference-source-warning').hidden = !scene.sourceStale && !scene.derivedGuideStale && !staleGuide(scene);
@@ -153,7 +166,7 @@ export function refreshReferencesUI(force = false) {
   $('library-source-image').hidden = !source; if (source) $('library-source-image').src = imageURL(source);
   $('library-source-state').textContent = source ? '用于提取 / 重建；加入参考库后才参与多图创作。' : '可选。无图也可摆放人偶或纯文本创作。';
   const noGuide = modern && library.mode !== 'guided'; $('stage').classList.toggle('reference-only', noGuide); $('reference-stage-preview').hidden = !noGuide;
-  $('mouse-pitch').closest('.studio-options').hidden = noGuide;
+  if (noGuide) $('mouse-pitch').closest('.studio-options').hidden = true;
   $('image-order-row').hidden = noGuide || scene.conditioning.promptMode === 'single';
   for (const option of $('image-order').options) option.textContent = option.value === 'guide-first'
     ? (modern ? '引导在前 / 参考在后' : '引导图 1 / 原图 2')
@@ -167,8 +180,8 @@ export function refreshReferencesUI(force = false) {
   $('ratio').disabled = noGuide;
   $('reference-first-settings').hidden = !modern || library.mode !== 'references-only';
   $('reference-send-plan').hidden = !modern; document.querySelector('.reference-templates').hidden = !modern;
-  if (!modern) { $('reference-cards').replaceChildren(); $('reference-empty-note').hidden = true; return; }
-  const manifest = libraryManifest(scene), signature = JSON.stringify([library, scene.actors, scene.props, scene.conditioning, manifest]);
+  if (!modern) { key = null; renderedScene = null; renderedItems = []; $('reference-cards').replaceChildren(); $('reference-empty-note').hidden = true; return; }
+  const manifest = libraryManifest(scene), signature = JSON.stringify([library, scene.actors, scene.props, scene.conditioning, manifest, context.sourceConnected()]);
   const firstImage = manifest.references[0];
   if (firstImage && library.mode === 'references-only') {
     let width = firstImage.asset.width, height = firstImage.asset.height;
@@ -180,11 +193,17 @@ export function refreshReferencesUI(force = false) {
   if (lastMapping && lastMapping !== mapping) mappingWarning = '图片编号或内容已改变；自定义 / 编码器全文中的 <imageN> 保持原文，请核对当前清单。';
   lastMapping = mapping;
   const selectedId = library.firstReferenceId || '';
-  if (force || signature !== key) {
-    key = signature; $('reference-cards').replaceChildren(...library.items.map(item => card(scene, item, manifest)));
+  if (force || signature !== key || scene !== renderedScene || library.items.some((item, index) => item !== renderedItems[index])) {
+    key = signature; renderedScene = scene; renderedItems = library.items.slice();
+    $('reference-cards').replaceChildren(...library.items.map(item => card(scene, item, manifest)));
     $('reference-count').textContent = `${library.items.length} 素材`; $('reference-empty-note').hidden = !!library.items.length;
     $('first-reference').replaceChildren(new Option('第一个启用素材', ''), ...library.items.map(item => new Option(item.label, item.id))); $('first-reference').value = selectedId;
-    $('first-reference-resolution').value = String(library.firstResolution || 0);
+    const budget = $('first-reference-resolution'), resolution = String(library.firstResolution || 0);
+    for (const option of [...budget.options]) if (option.dataset.custom === 'true') option.remove();
+    if (![...budget.options].some(option => option.value === resolution)) {
+      const option = new Option(`${resolution}²像素 · 自定义`, resolution); option.dataset.custom = 'true'; budget.append(option);
+    }
+    budget.value = resolution;
     $('reference-template').replaceChildren(...(library.templates || []).map(template => new Option(template.name, template.id)));
     $('apply-reference-template').disabled = !library.templates?.length;
     $('reference-send-summary').textContent = `本次 ${manifest.imageCount} 图 · ${manifest.guide ? '1 引导 + ' : ''}${manifest.references.length} 参考`;
@@ -208,7 +227,7 @@ export function refreshReferencesUI(force = false) {
   for (const id of ['camera-heading', 'camera-eyebrow', 'camera-sliders', 'lens-panel', 'view-presets', 'shot-shelf', 'guide-section']) {
     const node = $(id) || (id === 'guide-section' ? document.querySelector('.guide-section') : null); if (node && noGuide) node.hidden = true;
   }
-  $('download-guide').disabled = noGuide; $('open-batch').disabled = noGuide;
+  if (noGuide) { $('download-guide').disabled = true; $('open-batch').disabled = true; }
   document.querySelector('.guide-section').hidden = noGuide;
   $('model-anyangle').disabled ||= noGuide;
   if (scene.conditioning.model === 'base') {

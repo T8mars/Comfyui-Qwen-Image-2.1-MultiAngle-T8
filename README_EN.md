@@ -12,7 +12,9 @@
 
 ## Multi-reference creation · 1.6.0
 
-**1.6.1 fix:** reactive workflow settings in newer ComfyUI frontends could block the Studio initialization message, leaving the workbench stuck and disabled. Close the old workbench, reload the page and reopen it after updating.
+**1.6.2 UI fixes:** stacked pose settings, consistent camera control order in narrow windows, reference edits after undo, custom first-image budgets, export / batch capability states and connected source-image actions. Static source poses hide controls that only affect 3D skeletons. [20-round validation record](docs/ui-validation-v162.md).
+
+Includes the **1.6.1** initialization fix for newer ComfyUI frontends, which could leave the workbench stuck and disabled. Close the old workbench, reload the page and reopen it after updating.
 
 References can supply **identity, clothing, accessories / products, environments, style or layout**, with a free-reference option. The left panel separates reference materials from scene objects. One image can serve several purposes and targets; identical assets are encoded once. The send list shows actual image numbers and exclusions. Changing 3D, POSE, Depth or Canny guides preserves the library.
 
@@ -221,7 +223,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.1**. **Apply to node** again to replace previously saved guide images.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.2**. **Apply to node** again to replace previously saved guide images.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

@@ -1,12 +1,12 @@
 import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261009v160';
 import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261009v160';
-import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261009v160';
+import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261009v162';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261009v160';
 import { readSkeletonImage } from './openpose.mjs?v=20261009v160';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261009v160';
 import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261009v160';
 import { randomPose } from './poses.mjs?v=20261009v160';
-import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261009v160';
+import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261009v162';
 import { activeActor, saveActor } from './actors.mjs?v=20261009v160';
 import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261009v160';
 
@@ -203,6 +203,7 @@ function refresh() {
   $('#view-scene').hidden = staticGuide || guide === 'depth' && input.kind !== 'depth-scene';
   $('#view-scene').disabled = doc.source.kind === 'empty';
   $('#lens-panel').hidden = staticGuide;
+  $('#mouse-pitch').closest('section').hidden = staticGuide;
   $('#lens-mode').value = doc.camera.focalLength ? 'custom' : 'original';
   $('#lens-controls').hidden = !doc.camera.focalLength;
   $('#copy-photo-pose').disabled = !doc.reference?.name || !!linkedReference.pending;
@@ -286,6 +287,10 @@ function refresh() {
   $('#depth-invert').checked = !!doc.conditioning.depthInvert;
   $('#pose-occlusion').value = doc.conditioning.poseOcclusion || 'all';
   $('#pose-hands').checked = !!doc.conditioning.poseHands;
+  $('#pose-scene-options').hidden = poseImage;
+  $('#pose-scene-options').inert = !human;
+  $('#pose-hands').disabled = $('#pose-occlusion').disabled = !human || poseImage;
+  $('#pose-static-options-hint').hidden = !poseImage;
   $('#generate-canny').hidden = guide !== 'canny';
   $('#generate-canny').disabled = !doc.reference || !!linkedReference.pending;
   $('#generate-scene-canny').hidden = guide !== 'canny';
@@ -1230,7 +1235,7 @@ function readPendingKeypoints() {
 installActorsUI({ doc: () => doc, replace: value => { doc = value; }, studio: () => studio, run, begin, changed, refresh,
   ensureHumanTools, askName, upload, captureGuide, toast, send, downloadURL: download, downloadBlob: download,
   showScene: () => { previewVisible = false; setMode('camera'); } });
-installReferencesUI({ doc: () => doc, run, begin, changed, askName, upload, send, toast,
+installReferencesUI({ doc: () => doc, sourceConnected: () => linkedReference.connected, run, begin, changed, askName, upload, send, toast,
   sourceChanged: previous => sourceChanged(doc, previous) });
 if (embedded) {
   let started = false;

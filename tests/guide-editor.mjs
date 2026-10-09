@@ -5,6 +5,17 @@ export async function guideEditor(browser, origin, { baseline = false } = {}) {
   const results = [];
   const pose = page => page.evaluate(() => structuredClone(window.auditStudio.viewer.getPose()));
   const cases = [
+    ['static-pose-custom-prompt-disables-scene-only-controls', async c => {
+      await c.importPose(); await c.page.locator('#prompt-mode').selectOption('custom'); await c.idle();
+      assert.equal(await c.page.locator('#pose-scene-options').isVisible(),false);
+      for(const selector of ['#pose-hands','#pose-occlusion','#export-keypoints','#open-batch']) assert.equal(await c.page.locator(selector).isEnabled(),false,selector);
+      assert.equal(await c.page.locator('#pose-static-options-hint').isVisible(),true);
+      assert.equal(await c.page.locator('#download-guide').isEnabled(),true);
+      assert.equal(await c.page.locator('#mouse-pitch').isVisible(),false);
+      await c.page.locator('#retarget-pose').click(); await c.page.locator('#people-dialog').waitFor({state:'visible'});
+      await c.page.locator('#people-dialog button[value="current"]').click(); await c.idle();
+      for(const selector of ['#pose-hands','#pose-occlusion','#export-keypoints','#open-batch']) assert.equal(await c.page.locator(selector).isEnabled(),true,selector);
+    }],
     ['zero-canny-flat-photo', async c => {
       await c.reference('flat'); await c.click('[data-guide="canny"]');
       await c.field('#canny-low', 0); await c.field('#canny-high', 0);
@@ -157,7 +168,7 @@ export async function guideEditor(browser, origin, { baseline = false } = {}) {
       },
     };
     try {
-      await page.goto(`${origin}/tests/gestures.html`); await idle(); await click('#add-actor'); await click('#model-base');
+      await page.goto(`${origin}/tests/gestures.html`); await idle(); await click('#tab-objects'); await click('#add-actor'); await click('#model-base');
       await check(c); assert.deepEqual(errors, []); results.push({name,passed:true});
     } catch(error) {results.push({name,passed:false,error:error.message}); if(!baseline)throw error;}
     finally {await page.close();}

@@ -6,7 +6,7 @@ import { promptForSnapshot } from './batch-queue.mjs?v=20261009v160';
 let graphRevision = 0;
 let closeActive = null;
 const extensionURL = new URL('./editor/index.html', import.meta.url);
-extensionURL.searchParams.set('v', '20261009v161');
+extensionURL.searchParams.set('v', '20261009v162');
 
 function openEditor(node, widget) {
   closeActive?.();
