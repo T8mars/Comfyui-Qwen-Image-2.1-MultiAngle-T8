@@ -1,3 +1,5 @@
+import { uuid } from '../uuid.mjs?v=20261010lan1';
+
 // Stable role identity is independent of layer order, active rig and image index.
 export const ACTOR_COLORS = ['#64cde1', '#f5b66f', '#b59bef', '#92d79f', '#f08cab', '#8faaf4', '#d5d677', '#70d9c7', '#d9a58b'];
 export const DEFAULT_BODY = { age: 25, gender: 0.5, weight: 0.5, muscle: 0.5, height: 0.5, breast_size: 0, firmness: 0.5, show_genitals: false };
@@ -8,7 +10,7 @@ export function actorSeed(seed, id) {
   return hash;
 }
 export function actorId() {
-  return `actor-${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`;
+  return `actor-${uuid()}`;
 }
 export function createActor(index = 0, values = {}) {
   const id = values.id || actorId();

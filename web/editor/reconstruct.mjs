@@ -1,3 +1,5 @@
+import { uuid } from '../uuid.mjs?v=20261010lan1';
+
 export function reconstructionGraph(reference, models, seed = 46, keepBackground = false) {
   const node = (class_type, inputs) => ({ class_type, inputs });
   const graph = {
@@ -95,7 +97,7 @@ export async function reconstruct(reference, onProgress, retryStaleJob = true, k
   let job = typeof cached === 'string' ? cached : cached?.job;
   if (!job) {
     const response = await fetch('/prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: reconstructionGraph(reference, config.models, 46, keepBackground), client_id: crypto.randomUUID() }) });
+      body: JSON.stringify({ prompt: reconstructionGraph(reference, config.models, 46, keepBackground), client_id: uuid() }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error?.message || JSON.stringify(result.node_errors) || '重建任务提交失败');
     job = result.prompt_id; localStorage.setItem(key, JSON.stringify({ job }));

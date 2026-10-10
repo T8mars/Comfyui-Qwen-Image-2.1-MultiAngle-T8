@@ -31,7 +31,7 @@ function fixture() {
   const created = [], elements = new Map();
   const state = { studio, doc, defaultScene, clone: structuredClone, selectedShot: null, previewVisible: false,
     begin() {}, changed() {}, toast() {}, run: task => task(), askName: async () => 'Saved framing',
-    setMode: mode => { studio.mode = mode; studio.updateShot(true); }, crypto: { randomUUID: () => 'saved-shot' },
+    setMode: mode => { studio.mode = mode; studio.updateShot(true); }, uuid: () => 'saved-shot',
     $: id => { if (!elements.has(id)) elements.set(id, { replaceChildren() {}, append() {} }); return elements.get(id); },
     document: { createElement: () => { const element = { classList: { toggle() {} }, append() {}, setAttribute() {} }; created.push(element); return element; } } };
   studio.capture = async () => 'data:image/png;saved-camera';

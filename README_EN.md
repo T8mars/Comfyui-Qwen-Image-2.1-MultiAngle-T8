@@ -235,6 +235,8 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.5**. **Apply to node** again to replace previously saved guide images and send plans.
 
+**LAN HTTP compatibility:** browsers may not expose `crypto.randomUUID()` at `http://LAN-IP:port`. Studio uses a shared UUID helper for materials, actors, camera views, poses and requests, falling back to `crypto.getRandomValues()` in that context. After updating the frontend files, close the old workbench, reload with `Ctrl+F5` and reopen it.
+
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 
 A successful Registry upload does not mean security approval; [check the live version status](https://api.comfy.org/nodes/qwen-image-21-multiangle-t8/versions). If a release is not listed in Manager, use the Git installation below.

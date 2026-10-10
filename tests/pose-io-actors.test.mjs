@@ -19,7 +19,7 @@ function ioContext(doc = fixture(), restore = async () => {}) {
   const elements = new Map(), exports = [], calls = { changed: 0, saved: 0, rig: 0, downloads: 0 };
   const state = { doc, ready: true, undo: [{ oldUndo: true }], redo: [{ oldRedo: true }], poseLibrary: [],
     clone: structuredClone, defaultScene, activeActor, saveActor, run: task => task(),
-    askName: async () => 'Current actor', crypto: { randomUUID: () => 'saved-alice' }, toast() {},
+    askName: async () => 'Current actor', uuid: () => 'saved-alice', toast() {},
     saveLibrary: next => { calls.saved++; state.poseLibrary = next; }, error: error => { throw error; }, download: () => calls.downloads++,
     fetch: async (_url, options) => { exports.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ id: 'exported' }) }; },
     changed: () => calls.changed++, $: id => { if (!elements.has(id)) elements.set(id, {}); return elements.get(id); },

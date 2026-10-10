@@ -1,4 +1,5 @@
-import { USES, newUse, addReference, upgradeReferences, libraryManifest, libraryPrompt, staleGuide } from './reference-library.mjs?v=20261009v165r2';
+import { USES, newUse, addReference, upgradeReferences, libraryManifest, libraryPrompt, staleGuide } from './reference-library.mjs?v=20261010lan1';
+import { uuid } from '../uuid.mjs?v=20261010lan1';
 const $ = id => document.getElementById(id);
 const copy = value => JSON.parse(JSON.stringify(value));
 const imageURL = asset => `/anyangle-studio/assets/${encodeURIComponent(asset.name)}`;
@@ -55,13 +56,13 @@ export function installReferencesUI(value) {
   $('source-tools').onclick = () => chooseTab('objects');
   $('source-to-library').onclick = () => edit(() => { const scene = context.doc(); if (scene.version !== 3) upgradeReferences(scene); if (scene.reference) addReference(scene, scene.reference); });
   $('save-reference-template').onclick = async () => { const name = await context.askName('保存参考组合', '我的参考组合'); if (!name) return;
-    edit(() => { const library = context.doc().referenceLibrary; library.templates ||= []; library.templates.push({ id: crypto.randomUUID(), name, items: copy(library.items) }); });
+    edit(() => { const library = context.doc().referenceLibrary; library.templates ||= []; library.templates.push({ id: uuid(), name, items: copy(library.items) }); });
   };
   $('apply-reference-template').onclick = () => edit(() => {
     const scene = context.doc(), template = scene.referenceLibrary.templates?.find(item => item.id === $('reference-template').value);
     if (!template) return;
-    for (const saved of template.items) addReference(scene, saved.asset, { ...copy(saved), id: `ref-${crypto.randomUUID()}`, inputKey: null, missing: false,
-      usages: saved.usages.map(use => ({ ...copy(use), id: `use-${crypto.randomUUID()}` })) });
+    for (const saved of template.items) addReference(scene, saved.asset, { ...copy(saved), id: `ref-${uuid()}`, inputKey: null, missing: false,
+      usages: saved.usages.map(use => ({ ...copy(use), id: `use-${uuid()}` })) });
   });
   const mode = el('label', '创作方式', 'reference-workflow');
   const control = select([['guided', '构图引导 + 多图参考'], ['references-only', '仅参考创作 · 无引导'], ['text', '纯文本创作 · 无图片']], 'guided', selected => edit(() => {
@@ -174,7 +175,7 @@ function splitBatch(scene, item) {
   edit(() => { for (let index = 1; index < assets.length; index++) {
     if (scene.referenceLibrary.items.some(value => value.inputKey === item.inputKey && value.batchIndex === index)) continue;
     addReference(scene, assets[index], { label: `${item.label} · ${index + 1}`, inputKey: item.inputKey, batchIndex: index, batchCount: assets.length,
-      usages: item.usages.map(use => ({ ...copy(use), id: `use-${crypto.randomUUID()}` })) });
+      usages: item.usages.map(use => ({ ...copy(use), id: `use-${uuid()}` })) });
   } });
 }
 export function setReferenceConnections(values) { connected = values || []; }
@@ -287,6 +288,6 @@ async function cropReference(item) {
     const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(image, x,y,width,height, 0,0,width,height);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png')); const saved = await context.upload(new File([blob], 'crop.png', { type: 'image/png' }), true);
     if (context.doc() !== scene || !scene.referenceLibrary.items.includes(item) || item.asset.name !== asset.name) throw new Error('裁切来源已改变，请重试');
-    edit(() => addReference(scene, saved, { label: `${item.label} · 裁切`, parent: { name: asset.name, box: [x,y,width,height] }, usages: item.usages.map(use => ({ ...copy(use), id: `use-${crypto.randomUUID()}` })) }));
+    edit(() => addReference(scene, saved, { label: `${item.label} · 裁切`, parent: { name: asset.name, box: [x,y,width,height] }, usages: item.usages.map(use => ({ ...copy(use), id: `use-${uuid()}` })) }));
   });
 }

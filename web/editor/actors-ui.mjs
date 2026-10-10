@@ -1,9 +1,10 @@
-import { createActor, activeActor, ensureActors, bindActor, cloneActor, removeActor, moveActor, editableActors, actorSeed, applySceneTemplate } from './actors.mjs?v=20261009v160';
+import { createActor, activeActor, ensureActors, bindActor, cloneActor, removeActor, moveActor, editableActors, actorSeed, applySceneTemplate } from './actors.mjs?v=20261010lan1';
 import { randomPose } from './poses.mjs?v=20261009v160';
-import { installCastTools } from './cast-tools.mjs?v=20261009v160';
+import { uuid } from '../uuid.mjs?v=20261010lan1';
+import { installCastTools } from './cast-tools.mjs?v=20261010lan1';
 import { poseCopyIssue, ORDER } from './openpose.mjs?v=20261009v160';
 import { guideSource } from './guides.mjs?v=20261009v160';
-import { addReference, newUse } from './reference-library.mjs?v=20261009v160';
+import { addReference, newUse } from './reference-library.mjs?v=20261010lan1';
 
 let context, renderKey, renderedDoc, renderedRoles = [], references = [];
 let refreshCastTools;
@@ -82,7 +83,7 @@ export function installActorsUI(options) {
   $('save-composition').onclick = async () => {
     const name = await context.askName('保存全场模板', '合影编排'); if (!name) return;
     context.begin(); context.studio().syncPose(); const doc = context.doc(); doc.compositionTemplates ||= [];
-    doc.compositionTemplates.push({ id: crypto.randomUUID(), name, actors: clone(doc.actors).map(actor => ({ ...actor, identity: { asset: null, inputKey: null, sourcePerson: null, description: '' } })), props: clone(doc.props || []), contacts: clone(doc.contacts || []), camera: clone(doc.camera), cameraTarget: clone(doc.cameraTarget) }); context.changed(false);
+    doc.compositionTemplates.push({ id: uuid(), name, actors: clone(doc.actors).map(actor => ({ ...actor, identity: { asset: null, inputKey: null, sourcePerson: null, description: '' } })), props: clone(doc.props || []), contacts: clone(doc.contacts || []), camera: clone(doc.camera), cameraTarget: clone(doc.cameraTarget) }); context.changed(false);
   };
   $('apply-composition').onclick = () => atomic(async () => {
     const doc = context.doc(), template = doc.compositionTemplates?.find(item => item.id === $('composition-list').value);

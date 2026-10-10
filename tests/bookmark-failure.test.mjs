@@ -11,7 +11,7 @@ function fixture({ mode = 'camera', restoreFailure = false } = {}) {
   const failure = new Error('thumbnail encoding failed'), elements = new Map(), calls = { changed: 0, restored: 0 };
   const state = { doc, ready: true, clone: structuredClone, defaultScene, selectedShot: 'existing', previewVisible: false,
     undo: Array.from({ length: 40 }, (_, index) => ({ index })), redo: [{ priorRedo: true }],
-    run: task => task(), askName: async () => 'New shot', crypto: { randomUUID: () => 'new-shot' }, toast() {},
+    run: task => task(), askName: async () => 'New shot', uuid: () => 'new-shot', toast() {},
     changed: () => calls.changed++, renderShots() {},
     $: id => { if (!elements.has(id)) elements.set(id, {}); return elements.get(id); },
     studio: { mode, restoring: false, syncPose() {}, baseTarget: { toArray: () => [3, 4, 5] },

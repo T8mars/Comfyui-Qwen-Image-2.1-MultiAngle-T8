@@ -1,4 +1,5 @@
 import * as THREE from '../vendor/three.module.mjs';
+import { uuid } from '../uuid.mjs?v=20261010lan1';
 import { GLTFLoader } from '../vendor/GLTFLoader.mjs';
 import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs?v=20261009v160';
 import { solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
@@ -8,9 +9,9 @@ import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
 import { SplatScene } from './splat.mjs?v=20261009v160';
 import { capturePNG } from './capture.mjs?v=20261009v160';
 import { liftOpenPose, copyVisiblePose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs?v=20261009v160';
-import { ensureActors, activeActor, bindActor, saveActor, visibleActors } from './actors.mjs?v=20261009v160';
+import { ensureActors, activeActor, bindActor, saveActor, visibleActors } from './actors.mjs?v=20261010lan1';
 import { loadProp, disposeProp, placeProp } from './props.mjs?v=20261009v160';
-import { emptyLibrary } from './reference-library.mjs?v=20261009v160';
+import { emptyLibrary } from './reference-library.mjs?v=20261010lan1';
 
 export const PRESETS = [
   { name: '自然站立', bones: { upperarm_l: [0, 0, -8], upperarm_r: [0, 0, 8] } },
@@ -766,7 +767,7 @@ export class StudioScene {
       finally{controller.setMode(key,old);}
       this.viewer.updateIKEffectorPositions();this.viewer.updateMarkers();this.syncPose();
     }
-    await this.selectActor(active);this.doc.contacts=[{id:crypto.randomUUID(),actors:[idA,idB],sides:[sideA,sideB],anchor:anchor.toArray(),mode:'align-once'}];
+    await this.selectActor(active);this.doc.contacts=[{id:uuid(),actors:[idA,idB],sides:[sideA,sideB],anchor:anchor.toArray(),mode:'align-once'}];
     this.useRigPose();this.viewer.requestRender();
   }
 

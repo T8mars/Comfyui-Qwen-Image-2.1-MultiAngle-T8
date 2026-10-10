@@ -1,7 +1,8 @@
 import { guideSource } from './guides.mjs?v=20261009v160';
+import { uuid } from '../uuid.mjs?v=20261010lan1';
 export const USES = { free: '自由参考', identity: '身份 / 脸型', clothing: '服装', accessory: '配饰 / 产品', scene: '场景 / 背景', style: '风格 / 灯光', layout: '布局 / 构图' };
 const copy = value => JSON.parse(JSON.stringify(value));
-const uid = prefix => `${prefix}-${crypto.randomUUID()}`;
+const uid = prefix => `${prefix}-${uuid()}`;
 export const emptyLibrary = () => ({ version: 1, mode: 'guided', items: [], firstReferenceId: null, firstResolution: 0, templates: [] });
 export function newUse(kind = 'free', target = { kind: 'scene', ids: [], text: '' }) {
   return { id: uid('use'), kind, target: copy(target), enabled: true, sourceText: '', instruction: '' };

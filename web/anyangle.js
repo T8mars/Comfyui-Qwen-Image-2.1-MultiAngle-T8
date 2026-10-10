@@ -1,16 +1,17 @@
 import { app } from '../../scripts/app.js';
 import { api } from '../../scripts/api.js';
-import { referencePlan, executeReference } from './reference.mjs?v=20261009v160';
+import { uuid } from './uuid.mjs?v=20261010lan1';
+import { referencePlan, executeReference } from './reference.mjs?v=20261010lan1';
 import { promptForSnapshot } from './batch-queue.mjs?v=20261009v160';
 
 let graphRevision = 0;
 let closeActive = null;
 const extensionURL = new URL('./editor/index.html', import.meta.url);
-extensionURL.searchParams.set('v', '20261009v163');
+extensionURL.searchParams.set('v', '20261010lan1');
 
 function openEditor(node, widget) {
   closeActive?.();
-  const session = crypto.randomUUID(), graph = app.graph, revision = graphRevision, initial = widget.value;
+  const session = uuid(), graph = app.graph, revision = graphRevision, initial = widget.value;
   const dialog = document.createElement('dialog');
   Object.assign(dialog.style, { width: 'min(1600px, 97vw)', height: '94vh', maxWidth: 'none', maxHeight: 'none', padding: '0', border: '1px solid #3a5265', borderRadius: '12px', background: '#101920', overflow: 'hidden' });
   const frame = document.createElement('iframe');

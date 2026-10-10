@@ -1,14 +1,15 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261009v160';
-import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261009v165r2';
-import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261009v165r2';
-import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261009v163';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261010lan1';
+import { uuid } from '../uuid.mjs?v=20261010lan1';
+import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261010lan1';
+import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261010lan1';
+import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261010lan1';
 import { readSkeletonImage } from './openpose.mjs?v=20261009v160';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261009v160';
 import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261009v160';
 import { randomPose } from './poses.mjs?v=20261009v160';
-import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261009v162';
-import { activeActor, saveActor } from './actors.mjs?v=20261009v160';
-import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261009v165r2';
+import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261010lan1';
+import { activeActor, saveActor } from './actors.mjs?v=20261010lan1';
+import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261010lan1';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);
@@ -927,7 +928,7 @@ $('#save-shot').onclick = async () => {
     try {
       if (studio.mode === 'edit') studio.currentViewAsShot(); setMode('camera');
       const scale = 230 / Math.max(doc.width, doc.height); const thumbnail = await studio.capture(Math.round(doc.width * scale), Math.round(doc.height * scale));
-      const shot = { id: crypto.randomUUID(), name, camera: clone(doc.camera), width: doc.width, height: doc.height, thumbnail };
+      const shot = { id: uuid(), name, camera: clone(doc.camera), width: doc.width, height: doc.height, thumbnail };
       if (doc.source.kind === 'human') shot.cameraTarget = studio.baseTarget.toArray();
       doc.shots.push(shot); changed(); selectedShot = shot.id; renderShots();
       toast('机位已收藏 · 点击缩略图切换；应用到节点后保存收藏。');
@@ -970,7 +971,7 @@ function renderLibrary() {
 $('#save-pose').onclick = async () => {
   const name = await askName('保存姿势', `姿势 ${poseLibrary.length + 1}`); if (!name) return;
   const poseSource = activeActor(doc)?.poseSource ?? (doc.actors?.length > 1 ? null : doc.openpose ?? null);
-  const pose = { id: crypto.randomUUID(), name, mesh: clone(doc.mesh), pose: studio.pose(), openpose: clone(poseSource) };
+  const pose = { id: uuid(), name, mesh: clone(doc.mesh), pose: studio.pose(), openpose: clone(poseSource) };
   try { saveLibrary([...poseLibrary, pose]); toast('姿势已保存到当前浏览器'); } catch (e) { error(e); }
 };
 function download(data, name) {
@@ -1015,7 +1016,7 @@ $('#download-guide').onclick = () => run(async () => {
 
 function send(type, payload = {}) { parent.postMessage({ type, session, ...payload }, location.origin); }
 function batchRequest(action, payload = {}) {
-  const requestId = crypto.randomUUID();
+  const requestId = uuid();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { batchReplies.delete(requestId); reject(new Error('批量提交未收到确认，请检查 ComfyUI 队列；本机位不会自动重复提交')); }, 60000);
     batchReplies.set(requestId, { resolve, reject, timer });

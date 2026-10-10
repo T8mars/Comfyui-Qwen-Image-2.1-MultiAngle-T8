@@ -10,7 +10,7 @@ function fixture(stored) {
   let value = stored, rejectWrites = false;
   const state = { clone: structuredClone, activeActor: () => null, doc: { actors: [], mesh: {} },
     studio: { pose: () => ({ bones: { head: [0, 3, 0] } }) },
-    crypto: { randomUUID: () => 'new' }, askName: async () => 'New pose', toast() {}, error: error => errors.push(error),
+    uuid: () => 'new', askName: async () => 'New pose', toast() {}, error: error => errors.push(error),
     localStorage: { getItem: () => value, setItem: (_key, next) => { if (rejectWrites) throw failure; value = next; } },
     iconButton: (_icon, label) => { const button = { title: label }; created.push(button); return button; },
     $: id => { if (!elements.has(id)) elements.set(id, { replaceChildren() {}, append() {} }); return elements.get(id); },

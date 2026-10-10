@@ -1,6 +1,7 @@
-import { editableActors, bindActor } from './actors.mjs?v=20261009v160';
-import { PRESETS } from './scene.mjs?v=20261009v160';
-import { detachTargets } from './reference-library.mjs?v=20261009v160';
+import { editableActors, bindActor } from './actors.mjs?v=20261010lan1';
+import { PRESETS } from './scene.mjs?v=20261010lan1';
+import { uuid } from '../uuid.mjs?v=20261010lan1';
+import { detachTargets } from './reference-library.mjs?v=20261010lan1';
 
 const $ = id => document.getElementById(id);
 export function installCastTools(context) {
@@ -34,7 +35,7 @@ export function installCastTools(context) {
   $('release-contact').onclick = ()=>{context.begin();context.doc().contacts=[];context.changed(false);context.toast('接触锚点已清除，当前姿势保留');};
   $('add-prop').onclick = ()=>file.click();
   file.onchange = ()=>{const chosen=file.files[0];file.value='';if(!chosen)return;
-    mutate(async()=>{if(context.doc().source.kind!=='human')throw new Error('请先切换到人偶场景，再导入同场道具');const asset=await context.upload(chosen);const prop={id:`prop-${crypto.randomUUID()}`,label:chosen.name,asset,transform:{x:0,y:0,z:-5,scale:1,yaw:0},visible:true,locked:false};context.doc().props||=[];context.doc().props.push(prop);await context.studio().restoreProps();});
+    mutate(async()=>{if(context.doc().source.kind!=='human')throw new Error('请先切换到人偶场景，再导入同场道具');const asset=await context.upload(chosen);const prop={id:`prop-${uuid()}`,label:chosen.name,asset,transform:{x:0,y:0,z:-5,scale:1,yaw:0},visible:true,locked:false};context.doc().props||=[];context.doc().props.push(prop);await context.studio().restoreProps();});
   };
   function render(){
     $('prop-list').replaceChildren();

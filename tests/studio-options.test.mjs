@@ -74,7 +74,7 @@ function bookmarkFixture() {
   const captures = [], created = [], elements = new Map();
   const state = { studio, doc, defaultScene, clone: structuredClone, selectedShot: null, previewVisible: true,
     begin() {}, changed() {}, toast() {}, run: task => task(), askName: async () => 'My camera',
-    setMode: mode => { studio.mode = mode; studio.updateShot(); }, crypto: { randomUUID: () => 'shot-id' },
+    setMode: mode => { studio.mode = mode; studio.updateShot(); }, uuid: () => 'shot-id',
     $: id => { if (!elements.has(id)) elements.set(id, { replaceChildren() {}, append() {} }); return elements.get(id); },
     document: { createElement: () => { const element = { classList: { toggle() {} }, append() {}, setAttribute() {} };
       created.push(element); return element; } } };

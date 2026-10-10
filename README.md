@@ -235,6 +235,8 @@ Change the camera angle from <image2> to <image1>.
 
 更新时在节点目录运行 `git pull`，重启 ComfyUI，关闭旧工作台并按 `Ctrl+F5` 刷新。重新打开后，标题应显示 **T8 · v1.6.5**；重新点击「应用到节点」，替换工作流中已保存的旧粗图和发送清单。
 
+**局域网 HTTP 兼容：**通过 `http://局域网IP:端口` 打开时，浏览器可能没有 `crypto.randomUUID()`。Studio 的素材、人物、机位、姿势和请求编号统一使用兼容方法，在这种情况下通过 `crypto.getRandomValues()` 生成 UUID。更新前端文件后关闭旧工作台，按 `Ctrl+F5` 刷新，再重新打开。
+
 在 ComfyUI Manager 中搜索 **Comfyui-Qwen-Image-2.1-MultiAngle-T8**，选择正式版本安装；Registry 节点 ID 为 `qwen-image-21-multiangle-t8`。也可使用下方 Git 安装。内置人偶、前端资源与示例工作流随节点分发，模型权重按所用功能另行准备。
 
 Registry 上传成功不等于安全审核通过；[查看实时版本状态](https://api.comfy.org/nodes/qwen-image-21-multiangle-t8/versions)。管理器中未显示正式版本时，请先使用下方 Git 安装。

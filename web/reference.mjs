@@ -1,3 +1,5 @@
+import { uuid } from './uuid.mjs?v=20261010lan1';
+
 // Work from ComfyUI's executable graph so reroutes and bypassed nodes resolve normally.
 export function referencePlan(output, nodeId, inputName = 'reference_image') {
   const inputs = output[String(nodeId)]?.inputs;
@@ -41,7 +43,7 @@ export async function importReference(url) {
 }
 
 export async function executeReference(plan, isActive, kind = 'image') {
-  const previewId = 'anyangle_reference_' + crypto.randomUUID();
+  const previewId = 'anyangle_reference_' + uuid();
   const prompt = { ...plan.upstream, [previewId]: kind === 'text'
     ? { class_type: 'AnyAngleTextReadT8', inputs: { text: plan.link } }
     : kind === 'mode' ? { class_type: 'AnyAnglePromptModeReadT8', inputs: { mode: plan.link } }
