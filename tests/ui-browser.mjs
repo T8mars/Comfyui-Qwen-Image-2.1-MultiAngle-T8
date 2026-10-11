@@ -6,6 +6,7 @@ import { resolve, extname, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { uiLayout } from './ui-layout.mjs';
 import { guideEditor } from './guide-editor.mjs';
+import { batchPresets } from './batch-presets-browser.mjs';
 const require=createRequire(import.meta.url), {chromium}=require(process.env.ANYANGLE_PLAYWRIGHT || 'playwright');
 const root=resolve(fileURLToPath(new URL('..',import.meta.url))),out=resolve(root,'.local','ui-browser');
 await mkdir(out,{recursive:true});
@@ -28,6 +29,6 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve)); let browser;
 try {
   browser=await chromium.launch({headless:true,executablePath:process.env.ANYANGLE_CHROMIUM||undefined});
   const origin=`http://127.0.0.1:${server.address().port}`;
-  const receipt={date:new Date().toISOString(),layout:await uiLayout(browser,origin,out),guides:await guideEditor(browser,origin)};
+  const receipt={date:new Date().toISOString(),layout:await uiLayout(browser,origin,out),guides:await guideEditor(browser,origin),batchPresets:await batchPresets(browser,origin,out)};
   await writeFile(resolve(out,'receipt.json'),JSON.stringify(receipt,null,2));console.log(JSON.stringify(receipt));
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

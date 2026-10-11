@@ -5,7 +5,8 @@ import { installReferencesUI, refreshReferencesUI, setReferenceConnections } fro
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261010lan1';
 import { readSkeletonImage } from './openpose.mjs?v=20261009v160';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261009v160';
-import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261009v160';
+import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261011v166';
+import { installBatchPresets } from './batch-presets.mjs?v=20261011v166';
 import { randomPose } from './poses.mjs?v=20261009v160';
 import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261010lan1';
 import { activeActor, saveActor } from './actors.mjs?v=20261010lan1';
@@ -1024,11 +1025,12 @@ function batchRequest(action, payload = {}) {
   });
 }
 function batchSettings() {
-  return { mode: $('#batch-mode').value, start: Number($('#batch-start').value),
+  return { mode: $('#batch-mode').value, angles: $('#batch-angles').value, start: Number($('#batch-start').value),
     end: Number($('#batch-end').value), step: Number($('#batch-step').value) };
 }
 function updateBatchPlan() {
-  $('#batch-range').hidden = $('#batch-mode').value === 'saved';
+  $('#batch-range').hidden = $('#batch-mode').value !== 'range';
+  $('#batch-fixed').hidden = $('#batch-mode').value !== 'angles';
   try {
     const plan = cameraBatchPlan(doc, batchSettings());
     $('#batch-count').textContent = `${plan.count} 个机位 · ${$('#batch-mode').value === 'saved' ? '使用收藏的相机与尺寸，保留当前姿势' : '保留当前姿势、俯仰角与构图'} · 沿用工作流采样设置`;
@@ -1038,7 +1040,8 @@ function updateBatchPlan() {
   }
 }
 $('#open-batch').onclick = () => { updateBatchPlan(); $('#batch-dialog').showModal(); };
-for (const id of ['batch-mode', 'batch-start', 'batch-end', 'batch-step']) $(`#${id}`).oninput = updateBatchPlan;
+for (const id of ['batch-mode', 'batch-angles', 'batch-start', 'batch-end', 'batch-step']) $(`#${id}`).oninput = updateBatchPlan;
+installBatchPresets({ askName, download, toast, onChange: updateBatchPlan });
 $('#batch-close').onclick = () => { if (batchRunning) batchController.abort(); else $('#batch-dialog').close(); };
 $('#batch-dialog').addEventListener('cancel', event => { if (batchRunning) { event.preventDefault(); batchController.abort(); } });
 $('#batch-stop').onclick = () => batchController?.abort();

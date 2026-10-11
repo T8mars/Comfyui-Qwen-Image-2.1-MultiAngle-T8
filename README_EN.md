@@ -12,6 +12,8 @@
 
 ## Multi-reference creation · 1.6.0
 
+**1.6.6 Fixed angles and presets:** batch views default to `45, -45, 90, -90`, rendered in list order, with negative, fractional and custom angles. Name, update, delete, import and export angle presets as JSON; the last settings are remembered. Current poses, elevation, focal length and framing are preserved. Includes the LAN HTTP fallback when `crypto.randomUUID()` is unavailable. No additional models required. [Usage](#batch-views-and-angle-presets).
+
 **1.6.5 AnyAngle references:** fixes discarded extra materials and missing use instructions in AnyAngle mode. The default keeps original1 / coarse2 and the author's trigger, then sends enabled face, clothing, environment, accessory and style materials as images3+. The original retains its input dimensions independently; the encoder's other-reference budget only resizes extra materials, default **512**. Setting it to0 keeps every extra at full size and can substantially increase memory use. Custom full prompts remain verbatim. [UI audit](docs/audit-v165-ui.md) · [Backend audit](docs/audit-v165-backend.md).
 
 **Using a face reference:** import the [guide + references workflow](workflows/AnyAngle-Studio-Qwen21-MultiReference.json), add a photo, select **Identity / face**, bind it to a person, check the send list, Apply and run. Add separate uses for clothes or accessories. A reconstructed splat is one model: names and descriptions identify people semantically, without creating separate rigs or region masks. Specify positions such as “the woman on the left”. Identity and purpose adherence can still drift.
@@ -199,11 +201,17 @@ Bookmarking from scene-edit mode adopts the current view. Clicking a thumbnail r
 
 Splat workbenches render on demand, stopping continuous refresh when idle and updating after sorting completes. For slower computers, choose **Economy** under **Workbench performance**, disable **Automatic guide preview**, and refresh the guide manually. Display quality affects viewport pixels; export keeps the configured dimensions. Initial model loading, reconstruction and sorting may temporarily use CPU. If usage stays high while idle, report the browser, GPU, hardware-acceleration setting and stage where it occurs. This update needs no additional models.
 
-### Batch views and generation · 1.1.0
+### Batch views and angle presets
 
 ![Batch views: choose angles, render independent guides, queue Qwen jobs and save outputs](docs/images/batch-flow.svg)
 
-Click **批量机位** (Batch views) below the 3D viewport. Choose an angle range or saved camera views: `0° → 330° / 30°` produces 12 views; `0° → 360° / 1°` produces 360 views, omitting the duplicate endpoint. Angle ranges keep the current pose, elevation and framing; saved views use their own camera settings and dimensions.
+![Actual v1.6.6 batch dialog: fixed angles, saved presets, deletion, import and export](docs/images/batch-presets-v166.png)
+
+Click **批量机位** (Batch views) below the 3D viewport. **固定角度列表** (Fixed angles) defaults to `45, -45, 90, -90` and generates four views in that order. Enter any finite angles, including negative and fractional values. These are absolute azimuths; 0° for a reconstructed splat is its predicted source camera. Lists and ranges preserve the current poses, elevation, focal length, framing and dimensions, then restore the original view.
+
+**保存为预设** (Save preset) names an angle list for reuse with another image; saving an existing name updates it. Presets support deletion, JSON import and export of all saved lists. Import appends without replacing existing presets and numbers duplicate names. The last batch settings are remembered in the current browser and origin; export/import JSON when changing computers or addresses. Angle presets store only azimuth lists. Use camera bookmarks to also save elevation, lens, framing and dimensions.
+
+Angle ranges remain available: `0° → 330° / 30°` produces 12 views; `0° → 360° / 1°` produces 360 views, omitting the duplicate endpoint. Saved views use each bookmark's camera, target and dimensions.
 
 - **批量渲染粗图 (Render guides):** saves independent guides for every view, with a PNG ZIP and task manifest. Qwen inference is not required.
 - **批量生成最终图 (Generate final images):** available when the studio is opened from its node. Each view queues the workflow, seed and sampling settings captured when the batch starts. Connect **Save Image** to save results in `ComfyUI/output/`. Each PNG records its own view in workflow metadata; the currently edited node snapshot stays unchanged.
@@ -233,9 +241,11 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.5**. **Apply to node** again to replace previously saved guide images and send plans.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.6**. **Apply to node** again to replace previously saved guide images and send plans.
 
 **LAN HTTP compatibility:** browsers may not expose `crypto.randomUUID()` at `http://LAN-IP:port`. Studio uses a shared UUID helper for materials, actors, camera views, poses and requests, falling back to `crypto.getRandomValues()` in that context. After updating the frontend files, close the old workbench, reload with `Ctrl+F5` and reopen it.
+
+LAN access follows the ComfyUI server's access policy. This plugin does not provide separate account authentication; configure authentication at the entry point for the entire ComfyUI service before exposing it to untrusted networks.
 
 Search for **Comfyui-Qwen-Image-2.1-MultiAngle-T8** in ComfyUI Manager and select a published version, or use Git below. The Registry node ID is `qwen-image-21-multiangle-t8`. The mannequin, frontend assets and example workflows ship with the node; prepare model weights only for the features you use.
 

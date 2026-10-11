@@ -20,7 +20,7 @@ function fixture(failAt = null) {
       if (!elements.has(selector)) elements.set(selector, { value: '', addEventListener() {}, showModal() {}, close() {} });
       return elements.get(selector);
     },
-    cameraBatchPlan, runCameraBatch, clone: structuredClone, AbortController, clearTimeout, previewTimer: undefined,
+    cameraBatchPlan, runCameraBatch, installBatchPresets() {}, askName() {}, toast() {}, clone: structuredClone, AbortController, clearTimeout, previewTimer: undefined,
     captureGuide: async () => { angles.push(state.doc.camera.azimuth); return 'png'; },
     batchRequest: async action => {
       if (action === 'prepare') return {};

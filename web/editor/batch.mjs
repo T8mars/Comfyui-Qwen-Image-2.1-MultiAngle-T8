@@ -7,6 +7,13 @@ export function supportsCameraBatch(scene) {
 
 const wrapAngle = value => ((value + 180) % 360 + 360) % 360 - 180;
 
+export function parseAngleList(value) {
+  const values = typeof value === 'string' ? value.trim().split(/[,，、;；\s]+/).filter(Boolean).map(angle => Number(angle.replace(/°$/, '') || NaN)) : value;
+  if (!Array.isArray(values) || !values.length || !values.every(angle => typeof angle === 'number' && Number.isFinite(angle)))
+    throw new Error('请输入角度列表，例如 45, -45, 90, -90；用逗号或空格分隔');
+  return [...values];
+}
+
 export function cameraBatchPlan(scene, settings) {
   if (!supportsCameraBatch(scene)) throw new Error('批量机位需要三维主体及粗图、三维人偶骨架或三维 Canny；原图结构图保持原机位。');
   const base = structuredClone(scene);
@@ -17,6 +24,16 @@ export function cameraBatchPlan(scene, settings) {
         camera: { ...base.camera, ...shot.camera }, width: shot.width, height: shot.height,
         ...(Array.isArray(shot.cameraTarget) && shot.cameraTarget.length === 3 && shot.cameraTarget.every(Number.isFinite)
           ? { cameraTarget: structuredClone(shot.cameraTarget) } : {}) } };
+    } };
+  }
+  if (settings.mode === 'angles') {
+    const angles = parseAngleList(settings.angles);
+    return { count: angles.length, *views() {
+      for (const value of angles) {
+        const angle = wrapAngle(value), current = structuredClone(base);
+        current.camera.azimuth = angle;
+        yield { label: `方位角 ${Number(angle.toFixed(6))}°`, scene: current };
+      }
     } };
   }
   const { start, end, step } = settings;
