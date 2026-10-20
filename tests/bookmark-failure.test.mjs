@@ -24,7 +24,7 @@ function fixture({ mode = 'camera', restoreFailure = false } = {}) {
   const beginStart = app.indexOf('function begin()');
   vm.runInNewContext(app.slice(beginStart, app.indexOf('function changed(', beginStart)), state);
   const saveStart = app.indexOf("$('#save-shot').onclick");
-  vm.runInNewContext(app.slice(saveStart, app.indexOf('function saveLibrary(', saveStart)), state);
+  vm.runInNewContext(app.slice(saveStart, app.indexOf('function renderLibrary(', saveStart)), state);
   return { state, failure, calls, save: () => elements.get('#save-shot').onclick() };
 }
 

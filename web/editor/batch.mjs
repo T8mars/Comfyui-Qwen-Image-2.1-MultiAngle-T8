@@ -58,10 +58,11 @@ export async function runCameraBatch(plan, { capture, save, queue, signal, onPro
     if (signal?.aborted) { result.stopped = true; break; }
     onProgress({ index: result.views.length, total: plan.count, label: view.label, phase: 'capture' });
     try {
-      const png = await capture(view.scene);
+      const png = await capture(view.scene, view);
       if (signal?.aborted) { result.stopped = true; break; }
       const snapshot = await save(view.scene, png);
       const entry = { label: view.label, snapshot, camera: view.scene.camera, width: view.scene.width, height: view.scene.height };
+      if (view.poseId) { entry.poseId = view.poseId; entry.poseName = view.poseName; }
       if (Array.isArray(view.scene.cameraTarget)) entry.cameraTarget = structuredClone(view.scene.cameraTarget);
       result.views.push(entry);
       if (signal?.aborted) { result.stopped = true; break; }

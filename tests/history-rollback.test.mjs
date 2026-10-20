@@ -1,3 +1,4 @@
+import { applyCatalogTransaction } from '../web/editor/pose-catalog.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -74,10 +75,8 @@ function libraryContext(restore) {
     document: { createElement: () => { const element = { append() {} }; created.push(element); return element; } } };
   const beginStart = app.indexOf('function begin()');
   vm.runInNewContext(app.slice(beginStart, app.indexOf('function changed(', beginStart)), state);
-  const libraryStart = app.indexOf('function saveLibrary(');
-  vm.runInNewContext(app.slice(libraryStart, app.indexOf("$('#save-pose').onclick", libraryStart)), state);
-  state.renderLibrary();
-  return { state, preset, calls, button: created.find(element => element.textContent === preset.name) };
+  const context = { doc: () => state.doc, replace: value => { state.doc=value; }, begin: state.begin, studio: () => state.studio, changed: state.changed };
+  return { state, preset, calls, button: { onclick: () => applyCatalogTransaction(context,preset) } };
 }
 
 test('saved single-person pose loading rolls back a partial restore and preserves redo history, global guide and other identities', async () => {
@@ -95,8 +94,8 @@ test('saved single-person pose affects only the active actor and keeps the group
   const { state, preset, calls, button } = libraryContext(async () => {});
   const other = structuredClone(state.doc.actors[1]), globalGuide = structuredClone(state.doc.openpose), identities = state.doc.actors.map(actor => structuredClone(actor.identity));
   await button.onclick();
-  assert.deepEqual(activeActor(state.doc).mesh, preset.mesh); assert.deepEqual(activeActor(state.doc).pose, preset.pose);
-  assert.deepEqual(activeActor(state.doc).poseSource, preset.openpose); assert.deepEqual(state.doc.actors[1], other);
+  assert.notDeepEqual(activeActor(state.doc).mesh, preset.mesh); assert.deepEqual(activeActor(state.doc).pose, preset.pose);
+  assert.notDeepEqual(activeActor(state.doc).poseSource, preset.openpose); assert.deepEqual(state.doc.actors[1], other);
   assert.deepEqual(state.doc.openpose, { ...globalGuide, useRig: true }); assert.deepEqual(state.doc.actors.map(actor => actor.identity), identities);
   assert.equal(state.redo.length, 0); assert.equal(state.undo.length, 2); assert.deepEqual(calls, { changed: 1, useRig: 1 });
 });

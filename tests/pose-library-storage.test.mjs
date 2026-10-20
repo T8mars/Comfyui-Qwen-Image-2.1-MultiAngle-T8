@@ -1,53 +1,21 @@
+// Server persistence/conflict behavior is covered by test_pose_library.py.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const app = readFileSync(new URL('../web/editor/app.mjs', import.meta.url), 'utf8');
-const pose = { id: 'saved', name: 'Relaxed', mesh: {}, pose: { bones: { head: [0, 2, 0] } }, openpose: null };
-function fixture(stored) {
-  const elements = new Map(), created = [], errors = [], failure = new Error('QuotaExceededError');
-  let value = stored, rejectWrites = false;
-  const state = { clone: structuredClone, activeActor: () => null, doc: { actors: [], mesh: {} },
-    studio: { pose: () => ({ bones: { head: [0, 3, 0] } }) },
-    uuid: () => 'new', askName: async () => 'New pose', toast() {}, error: error => errors.push(error),
-    localStorage: { getItem: () => value, setItem: (_key, next) => { if (rejectWrites) throw failure; value = next; } },
-    iconButton: (_icon, label) => { const button = { title: label }; created.push(button); return button; },
-    $: id => { if (!elements.has(id)) elements.set(id, { replaceChildren() {}, append() {} }); return elements.get(id); },
-    document: { createElement: () => { const element = { append() {} }; created.push(element); return element; } },
-  };
-  const readStart = app.indexOf('let poseLibrary;');
-  vm.runInNewContext(app.slice(readStart, app.indexOf('\n', app.indexOf('poseLibrary = poseLibrary.filter(', readStart))), state);
-  const libraryStart = app.indexOf('function saveLibrary(');
-  vm.runInNewContext(app.slice(libraryStart, app.indexOf('function download(', libraryStart)), state);
-  const library = () => JSON.parse(vm.runInNewContext('JSON.stringify(poseLibrary)', state));
-  return { state, created, elements, errors, failure, library, stored: () => value, failWrites: () => { rejectWrites = true; } };
-}
-
-test('corrupt library entries do not prevent opening the editor and valid saved poses remain available', () => {
-  const { state, library, created } = fixture(JSON.stringify([null, 7, 'bad', { name: null }, pose]));
-  assert.doesNotThrow(() => state.renderLibrary()); assert.deepEqual(library(), [pose]);
-  assert.ok(created.some(element => element.textContent === 'Relaxed'));
+import {filterCatalog} from '../web/editor/pose-catalog.mjs';
+const items=[
+ {id:'a',name:'自然站立',originalName:'Standing',category:'站姿',tags:['relaxed'],source:{id:'general'},favorite:true},
+ {id:'b',name:'自然站立',originalName:'Standing B',category:'站姿',tags:[],source:{id:'miu-main'}},
+ {id:'built',name:'举手',category:'站姿',tags:[],source:{id:'builtin'},builtin:true},
+ {id:'hidden',name:'已隐藏',category:'站姿',source:{id:'builtin'},hidden:true,favorite:true},
+];
+test('same display name retains independent source identities',()=>assert.deepEqual(filterCatalog(items,{query:'自然'}).map(x=>x.id),['a','b']));
+test('source, original names and tags remain searchable',()=>{
+ assert.deepEqual(filterCatalog(items,{source:'miu-main',query:'standing'}).map(x=>x.id),['b']);
+ assert.deepEqual(filterCatalog(items,{query:'relaxed'}).map(x=>x.id),['a']);
 });
-
-test('failed browser storage write does not leave a phantom saved pose in memory', async () => {
-  const saved = JSON.stringify([pose]), context = fixture(saved); context.failWrites();
-  await context.elements.get('#save-pose').onclick();
-  assert.deepEqual(context.library(), [pose]); assert.equal(context.stored(), saved);
-  assert.deepEqual(context.errors, [context.failure]);
+test('favorites exclude hidden items and filtering never mutates stored entries',()=>{
+ const previous=structuredClone(items);assert.deepEqual(filterCatalog(items,{tab:'favorites'}).map(x=>x.id),['a']);assert.deepEqual(items,previous);
 });
-
-test('failed deletion keeps the pose in memory and reports the storage error', () => {
-  const saved = JSON.stringify([pose]), context = fixture(saved); context.state.renderLibrary(); context.failWrites();
-  const remove = context.created.find(element => element.title === '删除姿势 Relaxed');
-  assert.doesNotThrow(() => remove.onclick()); assert.deepEqual(context.library(), [pose]);
-  assert.equal(context.stored(), saved); assert.deepEqual(context.errors, [context.failure]);
-});
-
-test('successful save and delete persist exactly the displayed library', async () => {
-  const context = fixture(JSON.stringify([pose])); await context.elements.get('#save-pose').onclick();
-  assert.equal(context.library().length, 2); assert.deepEqual(JSON.parse(context.stored()), context.library());
-  context.created.find(element => element.title === '删除姿势 Relaxed').onclick();
-  assert.deepEqual(context.library().map(entry => entry.id), ['new']);
-  assert.deepEqual(JSON.parse(context.stored()), context.library()); assert.equal(context.errors.length, 0);
+test('empty filters show all visible rows and a missing category shows no matches',()=>{
+ assert.equal(filterCatalog(items).length,3);assert.deepEqual(filterCatalog(items,{category:'舞蹈'}),[]);
 });

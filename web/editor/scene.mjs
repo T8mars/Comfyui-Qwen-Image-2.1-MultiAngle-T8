@@ -185,6 +185,15 @@ export class StudioScene {
     this.viewer.headScale = this.viewer.armScale = this.viewer.handScale = this.viewer.footScale = 1;
     this.viewer.setSkinTexture('naked');
     this.viewer.loadData(modelData(morph, this.humanStatic), true);
+    if (pose?.positionDeltas) {
+      pose = structuredClone(pose); pose.bonePositions = { ...pose.bonePositions };
+      for (const [name, delta] of Object.entries(pose.positionDeltas)) {
+        const rest = this.viewer.shapedBoneRestPositions?.[name] || this.viewer.initialBoneStates?.[name]?.position;
+        if (rest && Array.isArray(delta) && delta.length === 3 && delta.every(Number.isFinite))
+          pose.bonePositions[name] = [rest.x + delta[0], rest.y + delta[1], rest.z + delta[2]];
+      }
+      delete pose.hipBonePosition;
+    }
     this.viewer.setPose(pose || { bones: {} }, true);
     this.viewer.setActiveCharacterAppearance({ color: actor?.editorColor || '#e3e9ee', transform: { x: 0, y: 0, z: 0, zoom: actor ? 1 : this.doc.scale } });
     if (actor) this.attachActor(actor, this.viewer.skinnedMesh);
@@ -746,9 +755,20 @@ export class StudioScene {
 
   groundActors(ids = [this.doc.activeActorId]) {
     const floor = this.grid?.position ? this.grid.position.y + 0.03 : 0;
+    this.viewer.scene.updateMatrixWorld(true);
     for (const actor of this.doc.actors || []) if (ids.includes(actor.id) && !actor.locked) {
       const mesh = this.actorMesh(actor.id); if (!mesh) continue;
-      actor.transform.y += floor - worldBounds(mesh).min.y;
+      mesh.skeleton.update();
+      const index=mesh.geometry.index, seen=new Set(), point=new THREE.Vector3();
+      let minimum=Infinity;
+      // The body buffer also contains vertices excluded from the visible index.
+      // Their standing-rest positions must not keep a seated figure in the air.
+      for(let i=0,count=index?index.count:mesh.geometry.attributes.position.count;i<count;i++){
+        const vertex=index?index.getX(i):i;if(seen.has(vertex))continue;seen.add(vertex);
+        mesh.getVertexPosition(vertex,point).applyMatrix4(mesh.matrixWorld);minimum=Math.min(minimum,point.y);
+      }
+      if(!Number.isFinite(minimum))continue;
+      actor.transform.y += floor - minimum;
       this.updateActorTransform(actor);
     }
   }

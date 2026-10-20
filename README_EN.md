@@ -12,6 +12,8 @@
 
 ## Multi-reference creation · 1.6.0
 
+**1.7.0 Shared pose library:** import VNCCS/AnyAngle JSON, directories and ZIP packs; search, categorize, favorite, rename, remove/restore and export poses. Saved entries are shared by browsers connected to the same ComfyUI input directory. Apply only to explicitly chosen editable characters, preserving identity, body shape and camera. Includes body partitions, hand preservation, grounding, multi-person compositions and explicit pose-by-camera batches. No additional models required.
+
 **1.6.6 Fixed angles and presets:** batch views default to `45, -45, 90, -90`, rendered in list order, with negative, fractional and custom angles. Name, update, delete, import and export angle presets as JSON; the last settings are remembered. Current poses, elevation, focal length and framing are preserved. Includes the LAN HTTP fallback when `crypto.randomUUID()` is unavailable. No additional models required. [Usage](#batch-views-and-angle-presets).
 
 **1.6.5 AnyAngle references:** fixes discarded extra materials and missing use instructions in AnyAngle mode. The default keeps original1 / coarse2 and the author's trigger, then sends enabled face, clothing, environment, accessory and style materials as images3+. The original retains its input dimensions independently; the encoder's other-reference budget only resizes extra materials, default **512**. Setting it to0 keeps every extra at full size and can substantially increase memory use. Custom full prompts remain verbatim. [UI audit](docs/audit-v165-ui.md) · [Backend audit](docs/audit-v165-backend.md).
@@ -201,7 +203,27 @@ Bookmarking from scene-edit mode adopts the current view. Clicking a thumbnail r
 
 Splat workbenches render on demand, stopping continuous refresh when idle and updating after sorting completes. For slower computers, choose **Economy** under **Workbench performance**, disable **Automatic guide preview**, and refresh the guide manually. Display quality affects viewport pixels; export keeps the configured dimensions. Initial model loading, reconstruction and sorting may temporarily use CPU. If usage stays high while idle, report the browser, GPU, hardware-acceleration setting and stage where it occurs. This update needs no additional models.
 
-### Batch views and angle presets
+### Shared pose library
+
+Open **Pose library** in a mannequin scene. The node ships 12 original poses and three two-person layouts. Import individual/multiple JSON files, a pose directory with matching PNG/WebP previews, or ZIP archives. Inspect the per-item results before committing; cancelling writes nothing. VNCCS v3 and existing AnyAngle pose files are supported.
+
+The source panel explicitly reads five pinned catalogs on request: [Arekejoker](https://github.com/Arekejoker/qwen21-nsfw-pose-skill) (55), [General](https://huggingface.co/Totemistyk/General_Poses_PoseStudio) (50), [Ballet](https://huggingface.co/Totemistyk/Ballet_PoseStudio) (58), [MIU main](https://huggingface.co/MIUProject/VNCCS_PoseLibrary_Main) (16), and [MIU extra](https://huggingface.co/MIUProject/MySuperPoseRepo) (12). The four external catalogs contain 136 pose records; including the curated 55 gives 191 source entries. Index JSON files are excluded. These third-party files are not bundled with the node; source revisions, hashes and license information remain attached to user imports. Public access is not a redistribution license. Startup remains offline, and no NSFW LoRA or prompt recipe is required.
+
+Click a card to preview in an isolated renderer, then apply to the current, selected or all editable characters. Hidden/locked roles are skipped. Identity references, body shape, placement and camera remain; use explicit grounding or fit-frame operations when desired. Whole-body/arms/legs/hands and hand preservation are available. Related contact constraints require explicit release. Different proportions and hand/foot contact may need manual adjustment.
+
+Two-person compositions require two explicitly selected editable roles and change their relative layout/orientation, preserving their identities. They never add/delete roles. Save selected groups as reusable compositions. Handshake alignment is a one-time IK operation, not collision simulation.
+
+Favorite, rename, hide built-ins, delete/restore user entries, and export a single entry or the whole ZIP pack. Legacy browser poses have an explicit migration action; originals remain. The catalog lives in `ComfyUI/input/anyangle_studio/pose_library`. Browsers using the same server input directory share saved entries with revision conflict checks; unsaved drafts and separate ComfyUI installations do not synchronize. Removing an entry or its original file does not break already-saved scenes.
+
+Mark cards for pose batches and select **Library poses × camera views** in the batch dialog. The task total is explicit (for example, 3 poses × 4 angles = 12). The default remains the current pose. Tasks hold frozen scenes; cancellation stops subsequent submissions and restores the editor draft, leaving already queued tasks running.
+
+![Shared pose library in the actual local editor](docs/images/pose-library-v170.png)
+
+[Validation: 206 rendered entries, real four-guide node outputs, batch restoration and performance](docs/pose-library-validation.md).
+
+[2026-10-20 stability follow-up](docs/stability-v170-20261020.md): fixed built-in pack restoration, partial bone translations, grounding and batch grounding, mixed-composition preflight, repeated writes, stale responses and preview reopening.
+
+## Batch views and angle presets
 
 ![Batch views: choose angles, render independent guides, queue Qwen jobs and save outputs](docs/images/batch-flow.svg)
 
@@ -241,7 +263,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.6.6**. **Apply to node** again to replace previously saved guide images and send plans.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.7.0**. **Apply to node** again to replace previously saved guide images and send plans.
 
 **LAN HTTP compatibility:** browsers may not expose `crypto.randomUUID()` at `http://LAN-IP:port`. Studio uses a shared UUID helper for materials, actors, camera views, poses and requests, falling back to `crypto.getRandomValues()` in that context. After updating the frontend files, close the old workbench, reload with `Ctrl+F5` and reopen it.
 

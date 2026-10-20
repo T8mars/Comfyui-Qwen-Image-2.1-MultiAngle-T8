@@ -1,13 +1,15 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261010lan1';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261020stable1';
 import { uuid } from '../uuid.mjs?v=20261010lan1';
 import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261010lan1';
 import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261010lan1';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261010lan1';
 import { readSkeletonImage } from './openpose.mjs?v=20261009v160';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261009v160';
-import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261011v166';
-import { installBatchPresets } from './batch-presets.mjs?v=20261011v166';
+import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261019v170';
+import { installBatchPresets } from './batch-presets.mjs?v=20261019v170';
 import { randomPose } from './poses.mjs?v=20261009v160';
+import { installPoseLibrary } from './pose-library-ui.mjs?v=20261020stable1';
+import { poseCameraPlan, finishCatalogPose } from './pose-catalog.mjs?v=20261020stable1';
 import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261010lan1';
 import { activeActor, saveActor } from './actors.mjs?v=20261010lan1';
 import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261010lan1';
@@ -36,11 +38,7 @@ const EMPTY_CANNY_WARNING = '未检测到 Canny 轮廓；可降低阈值或检�
 let batchRunning = false, batchController = null, batchViews = [], batchId = null;
 const batchReplies = new Map();
 const controls = new Map();
-let poseLibrary;
-try { poseLibrary = JSON.parse(localStorage.getItem('anyangle-studio.poses.v1') || '[]'); }
-catch { poseLibrary = []; }
-if (!Array.isArray(poseLibrary)) poseLibrary = [];
-poseLibrary = poseLibrary.filter(pose => pose && typeof pose.id === 'string' && typeof pose.name === 'string');
+let poseCatalog;
 
 function toast(message) {
   $('#toast').textContent = message; $('#toast').hidden = false;
@@ -942,39 +940,7 @@ $('#save-shot').onclick = async () => {
   });
 };
 
-function saveLibrary(next = poseLibrary) {
-  localStorage.setItem('anyangle-studio.poses.v1', JSON.stringify(next)); poseLibrary = next; renderLibrary();
-}
-function renderLibrary() {
-  $('#saved-poses').replaceChildren();
-  for (const pose of poseLibrary) {
-    const row = document.createElement('div'); row.className = 'saved-row';
-    const button = document.createElement('button'); button.textContent = pose.name;
-    button.onclick = () => run(async () => {
-      const previous = clone(doc), previousUndo = undo.slice(), previousRedo = redo.slice();
-      begin();
-      try {
-        doc.mesh = clone(pose.mesh); doc.pose = clone(pose.pose);
-        saveActor(doc, doc.pose); if (activeActor(doc)) activeActor(doc).poseSource = clone(pose.openpose);
-        await studio.restore(doc); studio.useRigPose(); changed();
-      } catch (error) {
-        doc = previous; undo = previousUndo; redo = previousRedo;
-        try { await studio.restore(doc); } catch { /* Keep the original pose loading error. */ }
-        throw error;
-      }
-    });
-    const remove = iconButton('trash', `删除姿势 ${pose.name}`); remove.onclick = () => {
-      try { saveLibrary(poseLibrary.filter(p => p.id !== pose.id)); } catch (e) { error(e); }
-    };
-    row.append(button, remove); $('#saved-poses').append(row);
-  }
-}
-$('#save-pose').onclick = async () => {
-  const name = await askName('保存姿势', `姿势 ${poseLibrary.length + 1}`); if (!name) return;
-  const poseSource = activeActor(doc)?.poseSource ?? (doc.actors?.length > 1 ? null : doc.openpose ?? null);
-  const pose = { id: uuid(), name, mesh: clone(doc.mesh), pose: studio.pose(), openpose: clone(poseSource) };
-  try { saveLibrary([...poseLibrary, pose]); toast('姿势已保存到当前浏览器'); } catch (e) { error(e); }
-};
+function renderLibrary() { poseCatalog?.refresh(); }
 function download(data, name) {
   const url = typeof data === 'string' ? data : URL.createObjectURL(data);
   const link = document.createElement('a'); link.href = url; link.download = name; link.hidden = true;
@@ -987,25 +953,6 @@ $('#export-pose').onclick = () => run(async () => {
     body: JSON.stringify({ version: 1, kind: 'anyangle-pose', mesh: doc.mesh, pose: studio.pose(), openpose: poseSource }) });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || '姿势导出失败');
   download(`/anyangle-studio/poses/${encodeURIComponent(result.id)}`, 'anyangle-pose.json');
-});
-$('#import-pose').onclick = () => $('#pose-file').click();
-$('#pose-file').onchange = event => run(async () => {
-  const file = event.target.files[0]; event.target.value = ''; if (!file) return; const imported = JSON.parse(await file.text());
-  if (imported.version !== 1 || imported.kind !== 'anyangle-pose' || !imported.pose?.bones) throw new Error('请选择本编辑器导出的姿势 JSON');
-  for (const values of Object.values(imported.pose.bones)) if (!Array.isArray(values) || values.length !== 3 || !values.every(Number.isFinite)) throw new Error('姿势包含无效的骨骼旋转');
-  if (!imported.mesh || typeof imported.mesh !== 'object' || Array.isArray(imported.mesh)) throw new Error('姿势包含无效的体型参数');
-  const previous = clone(doc), previousUndo = undo.slice(), previousRedo = redo.slice();
-  begin();
-  try {
-    doc.mesh = { ...defaultScene().mesh, ...imported.mesh, breast_size: 0, show_genitals: false }; doc.pose = imported.pose;
-    const actor = saveActor(doc, imported.pose); if (actor) actor.poseSource = clone(imported.openpose || null);
-    if (!(doc.actors?.length > 1)) doc.openpose = clone(imported.openpose || null);
-    await studio.restore(doc); studio.useRigPose(); changed();
-  } catch (e) {
-    doc = previous; undo = previousUndo; redo = previousRedo;
-    try { await studio.restore(doc); } catch { /* Keep the original pose importing error. */ }
-    throw e;
-  }
 });
 $('#download-guide').onclick = () => run(async () => {
   const png = await captureGuide();
@@ -1028,19 +975,25 @@ function batchSettings() {
   return { mode: $('#batch-mode').value, angles: $('#batch-angles').value, start: Number($('#batch-start').value),
     end: Number($('#batch-end').value), step: Number($('#batch-step').value) };
 }
+function currentBatchPlan(scene) {
+  const entries = $('#batch-pose-mode').value === 'library' ? poseCatalog.batchEntries() : [];
+  if ($('#batch-pose-mode').value === 'library' && !entries.length) throw new Error('请先在姿势库中将动作加入姿势批量');
+  return entries.length ? poseCameraPlan(scene, batchSettings(), entries, poseCatalog.batchOptions(), cameraBatchPlan) : cameraBatchPlan(scene, batchSettings());
+}
 function updateBatchPlan() {
   $('#batch-range').hidden = $('#batch-mode').value !== 'range';
   $('#batch-fixed').hidden = $('#batch-mode').value !== 'angles';
   try {
-    const plan = cameraBatchPlan(doc, batchSettings());
-    $('#batch-count').textContent = `${plan.count} 个机位 · ${$('#batch-mode').value === 'saved' ? '使用收藏的相机与尺寸，保留当前姿势' : '保留当前姿势、俯仰角与构图'} · 沿用工作流采样设置`;
+    const plan = currentBatchPlan(doc);
+    const posing = $('#batch-pose-mode').value === 'library';
+    $('#batch-count').textContent = `${plan.count} 个${posing ? '任务' : '机位'} · ${posing ? `${poseCatalog.batchEntries().length} 姿势 × 机位组合；保留身份、俯仰与构图` : $('#batch-mode').value === 'saved' ? '使用收藏的相机与尺寸，保留当前姿势' : '保留当前姿势、俯仰角与构图'} · 沿用工作流采样设置`;
     $('#batch-guides').disabled = false; $('#batch-final').disabled = !embedded;
   } catch (e) {
     $('#batch-count').textContent = e.message; $('#batch-guides').disabled = $('#batch-final').disabled = true;
   }
 }
 $('#open-batch').onclick = () => { updateBatchPlan(); $('#batch-dialog').showModal(); };
-for (const id of ['batch-mode', 'batch-angles', 'batch-start', 'batch-end', 'batch-step']) $(`#${id}`).oninput = updateBatchPlan;
+for (const id of ['batch-mode', 'batch-angles', 'batch-start', 'batch-end', 'batch-step', 'batch-pose-mode']) $(`#${id}`).oninput = updateBatchPlan;
 installBatchPresets({ askName, download, toast, onChange: updateBatchPlan });
 $('#batch-close').onclick = () => { if (batchRunning) batchController.abort(); else $('#batch-dialog').close(); };
 $('#batch-dialog').addEventListener('cancel', event => { if (batchRunning) { event.preventDefault(); batchController.abort(); } });
@@ -1054,7 +1007,8 @@ function freezeReferenceInputs(scene) {
 }
 async function startCameraBatch(queueFinal) {
   clearTimeout(previewTimer); studio.syncPose();
-  const plan = cameraBatchPlan(freezeReferenceInputs(clone(doc)), batchSettings()), original = doc, originalCannyWarning = cannyWarningRevision;
+  const plan = currentBatchPlan(freezeReferenceInputs(clone(doc))), original = doc, originalCannyWarning = cannyWarningRevision;
+  const posing = $('#batch-pose-mode').value === 'library', floorY=studio.grid?.position.y;
   batchRunning = true; batchController = new AbortController(); batchViews = []; batchId = null;
   $('#batch-options').inert = true; $('#batch-stop').disabled = false; $('#batch-close').textContent = '停止后续机位';
   $('#batch-zip').disabled = $('#batch-manifest').disabled = true;
@@ -1069,8 +1023,10 @@ async function startCameraBatch(queueFinal) {
     }
     const result = await runCameraBatch(plan, {
       signal: batchController.signal,
-      capture: async scene => {
-        doc = scene; studio.doc = doc; studio.updateShot(); return captureGuide();
+      capture: async (scene, view) => {
+        doc = scene; studio.doc = doc;
+        if (posing) { await studio.restore(doc); await finishCatalogPose(studio,view.preparation,{...view.preparation.options,floorY}); }
+        studio.updateShot(); return captureGuide();
       },
       save: async (scene, png) => {
         const response = await fetch('/anyangle-studio/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1096,9 +1052,14 @@ async function startCameraBatch(queueFinal) {
     }
   } catch (e) { $('#batch-state').textContent = e.message; throw e; }
   finally {
-    doc = original; cannyWarningRevision = originalCannyWarning; studio.doc = doc; studio.updateShot();
-    batchRunning = false; $('#batch-options').inert = false; $('#batch-stop').disabled = true;
-    $('#batch-close').textContent = '关闭'; refresh(); updateBatchPlan();
+    doc = original; cannyWarningRevision = originalCannyWarning; studio.doc = doc;
+    try {
+      if (posing) await studio.restore(original);
+      studio.updateShot();
+    } finally {
+      batchRunning = false; $('#batch-options').inert = false; $('#batch-stop').disabled = true;
+      $('#batch-close').textContent = '关闭'; refresh(); updateBatchPlan();
+    }
   }
 }
 $('#batch-guides').onclick = () => run(() => startCameraBatch(false));
@@ -1242,6 +1203,7 @@ function readPendingKeypoints() {
     doc.openpose.people = result.people; doc.openpose.origin = 'keypoints'; doc.openpose.inputSignature = result.signature; doc.openpose.inputPlanSignature = result.planSignature; changed();
   });
 }
+
 installActorsUI({ doc: () => doc, replace: value => { doc = value; }, studio: () => studio, run, begin, changed, refresh,
   ensureHumanTools, askName, upload, captureGuide, toast, send, downloadURL: download, downloadBlob: download,
   showScene: () => { previewVisible = false; setMode('camera'); } });
@@ -1279,7 +1241,10 @@ if (embedded) {
   start(params.has('snapshot') ? { version: 1, id: params.get('snapshot') } : null);
 }
 window.addEventListener('pagehide', () => {
+  poseCatalog?.destroy();
   batchController?.abort();
   for (const pending of batchReplies.values()) { clearTimeout(pending.timer); pending.reject(new Error('工作台已关闭')); }
   batchReplies.clear(); clearTimeout(previewTimer); studio?.dispose();
 });
+
+poseCatalog = installPoseLibrary({ doc: () => doc, replace: value => { doc = value; }, studio: () => studio, run, begin, changed, askName, toast, download, batchChanged: () => updateBatchPlan() });

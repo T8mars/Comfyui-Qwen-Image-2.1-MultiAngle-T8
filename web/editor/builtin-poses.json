@@ -1,0 +1,14 @@
+[
+  {"name":"自然站立","category":"站姿","bones":{"upperarm_l":[0,0,-8],"upperarm_r":[0,0,8]}},
+  {"name":"迈步","category":"运动","bones":{"thigh_l":[-25,0,0],"calf_l":[16,0,0],"thigh_r":[20,0,0],"calf_r":[9,0,0],"upperarm_l":[20,0,-8],"upperarm_r":[-20,0,8]}},
+  {"name":"坐姿","category":"坐姿","bones":{"thigh_l":[-85,0,-5],"thigh_r":[-85,0,5],"calf_l":[85,0,0],"calf_r":[85,0,0],"lowerarm_l":[-45,0,0],"lowerarm_r":[-45,0,0]}},
+  {"name":"举手","category":"站姿","bones":{"upperarm_l":[0,0,100],"lowerarm_l":[0,0,20],"upperarm_r":[0,0,10]}},
+  {"name":"双臂伸展","category":"运动","bones":{"upperarm_l":[0,0,85],"upperarm_r":[0,0,-85]}},
+  {"name":"向上伸展","category":"运动","bones":{"upperarm_l":[0,0,160],"upperarm_r":[0,0,-160],"lowerarm_l":[-8,0,0],"lowerarm_r":[-8,0,0]}},
+  {"name":"挥手致意","category":"站姿","bones":{"upperarm_l":[0,0,85],"lowerarm_l":[-100,0,0],"hand_l":[0,0,15],"upperarm_r":[0,0,8]}},
+  {"name":"跑步准备","category":"运动","bones":{"spine_02":[12,0,0],"thigh_l":[-55,0,0],"calf_l":[70,0,0],"thigh_r":[20,0,0],"calf_r":[35,0,0],"upperarm_l":[35,0,-8],"upperarm_r":[-45,0,8],"lowerarm_l":[-80,0,0],"lowerarm_r":[-90,0,0]}},
+  {"name":"单腿平衡","category":"运动","bones":{"thigh_l":[-60,0,0],"calf_l":[95,0,0],"upperarm_l":[0,0,55],"upperarm_r":[0,0,-55]}},
+  {"name":"低头阅读","category":"站姿","bones":{"head":[20,0,0],"upperarm_l":[-25,0,-12],"upperarm_r":[-25,0,12],"lowerarm_l":[-70,0,0],"lowerarm_r":[-70,0,0]}},
+  {"name":"对话手势","category":"站姿","bones":{"upperarm_l":[-20,0,-15],"lowerarm_l":[-70,0,-10],"hand_l":[0,30,0],"head":[0,12,0],"upperarm_r":[0,0,8]}},
+  {"name":"交叉坐姿","category":"坐姿","bones":{"thigh_l":[-85,0,-8],"thigh_r":[-90,15,15],"calf_l":[85,0,0],"calf_r":[80,0,0],"lowerarm_l":[-30,0,0],"lowerarm_r":[-30,0,0]}}
+]

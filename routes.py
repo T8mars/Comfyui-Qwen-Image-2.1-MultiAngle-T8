@@ -10,10 +10,12 @@ from .reconstruction import reconstruction_config
 from .dwpose import extract_pose, extract_people, people_from_keypoints, keypoints_signature
 from .depth import extract_depth
 from .install_assets import repair_editor_assets
+from .pose_library_routes import register_pose_routes
 
 
 def register_routes(store_factory):
     routes = PromptServer.instance.routes
+    register_pose_routes(routes, store_factory)
 
     @routes.post("/anyangle-studio/repair-human")
     async def repair_human(request):

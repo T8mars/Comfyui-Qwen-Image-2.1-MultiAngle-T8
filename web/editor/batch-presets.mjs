@@ -1,4 +1,4 @@
-import { parseAngleList } from './batch.mjs?v=20261011v166';
+import { parseAngleList } from './batch.mjs?v=20261019v170';
 
 const STORAGE_KEY = 'anyangle-studio.camera-batch.v1';
 const $ = id => document.getElementById(id);
