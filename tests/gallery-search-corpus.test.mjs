@@ -5,6 +5,7 @@ import { performance } from 'node:perf_hooks';
 import { indexGallery, searchGallery } from '../web/editor/gallery-search.mjs';
 
 const corpus=JSON.parse(fs.readFileSync(new URL('./fixtures/gallery-search-corpus.json',import.meta.url),'utf8'));
+const holdout=JSON.parse(fs.readFileSync(new URL('./fixtures/gallery-search-holdout.json',import.meta.url),'utf8'));
 const index=indexGallery(corpus.items), key=row=>`${row.system}_${row.number}`;
 const positives=[
   ['举手','full_single_P019'],['站姿 举手','full_single_P019'],['侧面站姿举手','full_single_P019'],
@@ -35,10 +36,33 @@ test('40 independently selected search examples find the named source action',()
   for(const [query,expected] of positives)if(!searchGallery(index,{query}).some(row=>key(row)===expected))failures.push({query,expected});
   assert.deepEqual(failures,[]);
 });
+
+test('at least 95 percent of the fixed query targets appear in the first ten results',t=>{
+  const misses=positives.filter(([query,expected])=>!searchGallery(index,{query}).slice(0,10).some(row=>key(row)===expected));
+  t.diagnostic(`Fixed-target Hit@10: ${positives.length-misses.length}/${positives.length}; misses: ${JSON.stringify(misses)}`);
+  assert.ok((positives.length-misses.length)/positives.length>=.95);
+});
 test('20 confusions stay excluded rather than silently relaxing the query',()=>{
   const failures=[];
   for(const [query,excluded] of negatives)if(searchGallery(index,{query}).some(row=>key(row)===excluded))failures.push({query,excluded});
   assert.deepEqual(failures,[]);
+});
+
+test('independently frozen compound queries keep their targets, actual views and exclusions',()=>{
+  assert.equal(holdout.queries.length,16);assert.equal(holdout.negativeChecks.length,8);
+  for(const sample of holdout.queries){
+    const results=searchGallery(index,{query:sample.query});
+    assert.ok(results.slice(0,10).some(row=>sample.allowedTargets.some(target=>target.id===row.id)),sample.query);
+    for(const target of sample.allowedTargets)if(target.expectedAngle){
+      const match=results.find(row=>row.id===target.id);
+      assert.deepEqual(match.matchedViewIds,target.expectedViewIds,sample.query);
+    }
+  }
+  for(const sample of holdout.negativeChecks){
+    const results=searchGallery(index,{query:sample.query});
+    if(sample.expectEmpty)assert.equal(results.length,0,sample.query);
+    for(const excluded of sample.excludedTargets||[])assert.ok(!results.some(row=>key(row)===excluded),sample.query);
+  }
 });
 test('exact identifiers rank first, missing low view stays missing, pinyin has full title coverage',()=>{
   assert.equal(searchGallery(index,{query:'full_single_P019'})[0]?.system,'full_single');
@@ -52,5 +76,5 @@ test('full corpus search latency remains below a usable interactive budget',t=>{
   const samples=[];
   for(let run=0;run<5;run++)for(const [query] of positives){const start=performance.now();searchGallery(index,{query});samples.push(performance.now()-start);}
   samples.sort((a,b)=>a-b);const p95=samples[Math.floor(samples.length*.95)];t.diagnostic(`200 full-corpus queries: p95 ${p95.toFixed(2)} ms`);
-  assert.ok(p95<100,`p95 ${p95} ms`);
+  assert.ok(p95<50,`p95 ${p95} ms`);
 });

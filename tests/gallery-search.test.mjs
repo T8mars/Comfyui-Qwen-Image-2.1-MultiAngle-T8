@@ -44,3 +44,22 @@ test('common action pinyin works without a network or model',()=>{
   const ambiguous=indexGallery([item('head','双手抱头'),item('legs','站姿并腿')]);
   assert.deepEqual(new Set(searchGallery(ambiguous,{query:'bt'}).map(row=>row.id)),new Set(['head','legs']));
 });
+
+test('named actions rank before broad categories without dropping tagged or category-only matches',()=>{
+  const samples=indexGallery([
+    item('category','保持平衡','坐姿'),
+    item('tagged','靠墙休息','日常',{tags:['坐姿'],favorite:true,lastUsed:20}),
+    item('detailed','侧坐・单臂上伸另一手扶住脸颊','坐姿'),
+    item('simple','侧坐','坐姿',{lastUsed:10}),
+  ]);
+  assert.deepEqual(searchGallery(samples,{query:'坐着'}).map(x=>x.id),['simple','detailed','tagged','category']);
+  assert.equal(searchGallery(samples,{query:'坐着',sort:'favorite'})[0].id,'tagged');
+  assert.equal(searchGallery(samples,{query:'坐着',sort:'recent'})[0].id,'tagged');
+  assert.equal(searchGallery(samples,{query:'侧坐・单臂上伸另一手扶住脸颊'})[0].id,'detailed');
+});
+
+test('knee hugs include one held knee without matching a kneeling pose',()=>{
+  const samples=indexGallery([item('hug','抱单膝坐・背部后仰','坐姿'),item('kneel','单膝跪・手扶膝','跪姿')]);
+  assert.deepEqual(searchGallery(samples,{query:'坐姿 抱膝 后仰'}).map(x=>x.id),['hug']);
+  assert.deepEqual(searchGallery(samples,{query:'抱单膝'}).map(x=>x.id),['hug']);
+});

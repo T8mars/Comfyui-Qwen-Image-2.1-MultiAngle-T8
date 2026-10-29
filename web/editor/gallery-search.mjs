@@ -27,7 +27,7 @@ export const ACTIONS = [
   ['扶膝',['扶膝','手扶膝','扶着膝盖'],['扶膝'],'fuxi fx'],
   ['过头',['过头','手臂过头'],['过头'],'guotou gt'],
   ['伸展',['伸展','伸懒腰','拉伸'],['伸展','拉伸'],'shenzhan shenlanyao lashen sz sly ls'],
-  ['抱膝',['抱膝','抱住膝盖'],['抱膝','双膝抱'],'baoxi bx'],
+  ['抱膝',['抱膝','抱单膝','抱住膝盖'],['抱膝','抱单膝','双膝抱'],'baoxi bx'],
   ['盘腿',['盘腿','盘坐','盘腿坐'],['盘腿','盘坐'],'pantui panzuo pt pz'],
   ['翘腿',['翘腿','翘二郎腿','二郎腿'],['翘腿','翘二郎腿','二郎腿'],'qiaotui erlangtui qt elt'],
   ['并腿',['并腿','双腿并拢'],['并腿','腿并拢'],'bingtui bt'],
@@ -87,19 +87,24 @@ export function indexGallery(items){
     const name=normalizeSearch(item.name), original=normalizeSearch(item.originalName), tags=(item.tags||[]).map(normalizeSearch);
     const actionText=[name,...tags].join(' '), category=normalizeSearch(item.category);
     const bodyText=knownBody.test(actionText)?actionText:`${actionText} ${category}`;
-    const actions=new Set();
+    const actions=new Set(), namedActions=new Set(), taggedActions=new Set();
     for(const [canonical,family] of families){
       const text=/站姿|坐姿|跪姿|蹲姿|仰卧|俯卧|侧卧/.test(canonical)?bodyText:actionText;
       if(canonical==='拥抱'&&item.people!==2)continue;
-      if(family.patterns.some(pattern=>text.includes(pattern)))actions.add(canonical);
+      if(family.patterns.some(pattern=>text.includes(pattern))){
+        actions.add(canonical);
+        if(family.patterns.some(pattern=>name.includes(pattern)))namedActions.add(canonical);
+        if(family.patterns.some(pattern=>tags.some(tag=>tag.includes(pattern))))taggedActions.add(canonical);
+      }
     }
     const pinyin=item.source?.id==='ai-pose-gallery-zh'?GALLERY_PINYIN[`${item.system}_${item.number}`]||[]:[];
-    return {item,name,original,tags,actions,pinyin,text:normalizeSearch([item.id,item.name,item.originalName,item.number,item.system,item.systemName,...tags].join(' '))};
+    return {item,name,original,tags,actions,namedActions,taggedActions,pinyin,text:normalizeSearch([item.id,item.name,item.originalName,item.number,item.system,item.systemName,...tags].join(' '))};
   });
 }
 
 export function searchGallery(index, options={}){
   const {normalized,tokens}=parseGalleryQuery(options.query), results=[];
+  const actionQuery=tokens.some(token=>token.action||token.actions);
   for(const row of index){
     const {item}=row;
     if(item.hidden && options.tab!=='hidden' || !item.hidden && options.tab==='hidden')continue;
@@ -117,7 +122,11 @@ export function searchGallery(index, options={}){
           const ok=Object.entries(token.filter).every(([key,value])=>String(key==='angle'?view.angle:item[key])===value);
           if(!ok){matches=false;break;}viewScore+=30;
         }else if(token.action||token.actions){
-          if(!(token.actions||[token.action]).some(action=>row.actions.has(action))&&!(token.pinyin&&row.pinyin.includes(token.term))){matches=false;break;}viewScore+=token.pinyin?10:40;
+          const actions=token.actions||[token.action];
+          if(!actions.some(action=>row.actions.has(action))&&!(token.pinyin&&row.pinyin.includes(token.term))){matches=false;break;}
+          viewScore+=token.pinyin?10:40;
+          // Source categories are broad; an action named in the title is stronger evidence.
+          viewScore+=actions.some(action=>row.namedActions.has(action))?10:actions.some(action=>row.taggedActions.has(action))?5:0;
         }else{
           const id=normalizeSearch(view.id), text=token.text;
           if(!row.text.includes(text)&&!id.includes(text)&&!(text.length>=2&&row.pinyin.some(term=>term===text||text.length>=4&&term.includes(text)))){matches=false;break;}
@@ -131,8 +140,10 @@ export function searchGallery(index, options={}){
     if(normalized===row.name)score+=1500;
     results.push({...item,matchedViewIds:matched,matchReasons:[...reasons],searchScore:score});
   }
-  results.sort((a,b)=>b.searchScore-a.searchScore || (options.sort==='recent'||options.tab==='recent'? (b.lastUsed||0)-(a.lastUsed||0):0)
-    || (options.sort==='favorite'?Number(!!b.favorite)-Number(!!a.favorite):0) || a.name.localeCompare(b.name,'zh-CN') || a.id.localeCompare(b.id));
+  const titleLength=item=>normalizeSearch(item.name).replaceAll(' ','').length;
+  results.sort((a,b)=>(options.sort==='recent'||options.tab==='recent'? (b.lastUsed||0)-(a.lastUsed||0):0)
+    || (options.sort==='favorite'?Number(!!b.favorite)-Number(!!a.favorite):0) || b.searchScore-a.searchScore
+    || (actionQuery?titleLength(a)-titleLength(b):0) || a.name.localeCompare(b.name,'zh-CN') || a.id.localeCompare(b.id));
   return results;
 }
 

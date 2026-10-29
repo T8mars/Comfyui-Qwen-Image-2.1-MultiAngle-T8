@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-10-29T17:41:46.481Z",
+  "corpus": {
+    "path": "tests/fixtures/gallery-search-corpus.json",
+    "sha256": "bc4d422a0af021d6c79c4bc11f9c45b3a77eb3e57a41b49a487e7c8d5073710a",
+    "commit": "072a3690af6e7e0011abbe0fa1ccc08939fbb47d"
+  },
+  "method": "Preselected 4 numbered rows per each system without importing or calling searchGallery. Queries composed from raw source titles/category, person/frame metadata and available views. This file is frozen before engine evaluation. One allowed target per query is a lower-bound targeted retrieval sample, not complete relevance judgments or Recall. No substitutions were made.",
+  "queries": [
+    {
+      "query": "全身 后撑 挺胸",
+      "allowedTargets": [
+        {
+          "id": "gallery-a80947edfc98793ac0e060a3",
+          "sourceId": "full_single_P003",
+          "sourceTitle": "双手后撑挺胸",
+          "system": "full_single",
+          "number": "P003",
+          "category": "坐姿",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "单人 跪立 抱头 仰视",
+      "allowedTargets": [
+        {
+          "id": "gallery-027af555df81979da54361eb",
+          "sourceId": "full_single_P032",
+          "sourceTitle": "跪立・双手抱头后",
+          "system": "full_single",
+          "number": "P032",
+          "category": "跪立",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": "low",
+          "expectedViewIds": [
+            "full_single_P032_low"
+          ]
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "侧坐 单臂 上伸 斜侧",
+      "allowedTargets": [
+        {
+          "id": "gallery-f3acff81cba340fdd196c1e7",
+          "sourceId": "full_single_P047",
+          "sourceTitle": "侧坐・单臂上伸",
+          "system": "full_single",
+          "number": "P047",
+          "category": "侧坐・女孩坐",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": "diag",
+          "expectedViewIds": [
+            "full_single_P047_diag"
+          ]
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "站姿 扭身 展臂",
+      "allowedTargets": [
+        {
+          "id": "gallery-b56b3b1c8b4223baa47675c2",
+          "sourceId": "full_single_P077",
+          "sourceTitle": "扭身・站姿展臂",
+          "system": "full_single",
+          "number": "P077",
+          "category": "扭身",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "站姿 后仰 撩发",
+      "allowedTargets": [
+        {
+          "id": "gallery-55fd20687e6e967a166a53ac",
+          "sourceId": "full_sexy_P002",
+          "sourceTitle": "背部后仰・双手撩发",
+          "system": "full_sexy",
+          "number": "P002",
+          "category": "站姿",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "坐姿 抱膝 后仰",
+      "allowedTargets": [
+        {
+          "id": "gallery-108b970830ca7cf58cf34aac",
+          "sourceId": "full_sexy_P025",
+          "sourceTitle": "抱单膝坐・背部后仰",
+          "system": "full_sexy",
+          "number": "P025",
+          "category": "坐姿",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "全身 俯卧 蛙腿 俯视",
+      "allowedTargets": [
+        {
+          "id": "gallery-952d859b47b3de5593cb8596",
+          "sourceId": "full_sexy_P060",
+          "sourceTitle": "俯卧蛙腿（双膝外展）",
+          "system": "full_sexy",
+          "number": "P060",
+          "category": "趴卧",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": "high",
+          "expectedViewIds": [
+            "full_sexy_P060_high"
+          ]
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "站立 劈叉 前屈",
+      "allowedTargets": [
+        {
+          "id": "gallery-f586b4281c88453671ccf463",
+          "sourceId": "full_sexy_P073",
+          "sourceTitle": "站立劈叉（前屈单腿高抬后举）",
+          "system": "full_sexy",
+          "number": "P073",
+          "category": "特殊",
+          "people": 1,
+          "frame": "full",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "半身 比V 手背",
+      "allowedTargets": [
+        {
+          "id": "gallery-65da6f1423c1bf61364053a3",
+          "sourceId": "upper80v2_P005",
+          "sourceTitle": "辣妹V（手背朝外比V）",
+          "system": "upper80v2",
+          "number": "P005",
+          "category": "可爱系",
+          "people": 1,
+          "frame": "upper",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "半身 合十 正面",
+      "allowedTargets": [
+        {
+          "id": "gallery-233277decbad1faf603e7d82",
+          "sourceId": "upper80v2_P016",
+          "sourceTitle": "拜托手势（双手合十）",
+          "system": "upper80v2",
+          "number": "P016",
+          "category": "可爱系",
+          "people": 1,
+          "frame": "upper",
+          "expectedAngle": "front",
+          "expectedViewIds": [
+            "upper80v2_P016_front"
+          ]
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "半身 前倾 单肩",
+      "allowedTargets": [
+        {
+          "id": "gallery-f0466f217d5455163218182f",
+          "sourceId": "upper80v2_P043",
+          "sourceTitle": "单肩下沉・身体前倾",
+          "system": "upper80v2",
+          "number": "P043",
+          "category": "挤胸・强调事业线系",
+          "people": 1,
+          "frame": "upper",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "上半身 抓握 颈侧 后仰",
+      "allowedTargets": [
+        {
+          "id": "gallery-f8b43b0a20c09d8d4c8ae2e4",
+          "sourceId": "upper80v2_P071",
+          "sourceTitle": "抓握颈侧后仰",
+          "system": "upper80v2",
+          "number": "P071",
+          "category": "性感・大胆系",
+          "people": 1,
+          "frame": "upper",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "双人 搭肩 侧面",
+      "allowedTargets": [
+        {
+          "id": "gallery-a80cba4988c4411da6dba770",
+          "sourceId": "pair60_P004",
+          "sourceTitle": "双腿搭肩俯身压上",
+          "system": "pair60",
+          "number": "P004",
+          "category": "正常位（传教士）",
+          "people": 2,
+          "frame": "full",
+          "expectedAngle": "side",
+          "expectedViewIds": [
+            "pair60_P004_side"
+          ]
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "双人 双腿交缠 双手相拉",
+      "allowedTargets": [
+        {
+          "id": "gallery-924bda7c6231920386dc01a1",
+          "sourceId": "pair60_P008",
+          "sourceTitle": "双腿交缠・双手相拉",
+          "system": "pair60",
+          "number": "P008",
+          "category": "坐位",
+          "people": 2,
+          "frame": "full",
+          "expectedAngle": null,
+          "expectedViewIds": []
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "双人 盘腿 相拥 俯视",
+      "allowedTargets": [
+        {
+          "id": "gallery-013722cd1fbcd70517807f0e",
+          "sourceId": "pair60_P042",
+          "sourceTitle": "盘腿相拥",
+          "system": "pair60",
+          "number": "P042",
+          "category": "面对面坐位",
+          "people": 2,
+          "frame": "full",
+          "expectedAngle": "high",
+          "expectedViewIds": [
+            "pair60_P042_high"
+          ]
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    },
+    {
+      "query": "双人 耳边 触脸 斜侧",
+      "allowedTargets": [
+        {
+          "id": "gallery-4e8e3d71d9427d1466dfc7eb",
+          "sourceId": "pair60_P051",
+          "sourceTitle": "耳边低语・手触脸颊",
+          "system": "pair60",
+          "number": "P051",
+          "category": "立位贴身",
+          "people": 2,
+          "frame": "full",
+          "expectedAngle": "diag",
+          "expectedViewIds": [
+            "pair60_P051_diag"
+          ]
+        }
+      ],
+      "reason": "Compound title/action query; explicit person/frame/view filters where specified."
+    }
+  ],
+  "negativeChecks": [
+    {
+      "query": "双人 半身",
+      "expectEmpty": true,
+      "reason": "No source item is both two-person and upper-body."
+    },
+    {
+      "query": "正面 侧面 抱头",
+      "expectEmpty": true,
+      "reason": "Conflicting view requirements must not be ORed."
+    },
+    {
+      "query": "全身 半身 前倾",
+      "expectEmpty": true,
+      "reason": "Conflicting framing must not be ORed."
+    },
+    {
+      "query": "单人 双人 相拥",
+      "expectEmpty": true,
+      "reason": "Conflicting people filters must not be ORed."
+    },
+    {
+      "query": "单人 搭肩 侧面",
+      "excludedTargets": [
+        "pair60_P004"
+      ],
+      "reason": "Changing two-person query to single-person must exclude pair target."
+    },
+    {
+      "query": "全身 合十 正面",
+      "excludedTargets": [
+        "upper80v2_P016"
+      ],
+      "reason": "Changing upper-body query to full-body must exclude upper-body target."
+    },
+    {
+      "query": "半身 后撑 挺胸",
+      "excludedTargets": [
+        "full_single_P003"
+      ],
+      "reason": "Changing full-body query to upper-body must exclude full-body target."
+    },
+    {
+      "query": "俯卧 仰卧 蛙腿",
+      "excludedTargets": [
+        "full_sexy_P060"
+      ],
+      "reason": "A prone frog-leg title must not satisfy supine as well."
+    }
+  ]
+}
