@@ -5,6 +5,7 @@ import { emptyLibrary, newUse, addReference, libraryManifest } from '../web/edit
 import { prepareGalleryPose, applyGalleryPose, galleryPoseGuide, addGalleryReference, galleryViewPlan } from '../web/editor/gallery-pose.mjs';
 import { runCameraBatch, supportsCameraBatch } from '../web/editor/batch.mjs';
 import { galleryKeypointFrame } from '../web/editor/gallery-keypoints.mjs';
+import { guideSource } from '../web/editor/guides.mjs';
 
 const provenance={id:'gallery-test',viewId:'full_single_P001_front',hash:'image.png',source:{id:'test'}};
 test('manual keypoints export exact visible body18 joints without inventing legs',()=>{
@@ -95,6 +96,24 @@ test('adding the same reference twice is idempotent and does not assume scene v3
   const old={...scene(),version:2};delete old.referenceLibrary;addGalleryReference(old,asset,provenance,{kind:'scene',ids:[],text:''});assert.equal(old.version,3);assert.equal(old.referenceLibrary.items.at(-1).usages[0].kind,'pose');
 });
 const rows=[provenance,{...provenance,viewId:'full_single_P001_side',hash:'side.png'}].map((source,i)=>({source,asset:{name:`pose-${i}.png`,label:`view ${i}`}}));
+
+test('guided gallery batches preserve the displayed guide when leaving AnyAngle',()=>{
+  for(const kind of ['splat','human'])for(const guide of ['pose','depth','canny']) {
+    const value=scene();value.source.kind=kind;
+    Object.assign(value.conditioning,{model:'anyangle',guide,map:{name:'old-guide.png'},mapKind:guide});
+    const before=structuredClone(value);
+    const [view]=galleryViewPlan(value,[rows[0]],{kind:'scene',ids:[],text:''},'guided').views();
+    assert.deepEqual(guideSource(view.scene),guideSource(before));
+    assert.equal(view.scene.conditioning.model,'base');
+    assert.deepEqual(value,before);
+  }
+  for(const guide of ['pose','depth','canny']) {
+    const value=scene();Object.assign(value.conditioning,{guide,map:{name:'chosen-guide.png'},mapKind:guide});
+    const [view]=galleryViewPlan(value,[rows[0]],{kind:'scene',ids:[],text:''},'guided').views();
+    assert.deepEqual(guideSource(view.scene),guideSource(value));
+    assert.equal(view.scene.conditioning.guide,guide);
+  }
+});
 test('view batch freezes references and metadata, changes no camera and restores no imaginary views',()=>{
   const value=scene();addReference(value,{name:'face.png'},{inputKey:'reference1',usages:[newUse('identity',{kind:'actors',ids:['a'],text:''})]});
   const before=structuredClone(value), plan=galleryViewPlan(value,rows,{kind:'actors',ids:['a'],text:''}), views=[...plan.views()];

@@ -110,6 +110,8 @@ export function galleryViewPlan(scene, rows, target, mode = 'references-only') {
     if (item.inputKey) { item.frozenInputKey = item.inputKey; item.inputKey = null; }
     for (const use of item.usages) if (item.gallerySource && use.kind === 'pose' && JSON.stringify(use.target) === JSON.stringify(mapping)) use.enabled = false;
   }
+  // AnyAngle always displays coarse, even if another guide was selected before it.
+  if (mode === 'guided' && base.conditioning.model === 'anyangle') base.conditioning.guide = 'coarse';
   base.conditioning.model = 'base'; base.referenceLibrary.mode = mode;
   const keys = new Set();
   for (const row of selected) {
