@@ -259,13 +259,15 @@ class GalleryStore:
     def write(self, path, data):
         if path.is_symlink() or not path.resolve().is_relative_to(self.root.resolve()):
             raise ValueError("图库写入路径越界")
-        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as handle:
-            temporary = Path(handle.name)
-            handle.write(data)
+        temporary = None
         try:
+            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as handle:
+                temporary = Path(handle.name)
+                handle.write(data)
             os.replace(temporary, path)
         finally:
-            temporary.unlink(missing_ok=True)
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def read(self):
         path = self.root / "index.json"

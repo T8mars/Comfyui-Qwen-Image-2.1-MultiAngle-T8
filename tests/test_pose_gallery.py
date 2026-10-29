@@ -1,10 +1,12 @@
 import copy
+from contextlib import contextmanager
+import errno
 import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import zipfile
 
 from PIL import Image
@@ -135,6 +137,32 @@ class GalleryTests(unittest.TestCase):
         self.assertFalse(orphan.exists())
         self.assertEqual(self.store.list(), before)
         self.assertTrue(self.store.export().is_file())
+
+    def test_disk_full_keeps_index_and_removes_partial_write_before_retry(self):
+        self.store.import_files(self.source)
+        before = self.store.list()
+        files = set(self.store.root.iterdir())
+        temporary_file = tempfile.NamedTemporaryFile
+
+        @contextmanager
+        def failing_file(**kwargs):
+            with temporary_file(**kwargs) as handle:
+                def partial_write(data):
+                    handle.write(data[:10])
+                    raise OSError(errno.ENOSPC, 'No space left on device')
+                proxy = Mock(wraps=handle)
+                proxy.name = handle.name
+                proxy.write.side_effect = partial_write
+                yield proxy
+
+        ident = before['items'][0]['id']
+        with patch('pose_gallery.tempfile.NamedTemporaryFile', side_effect=failing_file):
+            with self.assertRaises(OSError) as caught:
+                self.store.patch(ident, {'favorite': True}, before['revision'])
+            self.assertEqual(caught.exception.errno, errno.ENOSPC)
+        self.assertEqual(self.store.list(), before)
+        self.assertEqual(set(self.store.root.iterdir()), files)
+        self.assertTrue(self.store.patch(ident, {'favorite': True}, before['revision'])['items'][0]['favorite'])
 
     def test_tampered_portable_asset_does_not_commit(self):
         self.store.import_files(self.source)

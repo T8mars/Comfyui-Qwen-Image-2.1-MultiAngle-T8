@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import importlib.util
 import io
 import json
@@ -17,6 +18,29 @@ from test_pose_gallery import fixture
 
 
 class GalleryRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_disk_full_create_leaves_no_job_and_list_can_read_interrupted_jobs(self):
+        manager = self.module.GalleryJobs(self.gallery)
+        job = manager.create('zip', 'existing.zip')
+        manager.update(job['id'], state='running')
+        before = set((self.gallery.root / 'jobs').iterdir())
+        with patch.object(self.gallery, 'write_json', side_effect=OSError(errno.ENOSPC, 'Disk full')):
+            with self.assertRaises(OSError):
+                manager.create('zip', 'new.zip')
+            self.assertEqual(set((self.gallery.root / 'jobs').iterdir()), before)
+            listed = manager.list()
+            self.assertEqual(len(listed), 1)
+            self.assertEqual(listed[0]['state'], 'paused')
+            self.assertEqual(manager.read(job['id'])['state'], 'running')
+            manager.remove(job['id'])
+        self.assertEqual(manager.list(), [])
+        self.assertEqual(manager.create('zip', 'retry.zip')['state'], 'uploading')
+
+    async def test_incomplete_job_directory_does_not_hide_existing_jobs(self):
+        manager = self.module.GalleryJobs(self.gallery)
+        job = manager.create('zip', 'existing.zip')
+        (self.gallery.root / 'jobs' / ('0' * 32)).mkdir()
+        self.assertEqual([row['id'] for row in manager.list()], [job['id']])
+
     async def asyncSetUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)

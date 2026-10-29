@@ -50,11 +50,20 @@ class GalleryJobs:
             raise ValueError("请选择图库目录或ZIP")
         ident = uuid.uuid4().hex
         path = self.path(ident)
-        path.mkdir()
-        (path / "files").mkdir()
         value = {"id": ident, "kind": kind, "name": str(name)[:200], "state": "uploading",
                  "completed": 0, "total": 0, "uploaded": {}, "bytes": 0, "updated": time.time()}
-        self.store.write_json(path / "job.json", value)
+        with self.lock:
+            path.mkdir()
+            ready = False
+            try:
+                (path / "files").mkdir()
+                self.store.write_json(path / "job.json", value)
+                ready = True
+            finally:
+                if not ready:
+                    if (path / "files").exists():
+                        (path / "files").rmdir()
+                    path.rmdir()
         return self.public(value)
 
     def public(self, value):
@@ -65,12 +74,14 @@ class GalleryJobs:
             value = self.read(ident)
             worker = self.workers.get(ident)
             if value["state"] == "running" and (worker is None or not worker.is_alive()):
-                value = self.update(ident, state="paused", error="导入进程已停止，可继续导入")
+                value.update(state="paused", error="导入进程已停止，可继续导入")
             return self.public(value)
 
     def list(self):
-        ids = [path.name for path in (self.store.root / "jobs").iterdir() if JOB.fullmatch(path.name)]
-        return sorted((self.status(ident) for ident in ids), key=lambda item: item["updated"], reverse=True)[:30]
+        with self.lock:
+            ids = [path.name for path in (self.store.root / "jobs").iterdir()
+                   if JOB.fullmatch(path.name) and (path / "job.json").is_file()]
+            return sorted((self.status(ident) for ident in ids), key=lambda item: item["updated"], reverse=True)[:30]
 
     async def upload(self, ident, name, content):
         with self.lock:
