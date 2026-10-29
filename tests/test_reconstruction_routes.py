@@ -39,7 +39,8 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         server = types.ModuleType("server")
         server.PromptServer = types.SimpleNamespace(instance=types.SimpleNamespace(routes=table))
         dwpose = types.ModuleType("anyangle_reconstruction_test.dwpose")
-        dwpose.extract_pose = None; dwpose.extract_people = None; dwpose.people_from_keypoints = None
+        dwpose.extract_pose = None; dwpose.extract_people = None; dwpose.extract_regions = None
+        dwpose.people_from_keypoints = None
         dwpose.keypoints_signature = keypoints_signature
         depth = types.ModuleType("anyangle_reconstruction_test.depth"); depth.extract_depth = None
         modules = {"anyangle_reconstruction_test": package, "anyangle_reconstruction_test.reconstruction": backend,
@@ -226,6 +227,36 @@ class ReconstructionRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["people"][0]["canvasWidth"], 96)
         response = await self.client.post("/anyangle-studio/pose-people", json={"reference": "../image.png"})
         self.assertEqual(response.status, 400)
+
+    async def test_pose_people_route_uses_explicit_regions_without_automatic_detection(self):
+        buffer = io.BytesIO(); Image.new("RGB", (96, 64), "gray").save(buffer, "PNG")
+        reference = self.store.asset(buffer.getvalue(), "png")
+        photo = self.store.read_asset(reference["name"])
+        values = [value for index in range(18) for value in (20 + index, 20 + index, .9)]
+        people, png = people_from_keypoints({"canvas_width": 96, "canvas_height": 64,
+            "people": [{"pose_keypoints_2d": values}]})
+        regions = [[10, 5, 70, 60]]
+        with patch.object(self.routes_module, "extract_regions", return_value=(people, png)) as manual, \
+             patch.object(self.routes_module, "extract_people", return_value=(people, png)) as automatic:
+            response = await self.client.post("/anyangle-studio/pose-people", json={
+                "reference": reference["name"], "regions": regions})
+            self.assertEqual(response.status, 200)
+            result = await response.json()
+            self.assertEqual(result["people"], people)
+            self.assertEqual(self.store.read_asset(result["asset"]["name"]), png)
+            manual.assert_called_once_with(photo, regions)
+            automatic.assert_not_called()
+            response = await self.client.post("/anyangle-studio/pose-people", json={"reference": reference["name"]})
+            self.assertEqual(response.status, 200)
+            automatic.assert_called_once_with(photo)
+            self.assertEqual(manual.call_count, 1)
+        before = {path.name for path in self.store.root.iterdir()}
+        with patch.object(self.routes_module, "extract_regions", side_effect=ValueError("Invalid person region")):
+            response = await self.client.post("/anyangle-studio/pose-people", json={
+                "reference": reference["name"], "regions": [[-1, 0, 70, 60]]})
+        self.assertEqual(response.status, 400)
+        self.assertEqual((await response.json())["error"], "Invalid person region")
+        self.assertEqual({path.name for path in self.store.root.iterdir()}, before)
 
     async def test_standard_openpose_json_reads_explicit_fallback_canvas_through_http(self):
         values = [value for index in range(18) for value in (20 + index, 20 + index, .9)]

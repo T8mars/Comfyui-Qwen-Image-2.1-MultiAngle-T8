@@ -12,6 +12,22 @@ import dwpose
 
 
 class PhotoPoseTests(unittest.TestCase):
+    def test_explicit_regions_bypass_photo_detector_and_keep_person_order(self):
+        buffer = io.BytesIO(); Image.new("RGB", (240, 320), "white").save(buffer, "PNG")
+        boxes = [[120, 0, 240, 320], [0, 0, 120, 320]]
+        keys = np.array([[30 + i, 40 + i] for i in range(133)], dtype=np.float32)
+        scores = np.ones(133, dtype=np.float32)
+        with patch.object(dwpose, "_sessions", return_value=("detector", "estimator")), patch.object(dwpose, "_detect_people") as detect, patch.object(dwpose, "_estimate_body", return_value=(keys, scores)) as estimate:
+            people, png = dwpose.extract_regions(buffer.getvalue(), boxes)
+        detect.assert_not_called(); self.assertEqual(estimate.call_count, 2)
+        self.assertEqual([person["bbox"] for person in people], boxes)
+        self.assertTrue(all(person["regionSource"] == "manual" for person in people))
+        self.assertEqual(Image.open(io.BytesIO(png)).size, (240, 320))
+        for regions in ([], [[0, 0, 300, 320]], [[0, 0, 5, 5]], [[0, float("nan"), 200, 300]], [[0, 0, 200, 300]] * 10):
+            with self.subTest(regions=regions), patch.object(dwpose, "_sessions") as sessions:
+                with self.assertRaises(ValueError): dwpose.extract_regions(buffer.getvalue(), regions)
+                sessions.assert_not_called()
+
     def test_normalized_openpose_body_is_scaled_to_canvas_pixels(self):
         values = [[.2 + index * .025, .15 + index * .03, .9] for index in range(18)]
         values[10] = [0, 0, 0]

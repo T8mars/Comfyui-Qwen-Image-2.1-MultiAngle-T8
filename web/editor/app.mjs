@@ -1,18 +1,19 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261020stable1';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261029v180';
 import { uuid } from '../uuid.mjs?v=20261010lan1';
-import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261010lan1';
-import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261010lan1';
+import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261029v180';
+import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261029v180';
 import { reconstruct, reconstructionConfig, selectedReconstructionModels, saveReconstructionModels } from './reconstruct.mjs?v=20261010lan1';
 import { readSkeletonImage } from './openpose.mjs?v=20261009v160';
 import { GUIDE_LABELS, guideImageIndex, guideSource, cannyEdges, hasCannyEdges } from './guides.mjs?v=20261009v160';
-import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261019v170';
-import { installBatchPresets } from './batch-presets.mjs?v=20261019v170';
+import { supportsCameraBatch, cameraBatchPlan, runCameraBatch } from './batch.mjs?v=20261029v180';
+import { installBatchPresets } from './batch-presets.mjs?v=20261029v180';
 import { randomPose } from './poses.mjs?v=20261009v160';
-import { installPoseLibrary } from './pose-library-ui.mjs?v=20261020stable1';
+import { installPoseLibrary } from './pose-library-ui.mjs?v=20261029v180';
+import { installGalleryActions } from './gallery-actions.mjs?v=20261029v180';
 import { poseCameraPlan, finishCatalogPose } from './pose-catalog.mjs?v=20261020stable1';
-import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261010lan1';
+import { installActorsUI, refreshActorsUI, updateActorReferences, selectRole, chooseDetectedPeople, randomRoles } from './actors-ui.mjs?v=20261029v180';
 import { activeActor, saveActor } from './actors.mjs?v=20261010lan1';
-import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261010lan1';
+import { buildManifest, actorMode, actorPrompt, scenePrompt } from './manifest.mjs?v=20261029v180';
 
 const $ = selector => document.querySelector(selector);
 const clone = value => structuredClone(value);
@@ -38,7 +39,7 @@ const EMPTY_CANNY_WARNING = '未检测到 Canny 轮廓；可降低阈值或检�
 let batchRunning = false, batchController = null, batchViews = [], batchId = null;
 const batchReplies = new Map();
 const controls = new Map();
-let poseCatalog;
+let poseCatalog, galleryActions;
 
 function toast(message) {
   $('#toast').textContent = message; $('#toast').hidden = false;
@@ -59,7 +60,7 @@ function error(error) {
 }
 function currentGuide() { return doc.conditioning.model === 'anyangle' ? 'coarse' : doc.conditioning.guide; }
 function usesLocalGuide(guide = currentGuide()) {
-  return guide === 'pose' && (['dwpose', 'json', 'keypoints'].includes(doc.openpose?.origin) || doc.openpose?.useRig || doc.conditioning.mapOrigin === 'rig')
+  return guide === 'pose' && (['dwpose', 'json', 'keypoints', 'gallery'].includes(doc.openpose?.origin) || doc.openpose?.useRig || doc.conditioning.mapOrigin === 'rig')
     || guide === 'depth' && ['da3', 'scene'].includes(doc.conditioning.mapOrigin)
     || guide === 'canny' && ['auto', 'reference'].includes(doc.conditioning.mapOrigin);
 }
@@ -1005,6 +1006,38 @@ function freezeReferenceInputs(scene) {
   for (const item of scene.referenceLibrary?.items || []) if (item.inputKey) { item.frozenInputKey = item.inputKey; item.inputKey = null; }
   return scene;
 }
+async function runGallery(task) {
+  if (busy) throw new Error('工作台正在处理另一项操作，请稍后再试');
+  let failure;
+  await run(async () => { try { await task(); } catch (error) { failure = error; } });
+  if (failure) throw failure;
+}
+async function runGalleryBatch(plan, queueFinal, signal, onProgress) {
+  clearTimeout(previewTimer); studio.syncPose();
+  const original = doc;
+  const save = async (scene, png) => {
+    const response = await fetch('/anyangle-studio/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scene, png }) });
+    const saved = await response.json(); if (!response.ok) throw new Error(saved.error || '图库场景保存失败'); return saved;
+  };
+  try {
+    if (queueFinal) {
+      const first = plan.views().next().value.scene; doc = first; studio.doc = first;
+      const snapshot = await save(first, await captureGuide());
+      if (signal.aborted) return { views: [], stopped: true, error: null };
+      await batchRequest('prepare', { snapshot });
+    }
+    const result = await runCameraBatch(plan, { signal, onProgress,
+      capture: async scene => { doc = scene; studio.doc = scene; return captureGuide(); }, save,
+      queue: queueFinal ? snapshot => batchRequest('queue', { snapshot }) : null });
+    if (result.views.length) {
+      const response = await fetch('/anyangle-studio/batches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views: result.views }) });
+      const saved = await response.json();
+      if (!response.ok) result.error ||= new Error(saved.error || '批量回执保存失败');
+      else result.batchId = saved.id;
+    }
+    return result;
+  } finally { doc = original; studio.doc = original; studio.updateShot(); refresh(); }
+}
 async function startCameraBatch(queueFinal) {
   clearTimeout(previewTimer); studio.syncPose();
   const plan = currentBatchPlan(freezeReferenceInputs(clone(doc))), original = doc, originalCannyWarning = cannyWarningRevision;
@@ -1242,9 +1275,12 @@ if (embedded) {
 }
 window.addEventListener('pagehide', () => {
   poseCatalog?.destroy();
+  galleryActions?.destroy();
   batchController?.abort();
   for (const pending of batchReplies.values()) { clearTimeout(pending.timer); pending.reject(new Error('工作台已关闭')); }
   batchReplies.clear(); clearTimeout(previewTimer); studio?.dispose();
 });
 
-poseCatalog = installPoseLibrary({ doc: () => doc, replace: value => { doc = value; }, studio: () => studio, run, begin, changed, askName, toast, download, batchChanged: () => updateBatchPlan() });
+const galleryContext = { doc: () => doc, replace: value => { doc = value; }, studio: () => studio, run: runGallery, begin, changed, ensureHumanTools, toast, download };
+galleryActions = installGalleryActions({ ...galleryContext, canQueue: embedded, runBatch: runGalleryBatch });
+poseCatalog = installPoseLibrary({ ...galleryContext, askName, batchChanged: () => updateBatchPlan(), galleryExtract: galleryActions.extract, galleryBatch: galleryActions.batch });

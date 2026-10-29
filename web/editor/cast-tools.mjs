@@ -1,7 +1,7 @@
 import { editableActors, bindActor } from './actors.mjs?v=20261010lan1';
-import { PRESETS } from './scene.mjs?v=20261010lan1';
+import { PRESETS } from './scene.mjs?v=20261029v180';
 import { uuid } from '../uuid.mjs?v=20261010lan1';
-import { detachTargets } from './reference-library.mjs?v=20261010lan1';
+import { detachTargets } from './reference-library.mjs?v=20261029v180';
 
 const $ = id => document.getElementById(id);
 export function installCastTools(context) {

@@ -1,6 +1,6 @@
 import { guideSource } from './guides.mjs?v=20261009v160';
 import { uuid } from '../uuid.mjs?v=20261010lan1';
-export const USES = { free: '自由参考', identity: '身份 / 脸型', clothing: '服装', accessory: '配饰 / 产品', scene: '场景 / 背景', style: '风格 / 灯光', layout: '布局 / 构图' };
+export const USES = { free: '自由参考', identity: '身份 / 脸型', clothing: '服装', accessory: '配饰 / 产品', scene: '场景 / 背景', style: '风格 / 灯光', layout: '布局 / 构图', pose: '动作 / 姿态' };
 const copy = value => JSON.parse(JSON.stringify(value));
 const uid = prefix => `${prefix}-${uuid()}`;
 export const emptyLibrary = () => ({ version: 1, mode: 'guided', items: [], firstReferenceId: null, firstResolution: 0, templates: [] });
@@ -134,7 +134,8 @@ export function libraryPrompt(scene, manifest) {
   } else if (manifest.mode === 'references-only') lines.push('Create one coherent finished image using the references only for their specified purposes.');
   const rules = { free: 'Use the relevant content as a general reference', identity: 'Use only the face identity and hairstyle; do not copy the clothing, pose or background',
     clothing: "Use only the clothing design; do not copy the model's identity, pose or background", accessory: 'Use only the accessory or product design; do not add people from this reference',
-    scene: 'Use the environment and background; do not add people from this reference', style: 'Use the visual style, lighting and color palette; do not copy the subject or pose', layout: 'Use the arrangement and composition; do not copy subject identities' };
+    scene: 'Use the environment and background; do not add people from this reference', style: 'Use the visual style, lighting and color palette; do not copy the subject or pose', layout: 'Use the arrangement and composition; do not copy subject identities',
+    pose: 'Use only the body pose, limb directions and gesture; do not copy the face, body shape, clothing, background or drawing style' };
   for (const reference of manifest.references) for (const use of reference.usages || []) {
     const source = use.sourceText?.trim() ? ` Source content: ${use.sourceText.trim()}.` : '', extra = use.instruction?.trim() ? ` ${use.instruction.trim()}` : '';
     lines.push(`<image${reference.index}>: ${rules[use.kind]} for ${use.targetText}.${source}${extra}`);

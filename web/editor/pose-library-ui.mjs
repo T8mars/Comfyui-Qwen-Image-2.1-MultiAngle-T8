@@ -1,6 +1,7 @@
-import { StudioScene, defaultScene } from './scene.mjs?v=20261020stable1';
+import { StudioScene, defaultScene } from './scene.mjs?v=20261029v180';
 import { activeActor, createActor, bindActor, editableActors } from './actors.mjs?v=20261010lan1';
 import { applyCatalogTransaction, filterCatalog, finishCatalogPose } from './pose-catalog.mjs?v=20261020stable1';
+import { installPoseGallery, galleryImage } from './pose-gallery-ui.mjs?v=20261029v180';
 
 const clone = value => structuredClone(value);
 const $ = id => document.getElementById(id);
@@ -21,7 +22,7 @@ function control(label, action, className = '') {
 
 export function installPoseLibrary(context) {
   let catalog = { revision: 0, items: [], catalog: [] }, selected = null, page = 0, pending = null;
-  let preview = null, previewToken = 0, previewWork = Promise.resolve(), disposed = false, importToken = 0, writing = false;
+  let preview = null, previewToken = 0, previewWork = Promise.resolve(), disposed = false, importToken = 0, writing = false, composing = false, filtersRestored = false;
   const batchIds = new Set();
   const dialog = document.createElement('dialog'); dialog.id = 'pose-library-dialog'; dialog.className = 'pose-library-dialog';
   dialog.innerHTML = `<div class="pl-header"><div><span class="pl-eyebrow">POSE LIBRARY</span><h2>姿势库 <small id="pl-total"></small></h2></div><button id="pl-close" aria-label="关闭姿势库">关闭</button></div>
@@ -38,25 +39,29 @@ export function installPoseLibrary(context) {
     <button id="pl-apply" class="primary" disabled>应用到人物</button><button id="pl-fit" class="wide-button">适合当前画幅</button><p class="hint">只改动作，身份、体型与机位保留。切换动作不保证自动对齐接触点，可继续手动微调。</p>
     <div class="pl-entry-actions"><button id="pl-favorite">收藏</button><button id="pl-rename">重命名</button><button id="pl-delete">删除 / 隐藏</button><button id="pl-batch">加入姿势批量</button><button id="pl-export-one">导出此姿势</button></div><details><summary>来源与兼容详情</summary><pre id="pl-provenance"></pre></details></aside></div>`;
   document.body.append(dialog);
+  const boneDetail=dialog.querySelector('.pl-detail');
+  const gallery=installPoseGallery(context,{dialog,refresh:()=>render(),filterChanged:()=>{page=0;render();},composing:value=>{composing=value;},catalogChanged:()=>execute(async()=>{await reload();render();})});
   const files = document.createElement('input'); files.type = 'file'; files.multiple = true; files.accept = '.json,.zip,.webp,.png,.jpg,.jpeg'; files.hidden = true;
   const directory = document.createElement('input'); directory.type = 'file'; directory.multiple = true; directory.webkitdirectory = true; directory.hidden = true;
   document.body.append(files, directory);
   const open = control('打开姿势库 · 搜索 / 导入 / 收藏', () => execute(async () => { await reload(); render(); if(!dialog.open)dialog.showModal(); if(entry())await showPreview(); }), 'wide-button accent-button');
-  open.id = 'open-pose-library'; $('presets').before(open);
+  open.id = 'open-pose-library'; document.querySelector('.reference-tabs').after(open);
   const message = text => { if(!disposed)$('pl-status').textContent = text; };
   const execute = task => Promise.resolve().then(task).catch(error => { if(!disposed){message(error.message); context.toast(error.message);} });
   const mutate = task => {
     if(writing)return;writing=true;render();
     return execute(task).finally(()=>{writing=false;if(!disposed)render();});
   };
-  const entry = () => catalog.items.find(item => item.id === selected && !item.hidden);
+  const entry = () => matches().find(item=>item.id===selected) || [...catalog.items,...gallery.items()].find(item => item.id === selected && (!item.hidden || $('pl-tab').value==='hidden'));
   const accept = next => {if(next.revision>=catalog.revision)catalog=next;};
   async function reload() {
-    accept(await api());
+    const [poses]=await Promise.all([api(),gallery.reload()]);accept(poses);
     $('pl-total').textContent = `${catalog.items.filter(item => !item.hidden).length} 项`;
     const cat = $('pl-category').value, source = $('pl-source').value;
-    $('pl-category').replaceChildren(new Option('全部动作',''), ...[...new Set(catalog.items.map(item => item.category))].sort().map(value => new Option(value,value))); $('pl-category').value = cat;
-    $('pl-source').replaceChildren(new Option('全部来源',''), ...[...new Map(catalog.items.map(item => [item.source?.id || 'local',item.source?.name || '本地导入'])).entries()].map(([value,name]) => new Option(value==='builtin'?'AnyAngle内置':value==='local'?'本地保存 / 导入':name,value))); $('pl-source').value = source;
+    const all=[...catalog.items,...gallery.items()];
+    $('pl-category').replaceChildren(new Option('全部动作',''), ...[...new Set(all.map(item => item.category))].sort().map(value => new Option(value,value))); $('pl-category').value = cat;
+    $('pl-source').replaceChildren(new Option('全部来源',''), ...[...new Map(all.map(item => [item.source?.id || 'local',item.source?.name || '本地导入'])).entries()].map(([value,name]) => new Option(value==='builtin'?'AnyAngle内置':value==='local'?'本地保存 / 导入':name,value))); $('pl-source').value = source;
+    if(!filtersRestored){filtersRestored=true;gallery.restoreFilters();}
     $('pl-sources').replaceChildren();
     for (const source of catalog.catalog || []) $('pl-sources').append(control(`读取 ${source.name}`, () => execute(() => readSource(source))));
     let legacy = [], migrated=false;
@@ -69,7 +74,11 @@ export function installPoseLibrary(context) {
       if (await inspect(form)) pending.migration = true;
     });
   }
-  function matches() { return filterCatalog(catalog.items,{query:$('pl-search').value,category:$('pl-category').value,tab:$('pl-tab').value,source:$('pl-source').value}); }
+  function matches() {
+    const options=gallery.options();
+    const bones=options.type==='reference-set'||options.angle||options.frame||options.collection||['recent','hidden'].includes(options.tab)?[]:filterCatalog(catalog.items,options).filter(item=>(!options.type||(item.kind||'pose')===options.type)&&(!options.people||String(item.slots?.length||1)===options.people));
+    return [...bones,...gallery.matches()];
+  }
   function targets() {
     const roles = editableActors(context.doc(), $('pl-scope').value);
     $('pl-target').textContent = context.doc().source.kind === 'human' ? `将应用到：${roles.map(role => role.label).join('、') || '没有可编辑人物'}` : '当前是静态图或重建主体；请先切换到可编辑人偶';
@@ -83,24 +92,29 @@ export function installPoseLibrary(context) {
   }
   function render() {
     if(disposed)return;
-    $('pl-total').textContent = `${catalog.items.filter(item=>!item.hidden).length} 项`;
+    const images=gallery.items().filter(item=>!item.hidden);
+    $('pl-total').textContent = `${catalog.items.filter(item=>!item.hidden).length} 动作/编排 · ${images.length} 图片组 / ${images.reduce((sum,item)=>sum+item.views.length,0)} 视角`;
     dialog.setAttribute('aria-busy',String(writing));
     for(const id of ['pl-save','pl-save-composition','pl-show-hidden','pl-files','pl-directory','pl-reload','pl-migrate','pl-import-commit','pl-import-cancel'])$(id).disabled=writing;
+    for(const id of ['pl-save','pl-save-composition'])$(id).disabled=writing||context.doc().source.kind!=='human';
     $('pl-sources').querySelectorAll('button').forEach(button=>button.disabled=writing);
     const items = matches(), pages = Math.max(1,Math.ceil(items.length/24)); page = Math.min(page,pages-1);
     $('pl-grid').replaceChildren();
     for (const item of items.slice(page*24,(page+1)*24)) {
-      const card = control('', () => { selected = item.id; render(); execute(showPreview); if (matchMedia('(max-width:700px)').matches) dialog.querySelector('.pl-detail').scrollIntoView({block:'start',behavior:'smooth'}); }, 'pl-card' + (selected === item.id ? ' selected' : ''));
-      if (item.preview || item.builtin) { const img = document.createElement('img'); img.src = item.preview ? `${API}/previews/${encodeURIComponent(item.preview)}` : new URL(`./pose-previews/${encodeURIComponent(item.id)}.png`,import.meta.url).href; img.loading = 'lazy'; img.alt = item.name; card.append(img); }
+      const card = control('', () => { selected = item.id; render(); execute(showPreview); if (matchMedia('(max-width:700px)').matches) dialog.querySelector('.pl-detail:not([hidden])').scrollIntoView({block:'start',behavior:'smooth'}); }, 'pl-card' + (selected === item.id ? ' selected' : ''));
+      if(item.kind==='reference-set'){const img=document.createElement('img'),view=item.views.find(view=>view.id===item.matchedViewIds?.[0])||item.views[0];img.src=galleryImage(view.thumbnail.name);img.loading='lazy';img.alt=`${item.name} · ${view.label}`;card.append(img);}
+      else if (item.preview || item.builtin) { const img = document.createElement('img'); img.src = item.preview ? `${API}/previews/${encodeURIComponent(item.preview)}` : new URL(`./pose-previews/${encodeURIComponent(item.id)}.png`,import.meta.url).href; img.loading = 'lazy'; img.alt = item.name; card.append(img); }
       else { const graphic = document.createElement('span'); graphic.className='pl-placeholder'; graphic.textContent = item.category === '舞蹈' ? '✧' : item.category === '运动' ? '↗' : '◯'; card.append(graphic); }
       const name = document.createElement('strong'); name.textContent = item.name;
-      const meta = document.createElement('small'); meta.textContent = `${item.favorite ? '★ ' : ''}${item.kind==='composition' ? `${item.slots.length}人编排` : item.category} · ${item.builtin ? '内置' : '已导入'}${batchIds.has(item.id) ? ' · 批量已选' : ''}`;
+      const meta = document.createElement('small'); meta.textContent = `${item.favorite ? '★ ' : ''}${item.kind==='reference-set'?`${item.people}人图片 · ${item.views.length}视角`:item.kind==='composition' ? `${item.slots.length}人编排` : item.category} · ${item.builtin ? '内置' : '已导入'}${batchIds.has(item.id) ? ' · 批量已选' : ''}`;
       card.append(name,meta); $('pl-grid').append(card);
     }
-    if (!items.length) { const empty=document.createElement('p'); empty.textContent='没有匹配姿势，可更改筛选或导入本地/外部姿势库。'; $('pl-grid').append(empty); }
+    if (!items.length) { const empty=document.createElement('p'); empty.textContent='没有匹配姿势，可更改筛选或导入本地/外部姿势库。'; $('pl-grid').append(empty);for(const suggestion of gallery.suggestions())$('pl-grid').append(control(`取消${{angle:'视角',people:'人数',frame:'画幅',category:'分类',source:'来源',tab:'范围'}[suggestion.field]}筛选 · ${suggestion.count}组`,()=>{document.getElementById({angle:'pg-angle',people:'pg-people',frame:'pg-frame',category:'pl-category',source:'pl-source',tab:'pl-tab'}[suggestion.field]).value=suggestion.field==='tab'?'all':'';page=0;render();})); }
     $('pl-page').textContent = `${page+1} / ${pages} · ${items.length} 项`; $('pl-prev').disabled = page === 0; $('pl-next').disabled = page === pages-1;
     const item = entry();
     dialog.querySelector('.pl-content').dataset.selected = String(!!item);
+    boneDetail.hidden=item?.kind==='reference-set';gallery.render(item);
+    if(item?.kind==='reference-set'){previewToken++;return;}
     if (!item) {
       previewToken++; $('pl-preview').hidden = true; $('pl-preview-hint').hidden = false;
       $('pl-preview-hint').textContent = '选择姿势查看三维预览';
@@ -115,6 +129,7 @@ export function installPoseLibrary(context) {
   }
   async function showPreview() {
     const item = clone(entry()); if (!item) return;
+    if(item.kind==='reference-set'){previewToken++;gallery.preview(item);return;}
     const token = ++previewToken; $('pl-preview').hidden = true;
     $('pl-preview-hint').hidden = false; $('pl-preview-hint').textContent = '正在载入隔离的人偶预览…';
     previewWork = previewWork.catch(()=>{}).then(async () => {
@@ -205,7 +220,7 @@ export function installPoseLibrary(context) {
   }
   $('pl-close').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{previewToken++;importToken++;pending=null;$('pl-import').hidden=true;});
-  for(const id of ['pl-search','pl-category','pl-tab','pl-source'])$(id).oninput=()=>{page=0;render();};
+  for(const id of ['pl-search','pl-category','pl-tab','pl-source'])$(id).oninput=()=>{if(!composing){page=0;render();}};
   $('pl-prev').onclick=()=>{page--;render();};$('pl-next').onclick=()=>{page++;render();};
   $('pl-files').onclick=()=>files.click();$('pl-directory').onclick=()=>directory.click();
   for(const input of [files,directory])input.onchange=()=>execute(async()=>{
@@ -243,6 +258,6 @@ export function installPoseLibrary(context) {
     open:()=>open.click(), refresh:()=>{if(dialog.open){render();}},
     batchEntries:()=>catalog.items.filter(item=>batchIds.has(item.id)).map(clone),
     batchOptions:()=>({scope:$('pl-scope').value,part:$('pl-part').value,preserveHands:$('pl-preserve-hands').checked,releaseContacts:$('pl-release').checked,ground:$('pl-ground').checked}),
-    destroy:async()=>{disposed=true;previewToken++;importToken++;await previewWork.catch(()=>{});preview?.dispose();dialog.remove();files.remove();directory.remove();},
+    destroy:async()=>{disposed=true;previewToken++;importToken++;gallery.destroy();await previewWork.catch(()=>{});preview?.dispose();dialog.remove();files.remove();directory.remove();},
   };
 }

@@ -7,15 +7,17 @@ from aiohttp import BodyPartReader, web
 from PIL import UnidentifiedImageError
 from server import PromptServer
 from .reconstruction import reconstruction_config
-from .dwpose import extract_pose, extract_people, people_from_keypoints, keypoints_signature
+from .dwpose import extract_pose, extract_people, extract_regions, people_from_keypoints, keypoints_signature
 from .depth import extract_depth
 from .install_assets import repair_editor_assets
 from .pose_library_routes import register_pose_routes
+from .pose_gallery_routes import register_gallery_routes
 
 
 def register_routes(store_factory):
     routes = PromptServer.instance.routes
     register_pose_routes(routes, store_factory)
+    register_gallery_routes(routes, store_factory)
 
     @routes.post("/anyangle-studio/repair-human")
     async def repair_human(request):
@@ -78,7 +80,10 @@ def register_routes(store_factory):
                 if not isinstance(name, str) or not name.endswith(".png"):
                     raise ValueError("Choose a reference image or pose keypoints")
                 photo = await asyncio.to_thread(store.read_asset, name)
-                people, png = await asyncio.to_thread(extract_people, photo)
+                if payload.get("regions") is not None:
+                    people, png = await asyncio.to_thread(extract_regions, photo, payload["regions"])
+                else:
+                    people, png = await asyncio.to_thread(extract_people, photo)
             asset = await asyncio.to_thread(store.asset, png, "png")
             asset["label"] = "多人 OpenPose"
             return web.json_response({"people": people, "asset": asset, "signature": signature,

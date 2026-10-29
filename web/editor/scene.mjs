@@ -11,7 +11,7 @@ import { capturePNG } from './capture.mjs?v=20261009v160';
 import { liftOpenPose, copyVisiblePose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs?v=20261009v160';
 import { ensureActors, activeActor, bindActor, saveActor, visibleActors } from './actors.mjs?v=20261010lan1';
 import { loadProp, disposeProp, placeProp } from './props.mjs?v=20261009v160';
-import { emptyLibrary } from './reference-library.mjs?v=20261010lan1';
+import { emptyLibrary } from './reference-library.mjs?v=20261029v180';
 
 export const PRESETS = [
   { name: '自然站立', bones: { upperarm_l: [0, 0, -8], upperarm_r: [0, 0, 8] } },

@@ -75,7 +75,7 @@ class AnyAngleStudio(comfy_io.ComfyNode):
         if not no_guide and document["scene"].get("version") == 3 and guide_is_stale(document["scene"]):
             raise ValueError("来源图已改变，请重新提取结构，或明确沿用保存的结构图")
         pose_source = document["scene"].get("openpose") or {}
-        local_guide = (guide_mode == "pose" and (pose_source.get("origin") in ("dwpose", "json", "keypoints") or pose_source.get("useRig") or conditioning.get("mapOrigin") == "rig")
+        local_guide = (guide_mode == "pose" and (pose_source.get("origin") in ("dwpose", "json", "keypoints", "gallery") or pose_source.get("useRig") or conditioning.get("mapOrigin") == "rig")
                        or guide_mode == "depth" and conditioning.get("mapOrigin") in ("da3", "scene")
                        or guide_mode == "canny" and conditioning.get("mapOrigin") in ("auto", "reference"))
         if not no_guide and structure_image is not None and model == "base" and guide_mode in ("pose", "depth", "canny") and not local_guide:

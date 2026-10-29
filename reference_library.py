@@ -1,7 +1,7 @@
 """Image uses, targets and the exact image list passed to native Qwen 2.1."""
 import re
 
-KINDS = ("free", "identity", "clothing", "accessory", "scene", "style", "layout")
+KINDS = ("free", "identity", "clothing", "accessory", "scene", "style", "layout", "pose")
 IMAGE = re.compile(r"[a-f0-9]{64}\.png\Z")
 INPUT = re.compile(r"actor_reference_[1-9][0-9]*\Z")
 
@@ -188,6 +188,7 @@ def library_prompt(scene, manifest):
         "scene": "Use the environment and background; do not add people from this reference",
         "style": "Use the visual style, lighting and color palette; do not copy the subject or pose",
         "layout": "Use the arrangement and composition; do not copy subject identities",
+        "pose": "Use only the body pose, limb directions and gesture; do not copy the face, body shape, clothing, background or drawing style",
     }
     for reference in manifest["references"]:
         for use in reference.get("usages", []):
