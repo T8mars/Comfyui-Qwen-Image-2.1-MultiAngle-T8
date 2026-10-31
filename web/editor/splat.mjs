@@ -151,8 +151,19 @@ export class SplatScene {
 
   watchSort(viewer) {
     const runSort = viewer.runSplatSort.bind(viewer);
-    viewer.runSplatSort = (...args) => {
-      const started = runSort(...args);
+    const sortedCamera = new THREE.Matrix4();
+    let cameraKnown = false;
+    viewer.runSplatSort = (force = false, all = false) => {
+      const camera = viewer.camera;
+      const moved = camera && (!cameraKnown || !sortedCamera.equals(camera.matrixWorld));
+      const wasRunning = viewer.sortRunning;
+      // The vendor's 1-unit / 8-degree threshold leaves fine camera edits using
+      // old depth order. Coalesce edits while its worker is busy, then sort the
+      // latest view on the completion frame; an idle camera needs no extra work.
+      const started = runSort(force || !!moved, all);
+      if (!wasRunning && viewer.sortRunning && camera) {
+        sortedCamera.copy(camera.matrixWorld); cameraKnown = true;
+      }
       started.then(() => {
         const completion = viewer.sortPromise;
         if (!completion || completion === this.pendingSort || this.disposed) return;

@@ -37,6 +37,17 @@ SINGLE_PROMPTS = {
 }
 
 
+def has_pose_usage(value):
+    if isinstance(value, dict):
+        uses = value.get("usages")
+        if isinstance(uses, list) and any(isinstance(use, dict) and use.get("kind") == "pose" for use in uses):
+            return True
+        return any(has_pose_usage(child) for child in value.values())
+    if isinstance(value, list):
+        return any(has_pose_usage(child) for child in value)
+    return False
+
+
 def conditioning_for(scene):
     conditioning = scene.get("conditioning") or {}
     if not isinstance(conditioning, dict):
@@ -314,7 +325,7 @@ class StudioStore:
         names = sorted(asset_names(document))
         manifest = {"version": 1, "kind": "anyangle-scene", "document": document, "assets": names}
         if document["scene"].get("version") == 3:
-            manifest["minimumPluginVersion"] = "1.6.0"
+            manifest["minimumPluginVersion"] = "1.8.0" if has_pose_usage(document["scene"].get("referenceLibrary", {})) else "1.6.0"
         encoded = json.dumps(manifest, ensure_ascii=False, allow_nan=False).encode()
         if len(encoded) > PORTABLE_MAX_MANIFEST:
             raise ValueError("Scene manifest exceeds 8 MB; reduce saved thumbnails or templates before exporting")
@@ -366,7 +377,7 @@ class StudioStore:
             if not isinstance(manifest, dict) or manifest.get("version") != 1 or manifest.get("kind") != "anyangle-scene":
                 raise ValueError("This ZIP is not an AnyAngle scene")
             minimum = manifest.get("minimumPluginVersion", "0.0.0")
-            if not isinstance(minimum, str) or not re.fullmatch(r"\d+\.\d+\.\d+", minimum) or tuple(map(int, minimum.split("."))) > (1, 6, 0):
+            if not isinstance(minimum, str) or not re.fullmatch(r"\d+\.\d+\.\d+", minimum) or tuple(map(int, minimum.split("."))) > (1, 8, 0):
                 raise ValueError("该便携文件需要更新版本的 AnyAngle Studio")
             document = manifest.get("document")
             if not isinstance(document, dict):
@@ -421,6 +432,11 @@ class StudioStore:
                           "camera": document["scene"]["camera"], "width": document["scene"]["width"],
                           "height": document["scene"]["height"], "prompt": document["prompt"],
                           "prompt_id": view.get("prompt_id"), "encoding_plan": normalized_plan})
+            if view.get("gallerySource"):
+                source = view["gallerySource"]
+                if not isinstance(source, dict) or not all(isinstance(source.get(key), str) for key in ("id", "viewId", "hash")):
+                    raise ValueError("Invalid gallery batch source")
+                saved[-1]["gallerySource"] = source
         encoded = json.dumps({"version": 1, "kind": "anyangle-batch", "views": saved}, ensure_ascii=False, allow_nan=False).encode()
         digest = hashlib.sha256(encoded).hexdigest()
         self.write(f"{digest}.json", encoded)

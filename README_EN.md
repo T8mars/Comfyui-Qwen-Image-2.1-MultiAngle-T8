@@ -12,6 +12,10 @@
 
 ## Multi-reference creation · 1.6.0
 
+**1.8.0 Image pose gallery (validation in progress):** all 288 pose groups and 1,439 actual views, with combined Chinese searches, action aliases, pinyin, favorites, collections and search presets with import/export/delete. Add a selected image using the new **Pose** reference purpose, or inspect DWPose extraction, mark person regions and correct joints before using a static POSE guide or copying visible joints to mannequins. Gallery-view batches remain separate from editable pose-by-camera batches. The image pack is distributed separately and retains its source notices; it is not covered by the code's MIT license. [Usage and pack](docs/image-pose-gallery.md) · [Actual extraction and generation results](docs/image-pose-gallery-validation.md).
+
+Direct pose references can be outweighed by other images. In the tested raised-arm example, the static POSE path followed both arms while ordinary image references did not. These images are not calibrated, freely rotatable 3D poses.
+
 **1.7.0 Shared pose library:** import VNCCS/AnyAngle JSON, directories and ZIP packs; search, categorize, favorite, rename, remove/restore and export poses. Saved entries are shared by browsers connected to the same ComfyUI input directory. Apply only to explicitly chosen editable characters, preserving identity, body shape and camera. Includes body partitions, hand preservation, grounding, multi-person compositions and explicit pose-by-camera batches. No additional models required.
 
 **1.6.6 Fixed angles and presets:** batch views default to `45, -45, 90, -90`, rendered in list order, with negative, fractional and custom angles. Name, update, delete, import and export angle presets as JSON; the last settings are remembered. Current poses, elevation, focal length and framing are preserved. Includes the LAN HTTP fallback when `crypto.randomUUID()` is unavailable. No additional models required. [Usage](#batch-views-and-angle-presets).
@@ -263,7 +267,7 @@ The [advanced workflow](workflows/AnyAngle-Studio-Qwen21-Advanced.json) includes
 
 **1.2.1 fixes:** pose preset thumbnails now frame the full mannequin; editing the rig replaces a previously extracted photo skeleton in POSE output. Versions 1.0.1 and earlier also had a high-DPI capture error that enlarged the preview toward the upper-right corner; this was fixed in 1.0.2. The yellow frame marks the actual output area. Use **Fit frame** if the figure extends outside it.
 
-Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. The reopened studio header should show **T8 · v1.7.0**. **Apply to node** again to replace previously saved guide images and send plans.
+Run `git pull` in the node directory, restart ComfyUI, close the old studio and reload with `Ctrl+F5`. This development version's reopened studio header should show **T8 · v1.8.0**. **Apply to node** again to replace previously saved guide images and send plans.
 
 **LAN HTTP compatibility:** browsers may not expose `crypto.randomUUID()` at `http://LAN-IP:port`. Studio uses a shared UUID helper for materials, actors, camera views, poses and requests, falling back to `crypto.getRandomValues()` in that context. After updating the frontend files, close the old workbench, reload with `Ctrl+F5` and reopen it.
 

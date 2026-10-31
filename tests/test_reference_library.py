@@ -3,6 +3,7 @@ import copy
 import io
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -161,8 +162,8 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual([{key: entry["asset"]["name"] if key == "name" else entry[key] for key in ("name", "index", "resolution", "actorIds")}
                           for entry in manifest["references"]], expected["references"])
         self.assertEqual(prompt_for(scene), expected["prompt"])
-        node = Path("C:/Users/27611/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe")
-        if node.exists():
+        node = shutil.which("node")
+        if node:
             script = "import{libraryManifest,libraryPrompt}from './web/editor/reference-library.mjs';let s=JSON.parse(process.argv[1]);let m=libraryManifest(s);console.log(JSON.stringify({manifest:m,prompt:libraryPrompt(s,m)}));"
             result = subprocess.run([str(node), "--input-type=module", "-e", script, json.dumps(scene)], cwd=Path(__file__).parents[1], capture_output=True, text=True, encoding="utf-8", check=True)
             actual = json.loads(result.stdout)
@@ -312,6 +313,32 @@ class LibraryTests(unittest.TestCase):
         with self.store.batch_archive(batch["id"]) as archive, zipfile.ZipFile(archive) as zipped:
             self.assertEqual(zipped.namelist(), ["manifest.json"])
 
+    def test_gallery_pose_use_and_disabled_template_roundtrip_without_global_library(self):
+        scene = library_scene()
+        item = reference(self.asset, 1, "pose")
+        item["gallerySource"] = {"id": "gallery-sample", "viewId": "full_single_P019_front", "hash": "a" * 64 + ".png"}
+        scene["referenceLibrary"]["items"] = [item]
+        self.assertIn("Use only the body pose", prompt_for(scene))
+        self.assertNotIn("face identity and hairstyle", prompt_for(scene))
+        saved = copy.deepcopy(item); saved["enabled"] = False
+        scene["referenceLibrary"]["templates"] = [{"id": "pose", "name": "动作模板", "items": [saved]}]
+        token = self.store.save_scene(scene)
+        with self.store.scene_archive(token) as archive: data = archive.read()
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            manifest = json.loads(archive.read("manifest.json"))
+            self.assertEqual(manifest["minimumPluginVersion"], "1.8.0")
+        with tempfile.TemporaryDirectory() as other:
+            restored = StudioStore(other).import_scene_archive(data)
+            self.assertEqual(restored["scene"]["referenceLibrary"], scene["referenceLibrary"])
+            self.assertEqual(StudioStore(other).read_asset(self.asset["name"]), self.store.read_asset(self.asset["name"]))
+        scene["referenceLibrary"]["items"][0]["usages"][0]["kind"] = "style"
+        token = self.store.save_scene(scene)
+        manifest, _ = self.store.scene_archive_manifest(token)
+        self.assertEqual(json.loads(manifest)["minimumPluginVersion"], "1.8.0")
+        batch = self.store.save_batch([{"snapshot": token, "gallerySource": item["gallerySource"]}])
+        receipt = json.loads(self.store.read_asset(batch["id"] + ".json"))
+        self.assertEqual(receipt["views"][0]["gallerySource"], item["gallerySource"])
+
     def test_prompt_full_raw_including_empty_append_once_and_invalid_mode(self):
         self.assertEqual(encoder_prompt("auto", "  raw <image9>\n", "input-full"), "  raw <image9>\n")
         self.assertEqual(encoder_prompt("auto", "", "input-full"), "")
@@ -342,8 +369,8 @@ class LibraryTests(unittest.TestCase):
         self.assertIsNone(png)
 
     def test_js_contract_matches_backend_for_targets_dedup_guides_and_prompts(self):
-        node = Path("C:/Users/27611/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe")
-        if not node.exists():
+        node = shutil.which("node")
+        if not node:
             self.skipTest("Node runtime unavailable")
         scene = library_scene()
         scene["referenceLibrary"]["items"] = [reference(self.asset), reference(self.asset, 1, "style")]

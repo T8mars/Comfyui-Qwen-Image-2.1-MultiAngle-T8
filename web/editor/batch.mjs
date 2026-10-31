@@ -63,6 +63,7 @@ export async function runCameraBatch(plan, { capture, save, queue, signal, onPro
       const snapshot = await save(view.scene, png);
       const entry = { label: view.label, snapshot, camera: view.scene.camera, width: view.scene.width, height: view.scene.height };
       if (view.poseId) { entry.poseId = view.poseId; entry.poseName = view.poseName; }
+      if (view.gallerySource) entry.gallerySource = structuredClone(view.gallerySource);
       if (Array.isArray(view.scene.cameraTarget)) entry.cameraTarget = structuredClone(view.scene.cameraTarget);
       result.views.push(entry);
       if (signal?.aborted) { result.stopped = true; break; }

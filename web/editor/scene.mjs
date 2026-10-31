@@ -1,17 +1,17 @@
 import * as THREE from '../vendor/three.module.mjs';
 import { uuid } from '../uuid.mjs?v=20261010lan1';
 import { GLTFLoader } from '../vendor/GLTFLoader.mjs';
-import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs?v=20261009v160';
+import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs?v=20261031resize';
 import { solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
 import { loadHumanPack, HumanAssetError } from './human.mjs?v=20261009v160';
 import { applyLens } from './lens.mjs?v=20261009v160';
 import { HAND_PRESETS } from '../vendor/vnccs_hand_presets.mjs';
-import { SplatScene } from './splat.mjs?v=20261009v160';
+import { SplatScene } from './splat.mjs?v=20261031splat';
 import { capturePNG } from './capture.mjs?v=20261009v160';
 import { liftOpenPose, copyVisiblePose, WORLD_KEYPOINT_NAMES, ORDER, LIMBS, COLORS } from './openpose.mjs?v=20261009v160';
 import { ensureActors, activeActor, bindActor, saveActor, visibleActors } from './actors.mjs?v=20261010lan1';
 import { loadProp, disposeProp, placeProp } from './props.mjs?v=20261009v160';
-import { emptyLibrary } from './reference-library.mjs?v=20261010lan1';
+import { emptyLibrary } from './reference-library.mjs?v=20261029v180';
 
 export const PRESETS = [
   { name: '自然站立', bones: { upperarm_l: [0, 0, -8], upperarm_r: [0, 0, 8] } },
@@ -900,7 +900,7 @@ export class StudioScene {
         next.offsetY = drag.camera.offsetY + delta.y;
         next.offsetZ = (drag.camera.offsetZ || 0) + delta.z;
       } else {
-        next.azimuth = dx ? ((drag.camera.azimuth - dx * 0.35 + 540) % 360) - 180 : drag.camera.azimuth;
+        next.azimuth = dx ? THREE.MathUtils.euclideanModulo(drag.camera.azimuth - dx * 0.35 + 180, 360) - 180 : drag.camera.azimuth;
         if (this.doc.interaction?.mousePitch !== false)
           next.elevation = clamp(drag.camera.elevation + dy * 0.25, -89, 89);
       }

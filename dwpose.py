@@ -203,9 +203,35 @@ def extract_people(photo):
     image = _photo(photo)
     pixels = np.asarray(image)
     detector, estimator = _sessions()
+    return _people_in_regions(image, pixels, _detect_people(pixels, detector), estimator)
+
+
+def extract_regions(photo, regions):
+    """Explicit user boxes bypass photo detection for drawings, without inventing people."""
+    import numpy as np
+    image = _photo(photo)
+    if not isinstance(regions, list) or not 1 <= len(regions) <= 9:
+        raise ValueError("请框选1至9个人物区域")
+    boxes = []
+    for region in regions:
+        if (not isinstance(region, list) or len(region) != 4
+                or any(type(value) not in (int, float) or not np.isfinite(value) for value in region)
+                or not 0 <= region[0] < region[2] <= image.width
+                or not 0 <= region[1] < region[3] <= image.height
+                or region[2] - region[0] < 16 or region[3] - region[1] < 16):
+            raise ValueError("人物区域必须在图片内且至少16×16像素")
+        boxes.append((region, 1.0))
+    _, estimator = _sessions()
+    people, png = _people_in_regions(image, np.asarray(image), boxes, estimator)
+    for person in people:
+        person["regionSource"] = "manual"
+    return people, png
+
+
+def _people_in_regions(image, pixels, regions, estimator):
     people = []
     merged = Image.new("RGB", image.size, "black")
-    for index, (box, score) in enumerate(_detect_people(pixels, detector), 1):
+    for index, (box, score) in enumerate(regions, 1):
         try:
             keys, scores = _estimate_body(pixels, box, estimator)
             person, preview = _pose_result(keys, scores, image.width, image.height)
