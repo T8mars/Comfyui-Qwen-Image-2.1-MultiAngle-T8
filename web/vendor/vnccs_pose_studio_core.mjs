@@ -3023,14 +3023,9 @@ export class PoseViewerCore {
                 this.camera.updateProjectionMatrix();
             });
         }
-        if (this.initialized && this.renderer && this.scene && this.camera) {
-            profile("Three renderer.render", () => {
-                this.renderer.render(this.scene, this.camera);
-            });
-            this._needsRender = false;
-        } else {
-            this.requestRender();
-        }
+        // Let the owner finish its framing before drawing, and respect its
+        // render pause while an asynchronous capture owns the renderer.
+        this.requestRender();
     }
 
     loadData(data, keepCamera = false) {

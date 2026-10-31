@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.mjs';
 import { uuid } from '../uuid.mjs?v=20261010lan1';
 import { GLTFLoader } from '../vendor/GLTFLoader.mjs';
-import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs?v=20261009v160';
+import { PoseViewerCore } from '../vendor/vnccs_pose_studio_core.mjs?v=20261031resize';
 import { solveMorph, buildStaticModelData } from '../vendor/vnccs_pose_morph_runtime.mjs';
 import { loadHumanPack, HumanAssetError } from './human.mjs?v=20261009v160';
 import { applyLens } from './lens.mjs?v=20261009v160';
