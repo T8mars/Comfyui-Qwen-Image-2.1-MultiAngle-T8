@@ -133,6 +133,16 @@ test('returning to the initial pointer position restores angle while retaining h
   assert.equal(doc.camera.zoom, zoom);
 });
 
+test('long drags on wide displays keep azimuth in the control range in both directions', () => {
+  for (const distance of [3000, -3000, 6000, -6000]) {
+    const { doc, send } = fixture({ azimuth: 0 });
+    send('pointerdown'); send('pointermove', { clientX: 100 + distance }); send('pointerup');
+    assert.ok(doc.camera.azimuth >= -180 && doc.camera.azimuth < 180, `Invalid angle ${doc.camera.azimuth}`);
+    const expected = THREE.MathUtils.degToRad(-distance * .35);
+    assert.ok(Math.abs(Math.sin(THREE.MathUtils.degToRad(doc.camera.azimuth)) - Math.sin(expected)) < 1e-9);
+  }
+});
+
 test('finishing a gesture commits once and ignores later movement, release and cancellation', () => {
   const { doc, studio, state, send, calls } = fixture(); send('pointerdown'); send('pointermove', { clientX: 140 });
   assert.equal(studio.finishDrag(), true); const camera = structuredClone(doc.camera), undo = structuredClone(state.undo);

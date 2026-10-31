@@ -1,4 +1,4 @@
-import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261029v180';
+import { StudioScene, defaultScene, restoreSceneDefaults, PRESETS, assetURL } from './scene.mjs?v=20261031splat';
 import { uuid } from '../uuid.mjs?v=20261010lan1';
 import { updateReferences, sourceChanged, staleGuide } from './reference-library.mjs?v=20261029v180';
 import { installReferencesUI, refreshReferencesUI, setReferenceConnections } from './references-ui.mjs?v=20261029v180';
