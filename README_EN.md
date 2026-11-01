@@ -12,7 +12,9 @@
 
 ## Multi-reference creation · 1.6.0
 
-**1.8.0 Image pose gallery (validation in progress):** all 288 pose groups and 1,439 actual views, with combined Chinese searches, action aliases, pinyin, favorites, collections and search presets with import/export/delete. Add a selected image using the new **Pose** reference purpose, or inspect DWPose extraction, mark person regions and correct joints before using a static POSE guide or copying visible joints to mannequins. Gallery-view batches remain separate from editable pose-by-camera batches. The image pack is distributed separately and retains its source notices; it is not covered by the code's MIT license. [Usage and pack](docs/image-pose-gallery.md) · [Actual extraction and generation results](docs/image-pose-gallery-validation.md).
+**1.8.0 Image pose gallery:** all 288 pose groups and 1,439 actual views, with combined Chinese searches, action aliases, pinyin, favorites, collections and search presets with import/export/delete. Add a selected image using the new **Pose** reference purpose, or inspect DWPose extraction, mark person regions and correct joints before using a static POSE guide or copying visible joints to mannequins. Gallery-view batches remain separate from editable pose-by-camera batches. The image pack is distributed separately and retains its source notices; it is not covered by the code's MIT license. [Usage and pack](docs/image-pose-gallery.md) · [Actual extraction and generation results](docs/image-pose-gallery-validation.md).
+
+Code is merged into main, the Registry publishing workflow succeeded, and the complete pack is available in the [v1.8.0 Release](https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/releases/tag/v1.8.0). Gallery, asset conversion, pose extraction and export APIs were checked on restarted services. Real UI interaction and embedded batch operations still require validation; see the validation record.
 
 Direct pose references can be outweighed by other images. In the tested raised-arm example, the static POSE path followed both arms while ordinary image references did not. These images are not calibrated, freely rotatable 3D poses.
 

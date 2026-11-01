@@ -12,7 +12,7 @@
 2. 等待上传和逐图校验完成。成功后列表显示动作组，详情中切换各实际视角。
 3. 导入后搜索、浏览、收藏和使用参考都读取本机文件，不需要访问原站。资料保存在 `ComfyUI/input/anyangle_studio/pose_gallery/`；原有骨骼姿势库单独保存，不会被替换。
 
-配套完整素材包：`AnyAngle-AI-Pose-Gallery-288-groups-1439-views.zip`，693,904,383 字节（约 662 MiB）。下载入口计划放在 [v1.8.0 Release](https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/releases/tag/v1.8.0)，**目前待发布**。
+配套完整素材包：[下载 ZIP](https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/releases/download/v1.8.0/AnyAngle-AI-Pose-Gallery-288-groups-1439-views.zip)，693,904,383 字节（约 662 MiB）。[v1.8.0 Release](https://github.com/T8mars/Comfyui-Qwen-Image-2.1-MultiAngle-T8/releases/tag/v1.8.0) 同时提供校验清单及来源声明。
 
 ```text
 SHA256: 5e893d3299dd27966019816a2ff87419d5e99375a52f5dc8757adc3287e07503
